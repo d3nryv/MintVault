@@ -1,13 +1,14 @@
 export class CardEntity {
   constructor(
-    public readonly id: string,
-    public readonly name: string,
-    public readonly type: string,
-    public readonly rarity: string,
-    public readonly description: string,
-    public readonly price: number,
-    public readonly stock: number,
-    public readonly createdAt: Date,
-    public readonly updatedAt: Date
+    public id: string,
+    public ownerId: string | null,
+    public source: string,
+    public language: string | null,
+    public isForSale: boolean = false,
+    public saleId: string | null,
+    public acquiredAt: string | null,
+    public metadata: Record<string, any> | null
+    
   ) {}
 }
+
