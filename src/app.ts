@@ -1,5 +1,6 @@
 import express, { Application } from 'express';
 import { cardRouter } from './infrastructure/web/routes/card.routes';
+import { userRouter } from './infrastructure/web/routes/user.routes';
 import { errorMiddleware } from './infrastructure/web/middlewares/error.middleware';
 
 export class App {
@@ -19,6 +20,7 @@ export class App {
 
   private routes(): void {
     this.app.use('/api/cards', cardRouter);
+    this.app.use('/api/users', userRouter);
 
     // Health check
     this.app.get('/health', (_req, res) => {
