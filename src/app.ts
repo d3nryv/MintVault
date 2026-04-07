@@ -35,8 +35,8 @@ export class App {
   async start(port: number): Promise<void> {
     return new Promise((resolve) => {
       this.app.listen(port, () => {
-        console.log(`🚀 Server running on http://localhost:${port}`);
-        console.log(`📦 Environment: ${process.env['NODE_ENV'] ?? 'development'}`);
+        console.log(`Server running on http://localhost:${port}`);
+        console.log(`Environment: ${process.env['NODE_ENV'] ?? 'development'}`);
         resolve();
       });
     });
