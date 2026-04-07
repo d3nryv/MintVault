@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { CardController } from '../controllers/card.controller';
-import { CardRepositoryImpl } from '../../repositories/card.repository.impl';
+import { PostgresCardRepository } from '../../repositories';
 
 const router = Router();
-const controller = new CardController(new CardRepositoryImpl());
+const controller = new CardController(new PostgresCardRepository());
 
 router.get('/', controller.getAll);
 router.get('/:id', controller.getById);
