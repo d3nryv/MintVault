@@ -33,6 +33,9 @@ export class UserController {
 
     create = async (req: Request, res: Response, next: NextFunction) => {
         try {
+            if (!req.body || Object.keys(req.body).length === 0) {
+                return res.status(400).json({ error: 'Request body is required' });
+            }
             const user = await new CreateUserUseCase(this.userRepository).execute(req.body);
             res.status(201).json(user);
         } catch (error) {
@@ -42,6 +45,9 @@ export class UserController {
 
     update = async (req: Request, res: Response, next: NextFunction) => {
         try {
+            if (!req.body || Object.keys(req.body).length === 0) {
+                return res.status(400).json({ error: 'Request body is required' });
+            }
             const id = req.params.id as string;
             const user = await new UpdateUserUseCase(this.userRepository).execute(id, req.body);
             res.json(user);

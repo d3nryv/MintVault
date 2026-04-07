@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { CardRepository } from '../../../domain/repositories/card.repository';
+import { TcgRepository } from '../../../domain/repositories/tcg.repository';
 import {
   GetAllCardsUseCase,
   GetCardByIdUseCase,
@@ -9,7 +10,10 @@ import {
 } from '../../../application/use-cases';
 
 export class CardController {
-  constructor(private readonly cardRepository: CardRepository) {}
+  constructor(
+    private readonly cardRepository: CardRepository,
+    private readonly tcgRepository: TcgRepository
+  ) {}
 
   getAll = async (_req: Request, res: Response, next: NextFunction) => {
     try {
@@ -22,7 +26,7 @@ export class CardController {
 
   getById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const card = await new GetCardByIdUseCase(this.cardRepository).execute(String(req.params['id']));
+      const card = await new GetCardByIdUseCase(this.cardRepository, this.tcgRepository).execute(String(req.params['id']));
       res.json(card);
     } catch (err) {
       next(err);
@@ -31,7 +35,10 @@ export class CardController {
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const card = await new CreateCardUseCase(this.cardRepository).execute(req.body);
+      if (!req.body || Object.keys(req.body).length === 0) {
+        return res.status(400).json({ error: 'Request body is required' });
+      }
+      const card = await new CreateCardUseCase(this.cardRepository, this.tcgRepository).execute(req.body);
       res.status(201).json(card);
     } catch (err) {
       next(err);

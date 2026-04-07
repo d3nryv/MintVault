@@ -1,31 +1,16 @@
 export interface CreateCardDto {
-  name: string;
-  type: string;
-  rarity: string;
-  description?: string;
-  price: number;
-  stock: number;
-  ownerId?: string;
-  source: string;
+  tcgId: string; // The ID from Pokemon TCG SDK (e.g., 'swsh1-1')
+  ownerId: string | null;
   language?: string;
   isForSale?: boolean;
-  saleId?: string;
-  acquiredAt?: string;
-  metadata?: Record<string, any>;
+  price?: number;
+  stock?: number;
 }
 
 export interface UpdateCardDto {
-  name?: string;
-  type?: string;
-  rarity?: string;
-  description?: string;
-  price?: number;
-  stock?: number;
-  ownerId?: string;
-  source?: string;
+  ownerId?: string | null;
   language?: string;
   isForSale?: boolean;
-  saleId?: string;
-  acquiredAt?: string;
-  metadata?: Record<string, any>;
+  price?: number;
+  stock?: number;
 }
