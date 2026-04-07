@@ -19,7 +19,7 @@ export class PostgresUserRepository implements UserRepository {
         return UserMapper.toEntity(rows[0]);
     }
 
-    async create(user: Omit<UserEntity, 'id' | 'registerDate'>): Promise<UserEntity> {
+    async create(user: Omit<UserEntity, 'id' | 'registerDate' | 'followers' | 'following'>): Promise<UserEntity> {
         const dbData = UserMapper.toDatabase(user);
         const keys = Object.keys(dbData);
         const values = Object.values(dbData);
