@@ -1,7 +1,7 @@
-import { CardEntity } from '../../domain/entities/card.entity';
-import { CardRepository } from '../../domain/repositories/card.repository';
-import { CustomError } from '../../domain/errors/custom.error';
-import { UpdateCardDto } from '../dtos/card.dto';
+import { CardEntity } from '../../../domain/entities/card.entity';
+import { CardRepository } from '../../../domain/repositories/card.repository';
+import { CustomError } from '../../../domain/errors/custom.error';
+import { UpdateCardDto } from '../../dtos/card.dto';
 
 export class UpdateCardUseCase {
   constructor(private readonly cardRepository: CardRepository) {}
