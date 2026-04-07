@@ -1,12 +1,14 @@
 export class AlbumEntity {
   constructor(
-    public ownerId: string,
     public id: string,
+    public ownerId: string,
     public name: string,
-    public cover: string,
-    public cards: string[],
-    public height: number,
-    public width: number,
-    public pages: string[]
+    public coverCardId: string | null,
+    public coverUrl: string | null,
+    public height: number, // Rows
+    public width: number,  // Columns
+    public pages: string[], // Array of page IDs
+    public createdAt: Date,
+    public updatedAt: Date
   ) {}
 }

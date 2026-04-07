@@ -3,7 +3,8 @@ export class PageEntity {
     public id: string,
     public albumId: string,
     public pageNumber: number,
-    public cardIds: string[]
+    public slots: Record<number, string | null>, // Index of slot => cardId or null
+    public createdAt: Date,
+    public updatedAt: Date
   ) {}
 }
-
