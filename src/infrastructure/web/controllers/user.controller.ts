@@ -5,11 +5,21 @@ import {
     GetUserByIdUseCase, 
     CreateUserUseCase, 
     UpdateUserUseCase, 
-    DeleteUserUseCase 
+    DeleteUserUseCase,
+    LoginUserUseCase
 } from '../../../application/use-cases';
 
 export class UserController {
     constructor(private readonly userRepository: UserRepository) {}
+
+    login = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const user = await new LoginUserUseCase(this.userRepository).execute(req.body);
+            res.json(user);
+        } catch (error) {
+            next(error);
+        }
+    }
 
     getAll = async (req: Request, res: Response, next: NextFunction) => {
         try {

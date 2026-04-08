@@ -37,3 +37,8 @@ export interface UpdateUserDto {
     favouriteSets?: string[];
     favouritePokemon?: string[];
 }
+
+export interface LoginUserDto {
+    username: string;
+    password: string;
+}

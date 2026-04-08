@@ -19,6 +19,14 @@ export class PostgresUserRepository implements UserRepository {
         return UserMapper.toEntity(rows[0]);
     }
 
+    async findByUsername(username: string): Promise<UserEntity | null> {
+        const query = 'SELECT * FROM users WHERE username = $1';
+        const { rows } = await db.query(query, [username]);
+        
+        if (rows.length === 0) return null;
+        return UserMapper.toEntity(rows[0]);
+    }
+
     async create(user: Omit<UserEntity, 'id' | 'registerDate' | 'followers' | 'following'>): Promise<UserEntity> {
         const dbData = UserMapper.toDatabase(user);
         const keys = Object.keys(dbData);

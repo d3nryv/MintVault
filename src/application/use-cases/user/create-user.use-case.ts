@@ -2,6 +2,7 @@ import { UserEntity } from '../../../domain/entities/user.entity';
 import { UserRepository } from '../../../domain/repositories/user.repository';
 import { CreateUserDto } from '../../dtos/user.dto';
 import { CustomError } from '../../../domain/errors/custom.error';
+import { BcryptAdapter } from '../../../infrastructure/config/bcrypt.adapter';
 
 export class CreateUserUseCase {
   constructor(private readonly userRepository: UserRepository) {}
@@ -13,7 +14,7 @@ export class CreateUserUseCase {
     const userData: Omit<UserEntity, 'id' | 'registerDate' | 'followers' | 'following'> = {
         username: dto.username,
         email: dto.email,
-        password: dto.password,
+        password: BcryptAdapter.hash(dto.password),
         title: dto.title ?? '',
         bannerUrl: dto.bannerUrl ?? '',
         profilePicUrl: dto.profilePicUrl ?? '',

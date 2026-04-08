@@ -9,6 +9,7 @@ export * from './user/get-user-by-id.use-case';
 export * from './user/create-user.use-case';
 export * from './user/update-user.use-case';
 export * from './user/delete-user.use-case';
+export * from './user/login-user.use-case';
 
 export * from './album/get-all-albums.use-case';
 export * from './album/get-album-by-id.use-case';

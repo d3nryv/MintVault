@@ -8,6 +8,7 @@ const controller = new UserController(userRepository);
 
 router.get('/', controller.getAll);
 router.get('/:id', controller.getById);
+router.post('/login', controller.login);
 router.post('/', controller.create);
 router.put('/:id', controller.update);
 router.delete('/:id', controller.delete);
