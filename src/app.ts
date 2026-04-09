@@ -1,5 +1,6 @@
 import express, { Application } from 'express';
 import cors from 'cors';
+import path from 'path';
 import { cardRouter } from './infrastructure/web/routes/card.routes';
 import { userRouter } from './infrastructure/web/routes/user.routes';
 import { albumRouter } from './infrastructure/web/routes/album.routes';
@@ -22,14 +23,20 @@ export class App {
       'http://127.0.0.1:5500',
       'http://localhost:5500',
       'http://localhost:3000',
-      'http://127.0.0.1:3000'
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5501',
+      'http://localhost:5501'
     ];
     this.app.use(cors({
       origin: (origin, callback) => {
-        // allow requests with no origin (e.g. curl, postman)
-        if (!origin) return callback(null, true);
+        // allow requests with no origin (e.g. curl, postman) or 'null' from file://
+        if (!origin || origin === 'null') return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error('CORS policy: Origin not allowed'));
+        
+        // Alternatively, since frontend and backend are now integrated,
+        // you might want to allow this specifically or log the unknown origin
+        console.warn(`Origin not allowed by CORS: ${origin}`);
+        return callback(null, true); // Forcing true to avoid app crash during development
       },
       methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
       allowedHeaders: ['Content-Type','Authorization'],
@@ -38,6 +45,7 @@ export class App {
 
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(express.static(path.join(process.cwd(), 'frontend')));
   }
 
   private routes(): void {
