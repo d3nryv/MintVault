@@ -28,3 +28,6 @@ export * from './sale/update-sale.use-case';
 
 export * from './transaction/create-transaction.use-case';
 export * from './transaction/get-transaction.use-case';
+
+export * from './pokemon/get-pokemon.use-case';
+export * from './pokemon/list-pokemons.use-case';
