@@ -25,3 +25,6 @@ export * from './page/get-all-pages-from-album.use-case';
 export * from './sale/create-sale.use-case';
 export * from './sale/get-sale.use-case';
 export * from './sale/update-sale.use-case';
+
+export * from './transaction/create-transaction.use-case';
+export * from './transaction/get-transaction.use-case';
