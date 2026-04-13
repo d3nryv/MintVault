@@ -4,6 +4,7 @@ import { cardRouter } from './infrastructure/web/routes/card.routes';
 import { userRouter } from './infrastructure/web/routes/user.routes';
 import { albumRouter } from './infrastructure/web/routes/album.routes';
 import { pageRouter } from './infrastructure/web/routes/page.routes';
+import { saleRouter } from './infrastructure/web/routes/sale.routes';
 import { errorMiddleware } from './infrastructure/web/middlewares/error.middleware';
 
 export class App {
@@ -50,6 +51,7 @@ export class App {
     this.app.use('/api/users', userRouter);
     this.app.use('/api/albums', albumRouter);
     this.app.use('/api/pages', pageRouter);
+    this.app.use('/api/sales', saleRouter);
 
     this.app.get('/health', (_req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });

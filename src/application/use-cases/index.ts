@@ -21,3 +21,7 @@ export * from './album/move-card.use-case';
 export * from './page/create-page.use-case';
 export * from './page/delete-page.use-case';
 export * from './page/get-all-pages-from-album.use-case';
+
+export * from './sale/create-sale.use-case';
+export * from './sale/get-sale.use-case';
+export * from './sale/update-sale.use-case';
