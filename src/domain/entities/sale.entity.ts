@@ -1,42 +1,59 @@
-type SaleType = "fixed" | "auction";
-type SaleStatus = "draft" | "active" | "sold" | "cancelled" | "expired" | "completed";
+export type SaleStatus = "active" | "sold" | "cancelled" | "expired";
 
-type SaleBid = { bidderId: string; amount: number; placedAt: string };
-
-type SaleExtras = Record<string, boolean | string | number | null>;
-
-type ShippingDetails = {
-  originCountry?: string;
-  shippingCost?: number;
-  estimatedDays?: number;
-};
+export interface SaleExtras {
+  signed?: boolean;
+  altered?: boolean;
+  reverseHolo?: boolean;
+  firstEdition?: boolean;
+  [key: string]: boolean | string | number | undefined;
+}
 
 export class SaleEntity {
   constructor(
     public id: string,
     public cardId: string,
     public sellerId: string,
-    public type: SaleType,
-    public status: SaleStatus,
-    public createdAt: string,
-    public updatedAt: string,
-    public quantity: number = 1,
-    public language?: string,
-    public condition?: string,
-    public notes?: string,
-    public imageUrl?: string,
-    public extras?: SaleExtras,
-    public price?: number,
-    public currency?: string,
-    public startingBid?: number,
-    public currentBid?: number,
-    public buyoutPrice?: number,
-    public bids?: SaleBid[],
-    public postedAt?: string,
-    public expiresAt?: string,
-    public reservedForId?: string,
-    public shippingIncluded?: boolean,
-    public shippingDetails?: ShippingDetails,
-    public metadata?: Record<string, any>
+    public amount: number,
+    public price: number,
+    public language: string,
+    public condition: string,
+    public observations: string | null = null,
+    public imageUrl: string | null = null,
+    public extras: SaleExtras = {},
+    public status: SaleStatus = "active",
+    public createdAt: Date = new Date(),
+    public updatedAt: Date = new Date()
   ) {}
+
+  static create(props: {
+    id: string;
+    cardId: string;
+    sellerId: string;
+    amount: number;
+    price: number;
+    language: string;
+    condition: string;
+    observations?: string;
+    imageUrl?: string;
+    extras?: SaleExtras;
+    status?: SaleStatus;
+    createdAt?: Date;
+    updatedAt?: Date;
+  }): SaleEntity {
+    return new SaleEntity(
+      props.id,
+      props.cardId,
+      props.sellerId,
+      props.amount,
+      props.price,
+      props.language,
+      props.condition,
+      props.observations,
+      props.imageUrl,
+      props.extras,
+      props.status,
+      props.createdAt,
+      props.updatedAt
+    );
+  }
 }
