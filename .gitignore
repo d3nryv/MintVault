@@ -13,3 +13,6 @@ logs/
 # Build
 
 dist/
+# Editor/Extension settings
+.vscode/
+.continue/
