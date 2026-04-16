@@ -2,10 +2,12 @@ import { db } from "../database/postgres/database";
 import { TransactionEntity, TransactionStatus } from "../../domain/entities/transaction.entity";
 import { TransactionRepository } from "../../domain/repositories/transaction.repository";
 import { TransactionMapper } from "../mappers/transaction.mapper";
+import { DbClient } from "../../domain/interfaces/db-client.interface";
 
 export class PostgresTransactionRepository implements TransactionRepository {
 
-    async create(transaction: Omit<TransactionEntity, 'id' | 'createdAt' | 'updatedAt'>): Promise<TransactionEntity> {
+    async create(transaction: Omit<TransactionEntity, 'id' | 'createdAt' | 'updatedAt'>, dbClient?: DbClient): Promise<TransactionEntity> {
+        const connection = dbClient || db;
         const dbData = TransactionMapper.toDatabase(transaction);
         const keys = Object.keys(dbData);
         const values = Object.values(dbData);
@@ -16,7 +18,7 @@ export class PostgresTransactionRepository implements TransactionRepository {
             VALUES (${placeholders}) 
             RETURNING *`;
         
-        const { rows } = await db.query(query, values);
+        const { rows } = await connection.query(query, values);
         return TransactionMapper.toEntity(rows[0]);
     }
 
@@ -40,14 +42,15 @@ export class PostgresTransactionRepository implements TransactionRepository {
         return rows.map(row => TransactionMapper.toEntity(row));
     }
 
-    async updateStatus(id: string, status: TransactionStatus): Promise<TransactionEntity> {
+    async updateStatus(id: string, status: TransactionStatus, dbClient?: DbClient): Promise<TransactionEntity> {
+        const connection = dbClient || db;
         const query = `
             UPDATE transactions 
             SET status = $2, updated_at = CURRENT_TIMESTAMP 
             WHERE id = $1 
             RETURNING *`;
         
-        const { rows } = await db.query(query, [id, status]);
+        const { rows } = await connection.query(query, [id, status]);
         if (rows.length === 0) throw new Error('Transaction not found');
         return TransactionMapper.toEntity(rows[0]);
     }

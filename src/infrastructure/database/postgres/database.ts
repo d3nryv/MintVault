@@ -1,8 +1,8 @@
-// src/infrastructure/database/postgres/database.ts
 import { Pool, PoolClient, QueryResult } from 'pg';
 import { envs } from '../../config/envs';
+import { TransactionManager } from '../../../domain/interfaces/transaction-manager.interface';
 
-class Database {
+class Database implements TransactionManager {
   private static instance: Database;
   private pool: Pool;
 
@@ -68,6 +68,21 @@ class Database {
 
   async getClient(): Promise<PoolClient> {
     return await this.pool.connect();
+  }
+
+  async transactional<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.getClient();
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   getPool(): Pool {

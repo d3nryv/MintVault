@@ -2,6 +2,7 @@ import { TransactionEntity } from "../../../domain/entities/transaction.entity";
 import { TransactionRepository } from "../../../domain/repositories/transaction.repository";
 import { SaleRepository } from "../../../domain/repositories/sale.repository";
 import { CustomError } from "../../../domain/errors/custom.error";
+import { TransactionManager } from "../../../domain/interfaces/transaction-manager.interface";
 
 export interface CreateTransactionDto {
   saleId: string;
@@ -14,7 +15,8 @@ export interface CreateTransactionDto {
 export class CreateTransactionUseCase {
   constructor(
     private readonly transactionRepository: TransactionRepository,
-    private readonly saleRepository: SaleRepository
+    private readonly saleRepository: SaleRepository,
+    private readonly transactionManager: TransactionManager
   ) {}
 
   async execute(dto: CreateTransactionDto): Promise<TransactionEntity> {
@@ -40,27 +42,30 @@ export class CreateTransactionUseCase {
     // 5. Calcular precio total
     const totalPrice = sale.price * dto.quantity;
 
-    // 6. Crear la transacción
-    const transaction = await this.transactionRepository.create({
-      saleId: dto.saleId,
-      buyerId: dto.buyerId,
-      sellerId: sale.sellerId,
-      quantity: dto.quantity,
-      totalPrice: totalPrice,
-      status: 'pending',
-      paymentMethod: dto.paymentMethod || 'other',
-      shippingAddress: dto.shippingAddress || null
-    });
+    // Ejecutar operaciones atómicas
+    return await this.transactionManager.transactional(async (dbClient) => {
+      // 6. Crear la transacción
+      const transaction = await this.transactionRepository.create({
+        saleId: dto.saleId,
+        buyerId: dto.buyerId,
+        sellerId: sale.sellerId,
+        quantity: dto.quantity,
+        totalPrice: totalPrice,
+        status: 'pending',
+        paymentMethod: dto.paymentMethod || 'other',
+        shippingAddress: dto.shippingAddress || null
+      }, dbClient);
 
-    // 7. Actualizar el stock de la venta
-    const newAmount = sale.amount - dto.quantity;
-    const newStatus = newAmount === 0 ? 'sold' : 'active';
-    
-    await this.saleRepository.update(dto.saleId, {
-      amount: newAmount,
-      status: newStatus
-    });
+      // 7. Actualizar el stock de la venta
+      const newAmount = sale.amount - dto.quantity;
+      const newStatus = newAmount === 0 ? 'sold' : 'active';
+      
+      await this.saleRepository.update(dto.saleId, {
+        amount: newAmount,
+        status: newStatus
+      }, dbClient);
 
-    return transaction;
+      return transaction;
+    });
   }
 }

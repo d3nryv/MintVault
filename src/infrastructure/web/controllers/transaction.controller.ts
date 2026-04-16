@@ -7,16 +7,20 @@ import {
   ListTransactionsUseCase,
   UpdateTransactionStatusUseCase
 } from '../../../application/use-cases';
+import { db } from '../../database/postgres/database';
 
 export class TransactionController {
   constructor(
     private readonly transactionRepository: TransactionRepository,
     private readonly saleRepository: SaleRepository
   ) {}
-
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const transaction = await new CreateTransactionUseCase(this.transactionRepository, this.saleRepository).execute(req.body);
+      const transaction = await new CreateTransactionUseCase(
+        this.transactionRepository, 
+        this.saleRepository,
+        db
+      ).execute(req.body);
       res.status(201).json(transaction);
     } catch (err) {
       next(err);
