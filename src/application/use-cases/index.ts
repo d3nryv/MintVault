@@ -3,6 +3,7 @@ export * from './card/get-card-by-id.use-case';
 export * from './card/create-card.use-case';
 export * from './card/update-card.use-case';
 export * from './card/delete-card.use-case';
+export * from './card/get-card-market-value.use-case';
 
 export * from './user/get-all-users.use-case';
 export * from './user/get-user-by-id.use-case';
