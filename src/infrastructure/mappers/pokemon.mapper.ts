@@ -5,8 +5,10 @@ export class PokemonMapper {
         return new PokemonEntity(
             row.id,
             row.name,
-            row.types, // Postgres JSONB automatically becomes object/array
-            row.stats,
+            typeof row.types === 'string' ? JSON.parse(row.types) : row.types,
+            typeof row.stats === 'string' ? JSON.parse(row.stats) : row.stats,
+            typeof row.abilities === 'string' ? JSON.parse(row.abilities) : row.abilities,
+            row.description,
             row.artwork_url,
             row.created_at
         );
@@ -18,6 +20,8 @@ export class PokemonMapper {
             name: pokemon.name,
             types: JSON.stringify(pokemon.types),
             stats: JSON.stringify(pokemon.stats),
+            abilities: JSON.stringify(pokemon.abilities),
+            description: pokemon.description,
             artwork_url: pokemon.artworkUrl
         };
     }
