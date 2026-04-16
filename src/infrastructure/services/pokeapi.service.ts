@@ -1,3 +1,4 @@
+import { PokemonEntity } from "../../domain/entities/pokemon.entity";
 import { PokemonExternalService } from "../../domain/interfaces/pokemon-external.service";
 
 export class PokeApiService implements PokemonExternalService {

@@ -2,4 +2,7 @@ export * from './pg-card.repository';
 export * from './pg-user.repository';
 export * from './pg-album.repository';
 export * from './pg-page.repository';
+export * from './pg-sale.repository';
+export * from './pg-transaction.repository';
+export * from './pg-pokemon.repository';
 export * from './tcg-sdk.repository';
