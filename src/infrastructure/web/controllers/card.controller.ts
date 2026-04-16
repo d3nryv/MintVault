@@ -1,18 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { CardRepository } from '../../../domain/repositories/card.repository';
 import { TcgRepository } from '../../../domain/repositories/tcg.repository';
+import { TransactionRepository } from '../../../domain/repositories/transaction.repository';
 import {
   GetAllCardsUseCase,
   GetCardByIdUseCase,
   CreateCardUseCase,
   UpdateCardUseCase,
   DeleteCardUseCase,
+  GetCardMarketValueUseCase
 } from '../../../application/use-cases';
 
 export class CardController {
   constructor(
     private readonly cardRepository: CardRepository,
-    private readonly tcgRepository: TcgRepository
+    private readonly tcgRepository: TcgRepository,
+    private readonly transactionRepository: TransactionRepository
   ) {}
 
   getAll = async (_req: Request, res: Response, next: NextFunction) => {
@@ -61,6 +64,19 @@ export class CardController {
     try {
       await new DeleteCardUseCase(this.cardRepository).execute(String(req.params['id']));
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  getMarketValue = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await new GetCardMarketValueUseCase(
+        this.transactionRepository,
+        this.cardRepository
+      ).execute(String(req.params['id']));
+      
+      res.json(data);
     } catch (err) {
       next(err);
     }
