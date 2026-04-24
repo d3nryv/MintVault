@@ -20,7 +20,7 @@ export class App {
   }
 
   private middlewares(): void {
-    // CORS: permite solo el origen del frontend (ajusta según necesites)
+    // CORS: permite solo el origen del frontend 
     const allowedOrigins = [
       'http://127.0.0.1:5500',
       'http://localhost:5500',
