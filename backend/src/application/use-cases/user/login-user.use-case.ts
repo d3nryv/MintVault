@@ -7,7 +7,7 @@ import { UserEntity } from '../../../domain/entities/user.entity';
 export class LoginUserUseCase {
   constructor(private readonly userRepository: UserRepository) {}
 
-  async execute(dto: LoginUserDto): Promise<boolean | UserEntity> {
+  async execute(dto: LoginUserDto): Promise<Omit<UserEntity, 'password'>> {
     const { username, password } = dto;
 
     if (!username || !password) {
@@ -24,9 +24,7 @@ export class LoginUserUseCase {
       throw CustomError.badRequest('Invalid password');
     }
 
-    // In a real scenario, we would return a token here.
-    // As per user request, we can return true or the user profile.
-    // Returning true as requested for now, or the user entity.
-    return user; 
+    const { password: _, ...userWithoutPassword } = user;
+    return userWithoutPassword;
   }
 }
