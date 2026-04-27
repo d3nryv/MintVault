@@ -20,29 +20,7 @@ export class App {
   }
 
   private middlewares(): void {
-    // CORS: permite solo el origen del frontend (ajusta según necesites)
-    const allowedOrigins = [
-      'http://127.0.0.1:5500',
-      'http://localhost:5500',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'chrome-extension://amknoiejhlmhancpahfcfcfhllgkpbld'
-    ];
-    this.app.use(cors({
-      origin: (origin, callback) => {
-        // allow requests with no origin (e.g. curl, postman)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        
-        console.warn(`[CORS] Origen bloqueado: ${origin}`);
-        // Devolvemos false en lugar de Error para que el navegador bloquee la petición 
-        // pero el servidor no registre un error crítico "unhandled".
-        return callback(null, false);
-      },
-      methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-      allowedHeaders: ['Content-Type','Authorization'],
-      credentials: true,
-    }));
+    this.app.use(cors());
 
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));

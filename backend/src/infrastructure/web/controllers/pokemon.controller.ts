@@ -5,7 +5,8 @@ import { UserRepository } from '../../../domain/repositories/user.repository';
 import { 
   GetPokemonDetailsUseCase, 
   ListPokemonsUseCase,
-  ToggleFavoritePokemonUseCase 
+  ToggleFavoritePokemonUseCase,
+  GetAllPokemonsUseCase
 } from '../../../application/use-cases';
 
 export class PokedexController {
@@ -25,6 +26,15 @@ export class PokedexController {
           this.pokeApiService
       ).execute(String(nameOrId));
       res.json(pokemon);
+    } catch (err) {
+      next(err);
+    }
+  };
+  
+  getAll = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const pokemons = await new GetAllPokemonsUseCase(this.pokeApiService).execute();
+      res.json(pokemons);
     } catch (err) {
       next(err);
     }

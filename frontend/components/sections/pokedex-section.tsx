@@ -36,21 +36,12 @@ export function PokedexSection() {
     async function fetchAllPokemon() {
       setLoading(true)
       try {
-        // Fetching all 1025 released Pokémon names and IDs in one go
-        const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=1025&offset=0`)
+        // Fetching from our backend instead of directly from PokeAPI
+        const response = await fetch(`http://127.0.0.1:3000/api/pokedex/all`)
+        if (!response.ok) throw new Error('Failed to fetch from backend')
         const data = await response.json()
         
-        const results = data.results.map((p: any, index: number) => {
-          const id = index + 1
-          return {
-            id,
-            name: p.name.charAt(0).toUpperCase() + p.name.slice(1),
-            number: id.toString().padStart(3, '0'),
-            sprite: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`
-          }
-        })
-        
-        setAllPokemon(results)
+        setAllPokemon(data)
       } catch (error) {
         console.error("Error fetching all pokemon:", error)
       } finally {
