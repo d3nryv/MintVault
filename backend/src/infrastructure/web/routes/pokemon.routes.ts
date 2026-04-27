@@ -11,6 +11,7 @@ const pokeApiService = new PokeApiService();
 const controller = new PokedexController(repository, pokeApiService, userRepository);
 
 router.get('/', controller.list);
+router.get('/all', controller.getAll);
 router.get('/:nameOrId', controller.getDetails);
 router.post('/favorite', controller.toggleFavorite);
 
