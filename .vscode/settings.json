@@ -1,0 +1,17 @@
+{
+    "sqltools.connections": [
+        {
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "driver": "PostgreSQL",
+            "name": "TCG_Local",
+            "database": "TCG_DB",
+            "username": "postgres",
+            "password": "root",
+            "connectionTimeout": 30
+        }
+    ],
+    "liveServer.settings.port": 5501
+}
