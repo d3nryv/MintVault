@@ -570,7 +570,7 @@ export default function PokemonPage() {
           {/* Cards Section */}
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-foreground mb-6">
-              Trading Cards Collection
+              {(pokemon?.name || decodedName).charAt(0).toUpperCase() + (pokemon?.name || decodedName).slice(1)}&apos;s Cards
             </h2>
 
             {cardsLoading ? (
