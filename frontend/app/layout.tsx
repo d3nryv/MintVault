@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Outfit } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/context/auth-context"
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
@@ -28,8 +30,6 @@ export const metadata: Metadata = {
   },
 }
 
-import { ThemeProvider } from "@/components/theme-provider"
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -44,8 +44,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          {process.env.NODE_ENV === 'production' && <Analytics />}
+          <AuthProvider>
+            {children}
+            {process.env.NODE_ENV === 'production' && <Analytics />}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -61,6 +61,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/context/auth-context"
 
 const buyListings = [
   { id: 1, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", condition: "Near Mint", language: "English", price: 45.99, seller: "CardMaster" },
@@ -70,7 +71,6 @@ const buyListings = [
   { id: 5, name: "Umbreon VMAX", set: "Evolving Skies", number: "095/203", condition: "Mint", language: "English", price: 125.00, seller: "RareFinds" },
 ]
 
-// Sample user decks (would come from gameplay section)
 const userDecks = [
   { id: 1, name: "Charizard Control", cards: [
     { id: 101, name: "Charizard ex", set: "Obsidian Flames", number: "125/197" },
@@ -91,7 +91,6 @@ const userDecks = [
   ]},
 ]
 
-// Sample user collections with missing cards
 const userCollections = [
   { id: 1, name: "Obsidian Flames", total: 197, owned: 145, missing: [
     { id: 1001, name: "Charizard ex SAR", number: "223/197" },
@@ -111,7 +110,6 @@ const userCollections = [
   ]},
 ]
 
-// WantsLists - personalized lists
 type WantsListType = "empty" | "deck" | "collection"
 type WantsListItem = {
   id: number
@@ -244,6 +242,7 @@ export default function MarketplacePage() {
   const [newListName, setNewListName] = useState("")
   const [newListType, setNewListType] = useState<WantsListType>("empty")
   const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null)
+  const { user } = useAuth()
 
   const getConditionColor = (condition: string) => {
     switch (condition) {
@@ -400,28 +399,32 @@ export default function MarketplacePage() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-8 grid w-full max-w-lg grid-cols-4">
+            <TabsList className={`mb-8 grid w-full max-w-lg ${user ? 'grid-cols-4' : 'grid-cols-1'}`}>
               <TabsTrigger value="buy" className="gap-2">
                 <ShoppingBag className="h-4 w-4" />
                 <span className="hidden sm:inline">Buy</span>
               </TabsTrigger>
-              <TabsTrigger value="sell" className="gap-2">
-                <Tag className="h-4 w-4" />
-                <span className="hidden sm:inline">Sell</span>
-              </TabsTrigger>
-              <TabsTrigger value="wants" className="gap-2">
-                <Heart className="h-4 w-4" />
-                <span className="hidden sm:inline">Wants</span>
-              </TabsTrigger>
-              <TabsTrigger value="cart" className="gap-2 relative">
-                <ShoppingCart className="h-4 w-4" />
-                <span className="hidden sm:inline">Cart</span>
-                {cartItems.length > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] text-accent-foreground">
-                    {cartItems.length}
-                  </span>
-                )}
-              </TabsTrigger>
+              {user && (
+                <>
+                  <TabsTrigger value="sell" className="gap-2">
+                    <Tag className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sell</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="wants" className="gap-2">
+                    <Heart className="h-4 w-4" />
+                    <span className="hidden sm:inline">Wants</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="cart" className="gap-2 relative">
+                    <ShoppingCart className="h-4 w-4" />
+                    <span className="hidden sm:inline">Cart</span>
+                    {cartItems.length > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] text-accent-foreground">
+                        {cartItems.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </>
+              )}
             </TabsList>
 
             {/* Buy Tab */}
@@ -808,564 +811,462 @@ export default function MarketplacePage() {
               </section>
             </TabsContent>
 
-            {/* Sell Tab */}
-            <TabsContent value="sell">
-              <div className="space-y-6">
-                {/* Create Listing */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Plus className="h-5 w-5" />
-                      Create New Listing
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Card Name</label>
-                        <Input placeholder="e.g., Charizard ex" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Set</label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select set" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="obsidian">Obsidian Flames</SelectItem>
-                            <SelectItem value="paldea">Paldea Evolved</SelectItem>
-                            <SelectItem value="evolving">Evolving Skies</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Condition</label>
-                        <Select>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select condition" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="mint">Mint</SelectItem>
-                            <SelectItem value="nm">Near Mint</SelectItem>
-                            <SelectItem value="lp">Lightly Played</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Price ($)</label>
-                        <Input type="number" placeholder="0.00" />
-                      </div>
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                      <Button className="gap-2">
-                        <Tag className="h-4 w-4" />
-                        Create Listing
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Your Listings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Tag className="h-5 w-5" />
-                      Your Listings
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {yourListings.map((listing) => (
-                        <div
-                          key={listing.id}
-                          className="flex items-center gap-4 rounded-lg border border-border bg-card p-4"
-                        >
-                          <div className="flex h-16 w-12 items-center justify-center rounded bg-muted">
-                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <h4 className="font-medium">{listing.name}</h4>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                              <span>{listing.set}</span>
-                              <Badge className={getConditionColor(listing.condition)}>
-                                {listing.condition}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {listing.views} views
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <Badge variant={listing.status === "Sold" ? "secondary" : "default"}>
-                              {listing.status}
-                            </Badge>
-                            <span className="text-lg font-bold">${listing.price.toFixed(2)}</span>
-                            {listing.status !== "Sold" && (
-                              <Button variant="ghost" size="icon" className="text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            {/* Wants List Tab */}
-            <TabsContent value="wants">
-              <div className="grid gap-6 lg:grid-cols-3">
-                {/* Lists Sidebar */}
-                <div className="lg:col-span-1">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-4">
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Heart className="h-5 w-5" />
-                        Your Lists
-                      </CardTitle>
-                      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button size="sm" className="gap-2">
-                            <FolderPlus className="h-4 w-4" />
-                            New List
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Create New Wants List</DialogTitle>
-                            <DialogDescription>
-                              Choose how you want to create your list. You can start empty, import from a deck, or complete a collection.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">List Name</label>
-                              <Input
-                                placeholder="e.g., Tournament Deck, Missing Cards..."
-                                value={newListName}
-                                onChange={(e) => setNewListName(e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">List Type</label>
-                              <div className="grid grid-cols-3 gap-2">
-                                <Button
-                                  variant={newListType === "empty" ? "default" : "outline"}
-                                  className="flex flex-col gap-1 h-auto py-3"
-                                  onClick={() => {
-                                    setNewListType("empty")
-                                    setSelectedSourceId(null)
-                                  }}
-                                >
-                                  <FileText className="h-5 w-5" />
-                                  <span className="text-xs">Empty</span>
-                                </Button>
-                                <Button
-                                  variant={newListType === "deck" ? "default" : "outline"}
-                                  className="flex flex-col gap-1 h-auto py-3"
-                                  onClick={() => {
-                                    setNewListType("deck")
-                                    setSelectedSourceId(null)
-                                  }}
-                                >
-                                  <Layers className="h-5 w-5" />
-                                  <span className="text-xs">From Deck</span>
-                                </Button>
-                                <Button
-                                  variant={newListType === "collection" ? "default" : "outline"}
-                                  className="flex flex-col gap-1 h-auto py-3"
-                                  onClick={() => {
-                                    setNewListType("collection")
-                                    setSelectedSourceId(null)
-                                  }}
-                                >
-                                  <Library className="h-5 w-5" />
-                                  <span className="text-xs">Collection</span>
-                                </Button>
-                              </div>
-                            </div>
-
-                            {newListType === "deck" && (
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">Select Deck</label>
-                                <Select onValueChange={(val) => setSelectedSourceId(Number(val))}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Choose a deck..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {userDecks.map(deck => (
-                                      <SelectItem key={deck.id} value={deck.id.toString()}>
-                                        {deck.name} ({deck.cards.length} cards)
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground">
-                                  All cards from this deck will be added to your wants list
-                                </p>
-                              </div>
-                            )}
-
-                            {newListType === "collection" && (
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">Select Collection</label>
-                                <Select onValueChange={(val) => setSelectedSourceId(Number(val))}>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Choose a collection..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {userCollections.map(col => (
-                                      <SelectItem key={col.id} value={col.id.toString()}>
-                                        {col.name} ({col.missing.length} missing)
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground">
-                                  Only missing cards from this collection will be added
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                              Cancel
-                            </Button>
-                            <Button
-                              onClick={handleCreateList}
-                              disabled={!newListName.trim() || (newListType !== "empty" && !selectedSourceId)}
-                            >
-                              Create List
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      {wantsLists.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                          <Heart className="mb-3 h-10 w-10 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">
-                            Create your first wants list to start tracking cards
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-border">
-                          {wantsLists.map((list) => (
-                            <div
-                              key={list.id}
-                              className={`flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-secondary/50 ${
-                                selectedList?.id === list.id ? "bg-secondary" : ""
-                              }`}
-                              onClick={() => setSelectedList(list)}
-                            >
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                                {getListTypeIcon(list.type)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-medium text-sm truncate">{list.name}</h4>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Badge variant="outline" className="text-[10px] px-1.5">
-                                    {getListTypeLabel(list.type)}
-                                  </Badge>
-                                  {list.sourceName && (
-                                    <span className="truncate">{list.sourceName}</span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="text-right">
-                                  <p className="text-sm font-medium">{getMissingCount(list)}</p>
-                                  <p className="text-[10px] text-muted-foreground">needed</p>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* List Details */}
-                <div className="lg:col-span-2">
-                  {selectedList ? (
+            {user ? (
+              <>
+                {/* Sell Tab */}
+                <TabsContent value="sell">
+                  <div className="space-y-6">
+                    {/* Create Listing */}
                     <Card>
-                      <CardHeader className="flex flex-row items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            {getListTypeIcon(selectedList.type)}
-                            <CardTitle>{selectedList.name}</CardTitle>
-                          </div>
-                          <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                            <Badge variant="outline">{getListTypeLabel(selectedList.type)}</Badge>
-                            {selectedList.sourceName && (
-                              <span>Source: {selectedList.sourceName}</span>
-                            )}
-                            <span>{selectedList.items.length} cards</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {selectedList.type === "empty" && (
-                            <Button variant="outline" size="sm" className="gap-2">
-                              <Plus className="h-4 w-4" />
-                              Add Card
-                            </Button>
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem className="gap-2">
-                                <Edit3 className="h-4 w-4" />
-                                Rename List
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="gap-2">
-                                <ExternalLink className="h-4 w-4" />
-                                Search All in Marketplace
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="gap-2 text-destructive"
-                                onClick={() => handleDeleteList(selectedList.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Delete List
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Plus className="h-5 w-5" />
+                          Create New Listing
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        {/* Progress bar for collection type */}
-                        {selectedList.type === "collection" && (
-                          <div className="mb-6 p-4 rounded-lg bg-secondary/50">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="text-sm font-medium">Collection Progress</span>
-                              <span className="text-sm text-muted-foreground">
-                                {getOwnedCount(selectedList)} / {selectedList.items.length} cards obtained
-                              </span>
-                            </div>
-                            <div className="h-2 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-full bg-accent transition-all"
-                                style={{ width: `${(getOwnedCount(selectedList) / selectedList.items.length) * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Filter tabs */}
-                        <div className="mb-4 flex items-center gap-2">
-                          <Button variant="secondary" size="sm">All ({selectedList.items.length})</Button>
-                          <Button variant="ghost" size="sm">Needed ({getMissingCount(selectedList)})</Button>
-                          <Button variant="ghost" size="sm">Owned ({getOwnedCount(selectedList)})</Button>
-                        </div>
-
-                        {/* Cards list */}
-                        {selectedList.items.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
-                            <h3 className="text-lg font-medium">No cards in this list</h3>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              Add cards to start tracking what you need
-                            </p>
-                            <Button className="mt-4 gap-2">
-                              <Plus className="h-4 w-4" />
-                              Add Card
-                            </Button>
-                          </div>
-                        ) : (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                           <div className="space-y-2">
-                            {selectedList.items.map((item) => (
-                              <div
-                                key={item.id}
-                                className={`flex items-center gap-4 rounded-lg border p-3 transition-colors ${
-                                  item.owned
-                                    ? "border-emerald-500/30 bg-emerald-500/5"
-                                    : "border-border bg-card hover:bg-secondary/50"
-                                }`}
-                              >
-                                <button
-                                  onClick={() => handleToggleOwned(selectedList.id, item.id)}
-                                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors ${
-                                    item.owned
-                                      ? "border-emerald-500 bg-emerald-500 text-white"
-                                      : "border-muted-foreground/30 hover:border-muted-foreground"
-                                  }`}
-                                >
-                                  {item.owned && <Check className="h-4 w-4" />}
-                                </button>
-                                <div className="flex h-12 w-9 items-center justify-center rounded bg-muted">
-                                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <h4 className={`font-medium text-sm ${item.owned ? "line-through text-muted-foreground" : ""}`}>
-                                      {item.name}
-                                    </h4>
-                                    <Badge variant="outline" className="text-[10px]">
-                                      {item.number}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span>{item.set}</span>
-                                    <span>|</span>
-                                    <span>{item.condition}</span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge className={getPriorityColor(item.priority)}>
-                                    {item.priority}
-                                  </Badge>
-                                  {!item.owned && (
-                                    <Button variant="outline" size="sm" className="gap-1 text-xs">
-                                      <Search className="h-3 w-3" />
-                                      Find
-                                    </Button>
-                                  )}
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                    onClick={() => handleRemoveFromList(selectedList.id, item.id)}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                            <label className="text-sm font-medium">Card Name</label>
+                            <Input placeholder="e.g., Charizard ex" />
                           </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card>
-                      <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                        <Heart className="mb-4 h-16 w-16 text-muted-foreground/50" />
-                        <h3 className="text-xl font-medium">Select a list to view</h3>
-                        <p className="mt-2 text-sm text-muted-foreground max-w-sm">
-                          Choose a wants list from the sidebar or create a new one to start tracking the cards you need
-                        </p>
-                        <Button
-                          className="mt-6 gap-2"
-                          onClick={() => setIsCreateDialogOpen(true)}
-                        >
-                          <FolderPlus className="h-4 w-4" />
-                          Create New List
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Cart Tab */}
-            <TabsContent value="cart">
-              <div className="grid gap-6 lg:grid-cols-3">
-                <div className="lg:col-span-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <ShoppingCart className="h-5 w-5" />
-                        Shopping Cart ({cartItems.length} items)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {cartItems.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                          <ShoppingCart className="mb-4 h-12 w-12 text-muted-foreground" />
-                          <h3 className="text-lg font-medium">Your cart is empty</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            Browse the marketplace to find cards to add
-                          </p>
-                          <Button className="mt-4" onClick={() => setActiveTab("buy")}>
-                            Start Shopping
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Set</label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select set" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="obsidian">Obsidian Flames</SelectItem>
+                                <SelectItem value="paldea">Paldea Evolved</SelectItem>
+                                <SelectItem value="evolving">Evolving Skies</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Condition</label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select condition" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="mint">Mint</SelectItem>
+                                <SelectItem value="nm">Near Mint</SelectItem>
+                                <SelectItem value="lp">Lightly Played</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Price ($)</label>
+                            <Input type="number" placeholder="0.00" />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex justify-end">
+                          <Button className="gap-2">
+                            <Tag className="h-4 w-4" />
+                            Create Listing
                           </Button>
                         </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {cartItems.map((item) => (
+                      </CardContent>
+                    </Card>
+
+                    {/* Your Listings */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Tag className="h-5 w-5" />
+                          Your Listings
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {yourListings.map((listing) => (
                             <div
-                              key={item.id}
+                              key={listing.id}
                               className="flex items-center gap-4 rounded-lg border border-border bg-card p-4"
                             >
                               <div className="flex h-16 w-12 items-center justify-center rounded bg-muted">
                                 <ImageIcon className="h-6 w-6 text-muted-foreground" />
                               </div>
                               <div className="flex-1 space-y-1">
-                                <h4 className="font-medium">{item.name}</h4>
+                                <h4 className="font-medium">{listing.name}</h4>
                                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                  <span>{item.set}</span>
-                                  <Badge className={getConditionColor(item.condition)}>
-                                    {item.condition}
+                                  <span>{listing.set}</span>
+                                  <Badge className={getConditionColor(listing.condition)}>
+                                    {listing.condition}
                                   </Badge>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                  Seller: {item.seller}
+                                  {listing.views} views
                                 </p>
                               </div>
                               <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                  <Button variant="outline" size="icon" className="h-8 w-8">
-                                    <Minus className="h-3 w-3" />
+                                <Badge variant={listing.status === "Sold" ? "secondary" : "default"}>
+                                  {listing.status}
+                                </Badge>
+                                <span className="text-lg font-bold">${listing.price.toFixed(2)}</span>
+                                {listing.status !== "Sold" && (
+                                  <Button variant="ghost" size="icon" className="text-destructive">
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
-                                  <span className="w-8 text-center">{item.quantity}</span>
-                                  <Button variant="outline" size="icon" className="h-8 w-8">
-                                    <Plus className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                <span className="w-20 text-right font-bold">
-                                  ${(item.price * item.quantity).toFixed(2)}
-                                </span>
-                                <Button variant="ghost" size="icon" className="text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                )}
                               </div>
                             </div>
                           ))}
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
 
-                {/* Order Summary */}
-                <div>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Order Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span>${cartTotal.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Shipping</span>
-                        <span>Calculated at checkout</span>
-                      </div>
-                      <div className="border-t border-border pt-4">
-                        <div className="flex justify-between font-bold">
-                          <span>Total</span>
-                          <span>${cartTotal.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      <Button className="w-full" size="lg" disabled={cartItems.length === 0}>
-                        Proceed to Checkout
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </TabsContent>
+                {/* Wants List Tab */}
+                <TabsContent value="wants">
+                  <div className="grid gap-6 lg:grid-cols-3">
+                    {/* Lists Sidebar */}
+                    <div className="lg:col-span-1">
+                      <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-4">
+                          <CardTitle className="flex items-center gap-2 text-lg">
+                            <Heart className="h-5 w-5" />
+                            Your Lists
+                          </CardTitle>
+                          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                            <DialogTrigger asChild>
+                              <Button size="sm" className="gap-2">
+                                <FolderPlus className="h-4 w-4" />
+                                New List
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Create New Wants List</DialogTitle>
+                                <DialogDescription>
+                                  Create a list of cards you're looking for to track their prices and availability.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">List Name</label>
+                                  <Input
+                                    placeholder="e.g., My Dream Team"
+                                    value={newListName}
+                                    onChange={(e) => setNewListName(e.target.value)}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">Populate from...</label>
+                                  <Select
+                                    value={newListType}
+                                    onValueChange={(value: WantsListType) => {
+                                      setNewListType(value)
+                                      setSelectedSourceId(null)
+                                    }}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Start from..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="empty">Empty List</SelectItem>
+                                      <SelectItem value="deck">A Mazo</SelectItem>
+                                      <SelectItem value="collection">A Collection Set</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {newListType === "deck" && (
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium">Select Deck</label>
+                                    <Select
+                                      onValueChange={(value) => setSelectedSourceId(parseInt(value))}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select a deck..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {userDecks.map(deck => (
+                                          <SelectItem key={deck.id} value={deck.id.toString()}>
+                                            {deck.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                                {newListType === "collection" && (
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium">Select Collection</label>
+                                    <Select
+                                      onValueChange={(value) => setSelectedSourceId(parseInt(value))}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select a set..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {userCollections.map(set => (
+                                          <SelectItem key={set.id} value={set.id.toString()}>
+                                            {set.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
+                              <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+                                <Button onClick={handleCreateList}>Create List</Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="divide-y divide-border">
+                            {wantsLists.map((list) => (
+                              <button
+                                key={list.id}
+                                onClick={() => setSelectedList(list)}
+                                className={`flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-secondary/50 ${selectedList?.id === list.id ? 'bg-secondary' : ''}`}
+                              >
+                                <div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
+                                  {getListTypeIcon(list.type)}
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="font-medium">{list.name}</h4>
+                                  <p className="text-xs text-muted-foreground">
+                                    {getMissingCount(list)} remaining · {list.items.length} total
+                                  </p>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* List Details */}
+                    <div className="lg:col-span-2">
+                      {selectedList ? (
+                        <Card>
+                          <CardHeader className="flex flex-row items-center justify-between pb-4">
+                            <div>
+                              <CardTitle className="flex items-center gap-2">
+                                {selectedList.name}
+                                <Badge variant="outline" className="ml-2 font-normal">
+                                  {getListTypeLabel(selectedList.type)}
+                                </Badge>
+                              </CardTitle>
+                              {selectedList.sourceName && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Source: {selectedList.sourceName}
+                                </p>
+                              )}
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem className="gap-2">
+                                  <Edit3 className="h-4 w-4" />
+                                  Rename List
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="gap-2">
+                                  <ShoppingCart className="h-4 w-4" />
+                                  Buy All Missing
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="gap-2 text-destructive"
+                                  onClick={() => handleDeleteList(selectedList.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete List
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {selectedList.items.length > 0 ? (
+                                selectedList.items.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className={`flex items-center gap-4 rounded-lg border p-4 transition-all ${item.owned ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
+                                  >
+                                    <button
+                                      onClick={() => handleToggleOwned(selectedList.id, item.id)}
+                                      className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${item.owned ? 'border-accent bg-accent text-accent-foreground' : 'border-muted-foreground/30 hover:border-accent'}`}
+                                    >
+                                      {item.owned && <Check className="h-3 w-3" />}
+                                    </button>
+                                    <div className="flex h-14 w-10 items-center justify-center rounded bg-muted">
+                                      <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <h4 className={`font-medium ${item.owned ? 'line-through' : ''}`}>{item.name}</h4>
+                                        <Badge variant="outline" className="text-[10px]">{item.number}</Badge>
+                                      </div>
+                                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                                        <span>{item.set}</span>
+                                        <Badge className={`text-[10px] h-4 ${getPriorityColor(item.priority)}`}>
+                                          {item.priority}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <ShoppingCart className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive"
+                                        onClick={() => handleRemoveFromList(selectedList.id, item.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="py-12 text-center text-muted-foreground">
+                                  <Heart className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                                  <p>No cards in this list yet.</p>
+                                  <Button variant="link">Search for cards to add</Button>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <Card className="h-full flex flex-col items-center justify-center py-20 text-center border-dashed">
+                          <Heart className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
+                          <h3 className="text-xl font-bold">Select a Wants List</h3>
+                          <p className="text-muted-foreground max-w-xs mt-2">
+                            Choose a list from the sidebar to view your desired cards and track your progress.
+                          </p>
+                        </Card>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Cart Tab */}
+                <TabsContent value="cart">
+                  <div className="grid gap-8 lg:grid-cols-3">
+                    <div className="lg:col-span-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <ShoppingCart className="h-5 w-5" />
+                            Your Shopping Cart ({cartItems.length} items)
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="divide-y divide-border">
+                            {cartItems.map((item) => (
+                              <div key={item.id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
+                                <div className="flex h-24 w-16 items-center justify-center rounded bg-muted">
+                                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                                <div className="flex flex-1 flex-col justify-between">
+                                  <div className="flex justify-between">
+                                    <div>
+                                      <h4 className="font-medium">{item.name}</h4>
+                                      <p className="text-sm text-muted-foreground">{item.set}</p>
+                                      <div className="mt-1 flex items-center gap-2">
+                                        <Badge variant="outline" className="text-xs">
+                                          {item.condition}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">Seller: {item.seller}</span>
+                                      </div>
+                                    </div>
+                                    <span className="font-bold">${item.price.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-4">
+                                    <div className="flex items-center gap-2 rounded-md border border-border px-2 py-1">
+                                      <button className="text-muted-foreground hover:text-foreground">
+                                        <Minus className="h-4 w-4" />
+                                      </button>
+                                      <span className="w-8 text-center text-sm">{item.quantity}</span>
+                                      <button className="text-muted-foreground hover:text-foreground">
+                                        <Plus className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="text-destructive gap-2">
+                                      <Trash2 className="h-4 w-4" />
+                                      Remove
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    <div className="lg:col-span-1">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Order Summary</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span>${cartTotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Shipping</span>
+                            <span>$4.99</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Tax</span>
+                            <span>${(cartTotal * 0.08).toFixed(2)}</span>
+                          </div>
+                          <div className="border-t border-border pt-4 flex justify-between font-bold text-lg">
+                            <span>Total</span>
+                            <span>${(cartTotal + 4.99 + cartTotal * 0.08).toFixed(2)}</span>
+                          </div>
+                          <Button className="w-full mt-4" size="lg">
+                            Checkout
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </TabsContent>
+              </>
+            ) : (
+              <>
+                <TabsContent value="sell">
+                  <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl">
+                    <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-xl font-bold">Sign in to sell cards</h3>
+                    <p className="text-muted-foreground mb-6">You must be logged in to create listings and manage your sales.</p>
+                    <Button onClick={() => setActiveTab("buy")}>Go to Buy</Button>
+                  </div>
+                </TabsContent>
+                <TabsContent value="wants">
+                  <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl">
+                    <Heart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-xl font-bold">Sign in to view your wants list</h3>
+                    <p className="text-muted-foreground mb-6">Save the cards you want to track their price and availability.</p>
+                    <Button onClick={() => setActiveTab("buy")}>Explore Cards</Button>
+                  </div>
+                </TabsContent>
+                <TabsContent value="cart">
+                  <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl">
+                    <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-xl font-bold">Your cart is waiting</h3>
+                    <p className="text-muted-foreground mb-6">Sign in to add cards to your cart and complete your order.</p>
+                    <Button onClick={() => setActiveTab("buy")}>Start Shopping</Button>
+                  </div>
+                </TabsContent>
+              </>
+            )}
           </Tabs>
         </div>
       </main>

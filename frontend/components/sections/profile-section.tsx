@@ -84,7 +84,10 @@ const userSets = [
   { id: 6, name: "Astral Radiance", owned: 112, total: 189, date: "May 2022", era: "swsh", lang: "en", image: "https://images.pokemontcg.io/swsh10/logo.png" },
 ]
 
+import { useAuth } from "@/context/auth-context"
+
 export function ProfileSection() {
+  const { user } = useAuth()
   const [hoveredBinder, setHoveredBinder] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [eraFilter, setEraFilter] = useState("all-eras")
@@ -102,12 +105,12 @@ export function ProfileSection() {
     <section className="py-12">
       <div className="mb-8 flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Your Profile</h2>
-          <p className="text-muted-foreground mt-1">Manage your collection and connect with friends</p>
+          <h2 className="text-3xl font-bold text-foreground">Your Collection Profile</h2>
+          <p className="text-muted-foreground mt-1">Manage your cards and track your progress</p>
         </div>
         <Button variant="outline" size="sm" className="gap-2">
           <Share2 className="h-4 w-4" />
-          Share Profile
+          Share Collection
         </Button>
       </div>
 
@@ -116,22 +119,26 @@ export function ProfileSection() {
         <CardContent className="p-8">
           <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
             <Avatar className="h-28 w-28 border-4 border-primary/20 shadow-2xl ring-4 ring-primary/5">
-              <AvatarImage src="/placeholder-avatar.jpg" alt="Profile" />
-              <AvatarFallback className="text-4xl bg-muted text-muted-foreground font-black">TC</AvatarFallback>
+              <AvatarImage src={user?.profilePicUrl || "/placeholder-avatar.jpg"} alt={user?.username || "Profile"} />
+              <AvatarFallback className="text-4xl bg-muted text-muted-foreground font-black">
+                {user?.username?.substring(0, 2).toUpperCase() || "TC"}
+              </AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-3">
               <div className="flex flex-col md:flex-row items-center gap-4">
-                <h3 className="text-4xl font-black text-foreground tracking-tight font-sans italic">TrainerCollector</h3>
-                <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-4 py-1 uppercase tracking-widest text-[10px]">Pro Member</Badge>
+                <h3 className="text-4xl font-black text-foreground tracking-tight font-sans italic">
+                  {user?.username || "Trainer Collector"}
+                </h3>
+                <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-4 py-1 uppercase tracking-widest text-[10px]">Elite Trainer</Badge>
               </div>
               <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs font-bold text-muted-foreground/80 font-sans uppercase tracking-[0.1em]">
                 <span className="flex items-center gap-2 bg-secondary/80 px-4 py-1.5 rounded-full border border-border/50 shadow-sm">
                   <Calendar className="h-3.5 w-3.5 text-primary" />
-                  Since Jan 2022
+                  Collector since 2026
                 </span>
                 <span className="flex items-center gap-2 bg-secondary/80 px-4 py-1.5 rounded-full border border-border/50 shadow-sm">
                   <Users className="h-3.5 w-3.5 text-primary" />
-                  24 Friends
+                  Global Collector
                 </span>
               </div>
             </div>
