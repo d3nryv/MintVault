@@ -11,6 +11,12 @@ export class PostgresCardRepository implements CardRepository {
         return rows.map(row => CardMapper.toEntity(row));
     }
 
+    async findByName(name: string): Promise<CardEntity[]> {
+        const query = 'SELECT * FROM cards WHERE name ILIKE $1';
+        const { rows } = await db.query(query, [`%${name}%`]);
+        return rows.map(row => CardMapper.toEntity(row));
+    }
+
     async findById(id: string): Promise<CardEntity | null> {
         const query = 'SELECT * FROM cards WHERE id = $1';
         const { rows } = await db.query(query, [id]);
