@@ -8,7 +8,8 @@ import {
   CreateCardUseCase,
   UpdateCardUseCase,
   DeleteCardUseCase,
-  GetCardMarketValueUseCase
+  GetCardMarketValueUseCase,
+  GetCardsByNameUseCase
 } from '../../../application/use-cases';
 
 export class CardController {
@@ -31,6 +32,16 @@ export class CardController {
     try {
       const card = await new GetCardByIdUseCase(this.cardRepository, this.tcgRepository).execute(String(req.params['id']));
       res.json(card);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  getByName = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const name = String(req.query.name || req.params.name || '');
+      const cards = await new GetCardsByNameUseCase(this.tcgRepository).execute(name);
+      res.json(cards);
     } catch (err) {
       next(err);
     }
