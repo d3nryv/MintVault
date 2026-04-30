@@ -7,6 +7,7 @@ import { pageRouter } from './infrastructure/web/routes/page.routes';
 import { saleRouter } from './infrastructure/web/routes/sale.routes';
 import { transactionRouter } from './infrastructure/web/routes/transaction.routes';
 import { pokedexRouter } from './infrastructure/web/routes/pokemon.routes';
+import { tcgSetRouter } from './infrastructure/web/routes/tcg-set.routes';
 import { errorMiddleware } from './infrastructure/web/middlewares/error.middleware';
 
 export class App {
@@ -34,6 +35,7 @@ export class App {
     this.app.use('/api/sales', saleRouter);
     this.app.use('/api/transactions', transactionRouter);
     this.app.use('/api/pokedex', pokedexRouter);
+    this.app.use('/api/sets', tcgSetRouter);
 
     this.app.get('/health', (_req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });

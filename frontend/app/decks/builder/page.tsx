@@ -14,171 +14,6 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 
-// --- Official Set Abbreviations & Order ---
-const SET_ABBREVIATIONS: Record<string, string> = {
-  "Perfect Order": "POR",
-  "Ascended Heroes": "ASC",
-  "Mega Evolution": "MEG",
-  "Black Bolt": "BLK",
-  "White Flare": "WHT",
-  "Destined Rivals": "DRI",
-  "Journey Together": "JTG",
-  "Prismatic Evolutions": "PRE",
-  "Surging Sparks": "SSP",
-  "Stellar Crown": "SCR",
-  "Shrouded Fable": "SFA",
-  "Twilight Masquerade": "TWM",
-  "Temporal Forces": "TEF",
-  "Paldean Fates": "PAF",
-  "Paradox Rift": "PAR",
-  "151": "MEW",
-  "Obsidian Flames": "OBF",
-  "Paldea Evolved": "PAL",
-  "Scarlet & Violet": "SVI",
-  "Scarlet & Violet Energies": "SVE",
-  "Crown Zenith": "CRZ",
-  "Silver Tempest": "SIT",
-  "Lost Origin": "LOR",
-  "Pokémon GO": "PGO",
-  "Astral Radiance": "ASR",
-  "Brilliant Stars": "BRS",
-  "Fusion Strike": "FST",
-  "Celebrations": "CEL",
-  "Evolving Skies": "EVS",
-  "Chilling Reign": "CRE",
-  "Battle Styles": "BST",
-  "Shining Fates": "SHF",
-  "Vivid Voltage": "VIV",
-  "Champion's Path": "CPA",
-  "Darkness Ablaze": "DAA",
-  "Rebel Clash": "RCL",
-  "Sword & Shield": "SSH",
-  "Cosmic Eclipse": "CEC",
-  "Hidden Fates": "HIF",
-  "Unified Minds": "UNM",
-  "Unbroken Bonds": "UNB",
-  "Detective Pikachu": "DET",
-  "Team Up": "TEU",
-  "Lost Thunder": "LOT",
-  "Dragon Majesty": "DRM",
-  "Celestial Storm": "CES",
-  "Forbidden Light": "FLI",
-  "Ultra Prism": "UPR",
-  "Crimson Invasion": "CIN",
-  "Shining Legends": "SLG",
-  "Burning Shadows": "BUS",
-  "Guardians Rising": "GRI",
-  "Sun & Moon": "SUM",
-  "Evolutions": "EVO",
-  "Steam Siege": "STS",
-  "Fates Collide": "FCO",
-  "Generations": "GEN",
-  "BREAKpoint": "BKP",
-  "BREAKthrough": "BKT",
-  "Ancient Origins": "AOR",
-  "Roaring Skies": "ROS",
-  "Double Crisis": "DCR",
-  "Primal Clash": "PRC",
-  "Phantom Forces": "PHF",
-  "Furious Fists": "FFI",
-  "Flashfire": "FLF",
-  "XY": "XY",
-  "Kalos Starter Set": "KSS",
-  "Legendary Treasures": "LTR",
-  "Plasma Blast": "PLB",
-  "Plasma Freeze": "PLF",
-  "Plasma Storm": "PLS",
-  "Boundaries Crossed": "BCR",
-  "Dragon Vault": "DRV",
-  "Dragons Exalted": "DRX",
-  "Dark Explorers": "DEX",
-  "Next Destinies": "NXD",
-  "Noble Victories": "NVI",
-  "Emerging Powers": "EPO",
-  "Black & White": "BLW",
-  "Call of Legends": "CL",
-  "Triumphant": "TM",
-  "Undaunted": "UD",
-  "Unleashed": "UL",
-  "HeartGold & SoulSilver": "HS",
-  "Arceus": "AR",
-  "Supreme Victors": "SV",
-  "Rising Rivals": "RR",
-  "Platinum": "PL",
-  "Stormfront": "SF",
-  "Legends Awakened": "LA",
-  "Majestic Dawn": "MD",
-  "Great Encounters": "GE",
-  "Secret Wonders": "SW",
-  "Mysterious Treasures": "MT",
-  "Diamond & Pearl": "DP",
-  "EX Power Keepers": "PK",
-  "EX Dragon Frontiers": "DF",
-  "EX Crystal Guardians": "CG",
-  "EX Holon Phantoms": "HP",
-  "EX Legend Maker": "LM",
-  "EX Delta Species": "DS",
-  "EX Unseen Forces": "UF",
-  "EX Emerald": "EM",
-  "EX Deoxys": "DX",
-  "EX Team Rocket Returns": "TRR",
-  "EX FireRed & LeafGreen": "RG",
-  "EX Hidden Legends": "HL",
-  "EX Team Magma vs Team Aqua": "MA",
-  "EX Dragon": "DR",
-  "EX Sandstorm": "SS",
-  "EX Ruby & Sapphire": "RS",
-  "Skyridge": "SK",
-  "Aquapolis": "AQ",
-  "Expedition Base Set": "EX",
-  "Legendary Collection": "LC",
-  "Neo Destiny": "N4",
-  "Neo Revelation": "N3",
-  "Neo Discovery": "N2",
-  "Southern Islands": "SI",
-  "Neo Genesis": "N1",
-  "Gym Challenge": "G2",
-  "Gym Heroes": "G1",
-  "Team Rocket": "TR",
-  "Base Set 2": "B2",
-  "Fossil": "FO",
-  "Jungle": "JU",
-  "Base Set": "BS",
-  "Pokémon TCG Classic": "MEE",
-  "2022 McDonald's Collection": "MCD",
-  "2021 McDonald's Collection": "MCD",
-  "2019 McDonald's Collection": "MCD",
-  "2018 McDonald's Collection": "MCD",
-  "2017 McDonald's Collection": "MCD",
-  "2016 McDonald's Collection": "MCD",
-  "2015 McDonald's Collection": "MCD",
-  "2014 McDonald's Collection": "MCD",
-  "2013 McDonald's Collection": "MCD",
-  "2012 McDonald's Collection": "MCD",
-  "2011 McDonald's Collection": "MCD",
-}
-
-const SET_PRIORITY = Object.keys(SET_ABBREVIATIONS)
-
-interface TCGCard {
-  id: string
-  name: string
-  supertype: string
-  subtypes: string[]
-  types?: string[]
-  attacks?: Array<{ name: string; text: string; damage: string; cost: string[] }>
-  abilities?: Array<{ name: string; text: string; type: string }>
-  images: { small: string; large: string }
-  set: { id: string; name: string; series: string; releaseDate: string }
-  number: string
-  text?: string[]
-}
-
-interface DeckItem {
-  card: TCGCard
-  count: number
-}
-
 export default function DeckBuilderPage() {
   const [deckName, setDeckName] = useState("New Deck")
   const [searchQuery, setSearchQuery] = useState("")
@@ -190,12 +25,44 @@ export default function DeckBuilderPage() {
   const [isLoadingReprints, setIsLoadingReprints] = useState(false)
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
   
+  // Set abbreviations state
+  const [setAbbreviations, setSetAbbreviations] = useState<Record<string, string>>({})
+  const setPriority = useMemo(() => Object.keys(setAbbreviations), [setAbbreviations])
+
   // Import state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [importText, setImportText] = useState("")
   const [isImporting, setIsImporting] = useState(false)
   
   const router = useRouter()
+
+  // Fetch sets from DB
+  useEffect(() => {
+    const fetchSets = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:3000/api/sets')
+        
+        // Validation to avoid HTML-instead-of-JSON errors
+        const contentType = response.headers.get("content-type")
+        if (!response.ok || !contentType || !contentType.includes("application/json")) {
+          throw new Error(`Invalid response from server: ${response.status} ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        if (Array.isArray(data)) {
+          const mapping: Record<string, string> = {}
+          data.forEach((s: any) => {
+            mapping[s.name] = s.abbreviation
+          })
+          setSetAbbreviations(mapping)
+        }
+      } catch (error) {
+        console.error("Error fetching sets:", error)
+        showNotification("Error loading set data. Please check backend.", "error")
+      }
+    }
+    fetchSets()
+  }, [])
 
   const totalCards = useMemo(() => deck.reduce((acc, item) => acc + item.count, 0), [deck])
   const pokemonCount = useMemo(() => deck.filter(i => i.card.supertype === 'Pokémon').reduce((acc, i) => acc + i.count, 0), [deck])
@@ -208,7 +75,7 @@ export default function DeckBuilderPage() {
   }
 
   const getSetCode = (setName: string) => {
-    if (SET_ABBREVIATIONS[setName]) return SET_ABBREVIATIONS[setName]
+    if (setAbbreviations[setName]) return setAbbreviations[setName]
     if (setName.includes("McDonald's")) return "MCD"
     const parts = setName.split(/\s+/).filter(p => p.toLowerCase() !== '&' && p.toLowerCase() !== '—')
     if (parts.length >= 2) return (parts[0][0] + parts[1].substring(0, 2)).toUpperCase()
@@ -233,8 +100,8 @@ export default function DeckBuilderPage() {
         const data = await response.json()
         if (Array.isArray(data)) {
           const sorted = [...data].sort((a, b) => {
-            const indexA = SET_PRIORITY.indexOf(a.set?.name)
-            const indexB = SET_PRIORITY.indexOf(b.set?.name)
+            const indexA = setPriority.indexOf(a.set?.name)
+            const indexB = setPriority.indexOf(b.set?.name)
             if (indexA !== -1 && indexB !== -1) return indexA - indexB
             if (indexA !== -1) return -1
             if (indexB !== -1) return 1
@@ -251,7 +118,7 @@ export default function DeckBuilderPage() {
       }
     }, 500)
     return () => clearTimeout(delayDebounce)
-  }, [searchQuery])
+  }, [searchQuery, setPriority])
 
   const normalize = (name: string) => name.split('(')[0].replace(/['’]/g, '').trim().toLowerCase()
 
@@ -266,6 +133,8 @@ export default function DeckBuilderPage() {
       '{P}': 'Psychic', '{F}': 'Fighting', '{D}': 'Darkness', '{M}': 'Metal',
       '{Y}': 'Fairy', '{C}': 'Colorless'
     }
+
+    const missingCards: string[] = []
 
     for (const line of lines) {
       const parts = line.split(/\s+/).filter(p => p.length > 0)
@@ -298,7 +167,10 @@ export default function DeckBuilderPage() {
           
           await new Promise(r => setTimeout(r, 50))
           const response = await fetch(apiUrl)
-          if (!response.ok) continue
+          if (!response.ok) {
+            missingCards.push(fullName)
+            continue
+          }
           
           const data = await response.json()
           
@@ -320,7 +192,6 @@ export default function DeckBuilderPage() {
               if (isBasicEnergy) {
                 found = data.find(c => c.set.name === 'Scarlet & Violet Energies') || data[0]
               } else if (isEnergy && !fullName.toLowerCase().includes("switch") && !fullName.toLowerCase().includes("retrieval")) {
-                // Only fallback if it's likely a real energy card, not a trainer like Energy Switch or Energy Retrieval
                 found = data[0]
               }
             }
@@ -328,10 +199,15 @@ export default function DeckBuilderPage() {
             if (found) {
               setSelectedCard(found)
               newDeck.push({ card: found, count })
+            } else {
+              missingCards.push(fullName)
             }
+          } else {
+            missingCards.push(fullName)
           }
         } catch (error) {
           console.error(`Skipping card due to error:`, error)
+          missingCards.push(fullName)
           continue
         }
       }
@@ -339,11 +215,15 @@ export default function DeckBuilderPage() {
 
     if (newDeck.length > 0) {
       setDeck(newDeck)
-      showNotification(`Imported ${newDeck.reduce((acc, i) => acc + i.count, 0)} cards!`)
-      setIsImportModalOpen(false) // Close only at the end
+      if (missingCards.length > 0) {
+        showNotification(`Imported partially. Could not find: ${missingCards.join(", ")}`, "error")
+      } else {
+        showNotification(`Imported ${newDeck.reduce((acc, i) => acc + i.count, 0)} cards!`)
+      }
+      setIsImportModalOpen(false)
       setImportText("")
     } else {
-      showNotification("No valid cards found in list", "error")
+      showNotification(`No cards found. Failed: ${missingCards.join(", ")}`, "error")
     }
     setIsImporting(false)
   }
