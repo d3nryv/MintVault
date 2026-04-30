@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, Swords, FolderOpen, Plus, Edit, Trash2, Download, Calendar, MapPin, Users } from "lucide-react"
+import { useAuth } from "@/context/auth-context"
 
 const metaDecks = [
   { name: "Charizard ex Control", tier: "S", winRate: "62%", popularity: "High" },
@@ -38,6 +39,7 @@ const yourDecks = [
 export default function GameplayPage() {
   const [activeTab, setActiveTab] = useState("meta")
   const [tournamentTab, setTournamentTab] = useState("upcoming")
+  const { user } = useAuth()
 
   const getTierColor = (tier: string) => {
     switch (tier) {
@@ -63,7 +65,7 @@ export default function GameplayPage() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-8 grid w-full max-w-md grid-cols-3">
+            <TabsList className={`mb-8 grid w-full max-w-md ${user ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="meta" className="gap-2">
                 <Trophy className="h-4 w-4" />
                 <span className="hidden sm:inline">Meta Decks</span>
@@ -72,10 +74,12 @@ export default function GameplayPage() {
                 <Swords className="h-4 w-4" />
                 <span className="hidden sm:inline">Tournaments</span>
               </TabsTrigger>
-              <TabsTrigger value="decks" className="gap-2">
-                <FolderOpen className="h-4 w-4" />
-                <span className="hidden sm:inline">Your Decks</span>
-              </TabsTrigger>
+              {user && (
+                <TabsTrigger value="decks" className="gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  <span className="hidden sm:inline">Your Decks</span>
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="meta">
@@ -197,50 +201,61 @@ export default function GameplayPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="decks">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FolderOpen className="h-5 w-5" />
-                    Your Decks
-                  </CardTitle>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    New Deck
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {yourDecks.map((deck, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between rounded-lg border border-border bg-card p-4"
-                      >
-                        <div className="space-y-1">
-                          <h4 className="font-medium">{deck.name}</h4>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <Badge variant="outline">{deck.format}</Badge>
-                            <span>{deck.cards} cards</span>
-                            <span>Last edited: {deck.lastEdited}</span>
+            {user ? (
+              <TabsContent value="decks">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <FolderOpen className="h-5 w-5" />
+                      Your Decks
+                    </CardTitle>
+                    <Button className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      New Deck
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {yourDecks.map((deck, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between rounded-lg border border-border bg-card p-4"
+                        >
+                          <div className="space-y-1">
+                            <h4 className="font-medium">{deck.name}</h4>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <Badge variant="outline">{deck.format}</Badge>
+                              <span>{deck.cards} cards</span>
+                              <span>Last edited: {deck.lastEdited}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="icon">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            ) : (
+              <TabsContent value="decks">
+                <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl">
+                  <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-bold">Inicia sesión para crear tus mazos</h3>
+                  <p className="text-muted-foreground mb-6">Debes estar conectado para guardar y gestionar tus barajas personalizadas.</p>
+                  <Button onClick={() => setActiveTab("meta")}>Ver Meta Decks</Button>
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         </div>
       </main>
