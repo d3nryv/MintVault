@@ -224,7 +224,12 @@ export default function DeckBuilderPage() {
       }
       setIsSearching(true)
       try {
-        const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchQuery)}`)
+        let finalQuery = searchQuery.trim()
+        if (finalQuery.includes(' ') && !finalQuery.startsWith('"')) {
+          finalQuery = `"${finalQuery}"`
+        }
+
+        const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(finalQuery)}`)
         const data = await response.json()
         if (Array.isArray(data)) {
           const sorted = [...data].sort((a, b) => {
@@ -247,6 +252,8 @@ export default function DeckBuilderPage() {
     }, 500)
     return () => clearTimeout(delayDebounce)
   }, [searchQuery])
+
+  const normalize = (name: string) => name.split('(')[0].replace(/['’]/g, '').trim().toLowerCase()
 
   const handleImport = async () => {
     if (!importText.trim()) return
@@ -277,14 +284,13 @@ export default function DeckBuilderPage() {
 
         const isEnergy = fullName.toLowerCase().includes("energy")
         const isBasicEnergy = isEnergy && fullName.toLowerCase().includes("basic")
-        const firstWord = parts[1].split(/['’]/)[0].trim()
         
-        let searchTerm = firstWord
+        // Exact match with quotes for everything
+        let searchTerm = `\"${fullName}\"`
+        
         if (isBasicEnergy) {
           const type = fullName.toLowerCase().replace(/basic/g, '').replace(/energy/g, '').trim()
           searchTerm = `\"basic ${type} energy\"`
-        } else if (isEnergy) {
-          searchTerm = `\"${fullName.toLowerCase()}\"`
         }
 
         try {
@@ -292,22 +298,31 @@ export default function DeckBuilderPage() {
           
           await new Promise(r => setTimeout(r, 50))
           const response = await fetch(apiUrl)
-          if (!response.ok) continue // Skip if API fails
+          if (!response.ok) continue
           
           const data = await response.json()
           
           if (Array.isArray(data) && data.length > 0) {
             let found = null
-            if (isBasicEnergy) {
-              found = data.find(c => c.set.name === 'Scarlet & Violet Energies') || data[0]
-            } else if (isEnergy) {
-              found = data[0]
-            } else {
-              found = data.find(c => {
-                const cSetCode = getSetCode(c.set.name)
-                const cNumber = c.id.includes('-') ? c.id.split('-')[1] : c.number
-                return cSetCode === setCode && cNumber === number
-              })
+            
+            // 1. Try strict match first for EVERYTHING (including Energy Switch)
+            const targetName = normalize(fullName)
+            found = data.find(c => {
+              const cSetCode = getSetCode(c.set.name)
+              const cNumber = c.id.includes('-') ? c.id.split('-')[1] : c.number
+              return normalize(c.name) === targetName && 
+                     cSetCode.toLowerCase() === setCode.toLowerCase() && 
+                     cNumber === number
+            })
+
+            // 2. Fallback logic only for Basic Energies or if no strict match found
+            if (!found) {
+              if (isBasicEnergy) {
+                found = data.find(c => c.set.name === 'Scarlet & Violet Energies') || data[0]
+              } else if (isEnergy && !fullName.toLowerCase().includes("switch") && !fullName.toLowerCase().includes("retrieval")) {
+                // Only fallback if it's likely a real energy card, not a trainer like Energy Switch or Energy Retrieval
+                found = data[0]
+              }
             }
             
             if (found) {
@@ -340,16 +355,11 @@ export default function DeckBuilderPage() {
     const normalize = (name: string) => name.split('(')[0].replace(/['’]/g, '').trim().toLowerCase()
     
     try {
-      const nameParts = card.name.split(/\s+/)
-      let searchBase = nameParts[0].split(/['’]/)[0].trim()
-      
-      // If the first word is very common, add the second word for precision
-      const commonPrefixes = ['team', 'dark', 'rocket', 'light', 'shining', 'm']
-      if (commonPrefixes.includes(searchBase.toLowerCase()) && nameParts.length > 1) {
-        searchBase += ' ' + nameParts[1].split(/['’]/)[0].trim()
-      }
+      // Use clean full name with quotes for exact matching
+      const cleanName = card.name.split('(')[0].trim()
+      const searchTerm = `\"${cleanName}\"`
 
-      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchBase)}`)
+      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`)
       const data = await response.json()
       
       if (Array.isArray(data)) {
