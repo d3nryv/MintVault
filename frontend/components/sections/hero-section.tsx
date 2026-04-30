@@ -27,16 +27,12 @@ export function HeroSection() {
         
         {/* CTAs */}
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button size="lg" className="gap-2 px-8 py-6 text-base shadow-xl shadow-primary/20 hover:scale-105 transition-all" asChild>
-            <Link href="/collection">
-              Start Collecting
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+          <Button size="lg" className="gap-2 px-8 py-6 text-base">
+            Start Collecting
+            <ArrowRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="lg" className="px-8 py-6 text-base hover:bg-secondary transition-all" asChild>
-            <Link href="/login">
-              Explore Sets
-            </Link>
+          <Button variant="outline" size="lg" className="px-8 py-6 text-base">
+            Explore Sets
           </Button>
         </div>
         
