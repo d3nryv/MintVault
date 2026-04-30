@@ -89,44 +89,57 @@ export function Header() {
             <span className="sr-only">Toggle theme</span>
           </Button>
 
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  {user.profilePicUrl ? (
-                    <img src={user.profilePicUrl} alt={user.username} className="h-8 w-8 rounded-full object-cover" />
-                  ) : (
-                    <User className="h-5 w-5" />
-                  )}
+          {mounted && (
+            user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-secondary transition-all">
+                    {user.profilePicUrl ? (
+                      <img src={user.profilePicUrl} alt={user.username} className="h-8 w-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 backdrop-blur-xl bg-background/80 border-border/50">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-bold leading-none">{user.username}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-border/50" />
+                  <DropdownMenuItem onClick={() => router.push("/profile")} className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-border/50" />
+                  <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => router.push("/login")}
+                  className="hidden sm:flex font-semibold hover:bg-secondary"
+                >
+                  Sign In
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.username}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/profile")}>
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <>
-              <Button variant="ghost" size="icon" onClick={() => router.push("/login")}>
-                <User className="h-5 w-5" />
-                <span className="sr-only">Login</span>
-              </Button>
-              <Button onClick={() => router.push("/login")}>Sign In</Button>
-            </>
+                <Button 
+                  onClick={() => router.push("/register")}
+                  className="shadow-lg shadow-primary/20 font-bold px-6"
+                >
+                  Sign Up
+                </Button>
+              </div>
+            )
           )}
         </div>
       </nav>
@@ -162,13 +175,18 @@ export function Header() {
                 )}
                 {mounted ? (theme === "dark" ? "Light Mode" : "Dark Mode") : "Mode"}
               </Button>
-              {user ? (
-                <Button variant="destructive" className="w-full justify-start" onClick={logout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout ({user.username})
-                </Button>
-              ) : (
-                <Button className="w-full" onClick={() => router.push("/login")}>Sign In</Button>
+              {mounted && (
+                user ? (
+                  <Button variant="destructive" className="w-full justify-start" onClick={logout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout ({user.username})
+                  </Button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Button className="w-full" onClick={() => router.push("/login")}>Sign In</Button>
+                    <Button variant="outline" className="w-full" onClick={() => router.push("/register")}>Sign Up</Button>
+                  </div>
+                )
               )}
             </div>
           </div>

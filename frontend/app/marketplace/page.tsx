@@ -1244,25 +1244,25 @@ export default function MarketplacePage() {
                 <TabsContent value="sell">
                   <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl">
                     <Tag className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-bold">Inicia sesión para vender</h3>
-                    <p className="text-muted-foreground mb-6">Debes estar conectado para crear anuncios y gestionar tus ventas.</p>
-                    <Button onClick={() => setActiveTab("buy")}>Ir a Comprar</Button>
+                    <h3 className="text-xl font-bold">Sign in to sell cards</h3>
+                    <p className="text-muted-foreground mb-6">You must be logged in to create listings and manage your sales.</p>
+                    <Button onClick={() => setActiveTab("buy")}>Go to Buy</Button>
                   </div>
                 </TabsContent>
                 <TabsContent value="wants">
                   <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl">
                     <Heart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-bold">Inicia sesión para ver tu lista de deseos</h3>
-                    <p className="text-muted-foreground mb-6">Guarda las cartas que quieres para seguir su precio y disponibilidad.</p>
-                    <Button onClick={() => setActiveTab("buy")}>Explorar Cartas</Button>
+                    <h3 className="text-xl font-bold">Sign in to view your wants list</h3>
+                    <p className="text-muted-foreground mb-6">Save the cards you want to track their price and availability.</p>
+                    <Button onClick={() => setActiveTab("buy")}>Explore Cards</Button>
                   </div>
                 </TabsContent>
                 <TabsContent value="cart">
                   <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl">
                     <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-bold">Tu carrito está esperando</h3>
-                    <p className="text-muted-foreground mb-6">Inicia sesión para añadir cartas a tu carrito y completar tu pedido.</p>
-                    <Button onClick={() => setActiveTab("buy")}>Empezar a Comprar</Button>
+                    <h3 className="text-xl font-bold">Your cart is waiting</h3>
+                    <p className="text-muted-foreground mb-6">Sign in to add cards to your cart and complete your order.</p>
+                    <Button onClick={() => setActiveTab("buy")}>Start Shopping</Button>
                   </div>
                 </TabsContent>
               </>

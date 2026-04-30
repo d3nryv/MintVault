@@ -250,9 +250,9 @@ export default function GameplayPage() {
               <TabsContent value="decks">
                 <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl">
                   <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-bold">Inicia sesión para crear tus mazos</h3>
-                  <p className="text-muted-foreground mb-6">Debes estar conectado para guardar y gestionar tus barajas personalizadas.</p>
-                  <Button onClick={() => setActiveTab("meta")}>Ver Meta Decks</Button>
+                  <h3 className="text-xl font-bold">Sign in to create your decks</h3>
+                  <p className="text-muted-foreground mb-6">You must be logged in to save and manage your custom decks.</p>
+                  <Button onClick={() => setActiveTab("meta")}>View Meta Decks</Button>
                 </div>
               </TabsContent>
             )}
