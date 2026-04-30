@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -27,6 +28,7 @@ interface PokemonInfo {
 }
 
 export function PokedexSection() {
+  const router = useRouter()
   const [selectedGen, setSelectedGen] = useState(1)
   const [searchQuery, setSearchQuery] = useState("")
   const [allPokemon, setAllPokemon] = useState<PokemonInfo[]>([])
@@ -125,7 +127,7 @@ export function PokedexSection() {
             <Card 
               key={p.id} 
               className="group cursor-pointer hover:shadow-[0_0_40px_-10px_rgba(var(--primary-rgb),0.3)] transition-all duration-500 hover:-translate-y-3 bg-card border-border/50 rounded-3xl overflow-hidden"
-              onClick={() => console.log(`Clicked ${p.name}`)}
+              onClick={() => router.push(`/pokemon/${encodeURIComponent(p.name)}`)}
             >
               <CardContent className="p-2 pt-4 flex flex-col items-center text-center">
                 <div className="relative aspect-square w-full mb-3 flex items-center justify-center overflow-visible">
