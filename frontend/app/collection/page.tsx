@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { SetsSection } from "@/components/sections/sets-section"
@@ -9,9 +10,51 @@ import { ProfileSection } from "@/components/sections/profile-section"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Layers, BookOpen, User } from "lucide-react"
 
-export default function CollectionPage() {
-  const [activeTab, setActiveTab] = useState("sets")
+function CollectionTabs() {
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get("tab") || "sets"
+  const [activeTab, setActiveTab] = useState(initialTab)
 
+  useEffect(() => {
+    const tab = searchParams.get("tab")
+    if (tab) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
+
+  return (
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <TabsList className="mb-8 grid w-full max-w-md grid-cols-3">
+        <TabsTrigger value="sets" className="gap-2">
+          <Layers className="h-4 w-4" />
+          <span className="hidden sm:inline">Sets</span>
+        </TabsTrigger>
+        <TabsTrigger value="pokedex" className="gap-2">
+          <BookOpen className="h-4 w-4" />
+          <span className="hidden sm:inline">Pokédex</span>
+        </TabsTrigger>
+        <TabsTrigger value="profile" className="gap-2">
+          <User className="h-4 w-4" />
+          <span className="hidden sm:inline">Profile</span>
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="sets">
+        <SetsSection />
+      </TabsContent>
+
+      <TabsContent value="pokedex">
+        <PokedexSection />
+      </TabsContent>
+
+      <TabsContent value="profile">
+        <ProfileSection />
+      </TabsContent>
+    </Tabs>
+  )
+}
+
+export default function CollectionPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -26,34 +69,9 @@ export default function CollectionPage() {
             </p>
           </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-8 grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="sets" className="gap-2">
-                <Layers className="h-4 w-4" />
-                <span className="hidden sm:inline">Sets</span>
-              </TabsTrigger>
-              <TabsTrigger value="pokedex" className="gap-2">
-                <BookOpen className="h-4 w-4" />
-                <span className="hidden sm:inline">Pokédex</span>
-              </TabsTrigger>
-              <TabsTrigger value="profile" className="gap-2">
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Profile</span>
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="sets">
-              <SetsSection />
-            </TabsContent>
-
-            <TabsContent value="pokedex">
-              <PokedexSection />
-            </TabsContent>
-
-            <TabsContent value="profile">
-              <ProfileSection />
-            </TabsContent>
-          </Tabs>
+          <Suspense fallback={<div className="h-96 flex items-center justify-center">Loading...</div>}>
+            <CollectionTabs />
+          </Suspense>
         </div>
       </main>
       <Footer />

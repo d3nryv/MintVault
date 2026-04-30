@@ -40,7 +40,7 @@ export class TcgSdkRepository implements TcgRepository {
         try {
             const query = `name:${name.trim()}`;
             console.log(`[DEBUG] Buscando en API con query: ${query}`);
-            const cards = await PokemonTCG.findCardsByQueries({ q: query });
+            const cards = await PokemonTCG.findCardsByQueries({ q: query, orderBy: 'set.releaseDate' });
             if (!cards) return [];
 
             return cards.map(card => ({
