@@ -13,14 +13,16 @@ import { useRouter } from "next/navigation"
 
 const BASE_URL = "https://play.limitlesstcg.com/api"
 
-// --- Meta Decks (Static) ---
-const metaDecks = [
-  { name: "Charizard ex Control", tier: "S", winRate: "62%", popularity: "High" },
-  { name: "Gardevoir ex", tier: "S", winRate: "58%", popularity: "High" },
-  { name: "Lugia VSTAR", tier: "A", winRate: "54%", popularity: "Medium" },
-  { name: "Miraidon ex", tier: "A", winRate: "52%", popularity: "Medium" },
-  { name: "Lost Box", tier: "B", winRate: "48%", popularity: "Low" },
-]
+// We'll use a dynamic state for meta decks now.
+export interface MetaDeck {
+  id: string;
+  name: string;
+  tier: string;
+  winRate: string;
+  popularity: string;
+  decklistUrl?: string;
+  exportList?: string;
+}
 
 // --- Your Decks (Static) ---
 const yourDecks = [
@@ -34,6 +36,10 @@ export default function GameplayPage() {
   const { user } = useAuth()
   const router = useRouter()
 
+  const [metaDecks, setMetaDecks] = useState<MetaDeck[]>([])
+  const [isScraping, setIsScraping] = useState(false)
+  const [scrapeProgress, setScrapeProgress] = useState("")
+
   const [tournaments, setTournaments] = useState<any[]>([])
   const [selectedTournament, setSelectedTournament] = useState<any | null>(null)
   const [standings, setStandings] = useState<any[]>([])
@@ -42,6 +48,156 @@ export default function GameplayPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [page, setPage] = useState(1)
+
+  // --- Limitless Scraper Logic ---
+  const scrapeLimitless = async () => {
+    setIsScraping(true)
+    setScrapeProgress("Fetching top decks...")
+    try {
+      const fetchHtml = async (url: string) => {
+        const proxies = [
+          "https://api.allorigins.win/raw?url=",
+          "https://api.allorigins.win/get?url=",
+          "https://r.jina.ai/https://"
+        ];
+        
+        for (const proxyBase of proxies) {
+          try {
+            const isJsonProxy = proxyBase.includes('/get?url=');
+            const isJina = proxyBase.includes('jina.ai');
+            
+            const targetUrl = isJina 
+              ? `${proxyBase}${url.replace(/^https?:\/\//, '')}` 
+              : `${proxyBase}${encodeURIComponent(url)}`;
+                
+            const res = await fetch(targetUrl);
+            if (!res.ok) {
+              console.warn(`Proxy failed: ${proxyBase} (Status: ${res.status})`);
+              continue;
+            }
+            
+            let htmlText = "";
+            if (isJsonProxy) {
+               const data = await res.json();
+               if (!data || !data.contents) continue;
+               htmlText = data.contents;
+            } else {
+               htmlText = await res.text();
+            }
+            
+            const parser = new DOMParser();
+            return parser.parseFromString(htmlText, "text/html");
+          } catch (e) {
+            console.warn(`Network error with proxy ${proxyBase}:`, e);
+            continue;
+          }
+        }
+        
+        console.error('All proxies failed for URL:', url);
+        return null;
+      }
+
+
+      // 1. Get Top 10 Decks
+      const docDecks = await fetchHtml("https://limitlesstcg.com/decks")
+      if (!docDecks) {
+  console.error('Failed to fetch deck list')
+  setScrapeProgress('Error fetching decks')
+  setIsScraping(false)
+  return
+}
+const rows = Array.from(docDecks.querySelectorAll("table.data-table.striped tbody tr")).slice(1, 11) // Skip header, get 10
+
+      const scrapedDecks: MetaDeck[] = []
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i]
+        const nameNode = row.querySelector("td:nth-child(3) a")
+        const shareNode = row.querySelector("td:nth-child(5)")
+        const pointsNode = row.querySelector("td:nth-child(4)")
+        
+        if (!nameNode) continue
+
+        const name = nameNode.textContent?.trim() || "Unknown"
+        const deckPath = nameNode.getAttribute("href")
+        const popularity = shareNode?.textContent?.trim() || ""
+        const winRate = pointsNode?.textContent?.trim() + " pts" || "" // Limitless shows points, we'll map it to winRate display
+        
+        // Tier approximation based on rank
+        let tier = "B"
+        if (i < 2) tier = "S"
+        else if (i < 5) tier = "A"
+
+        setScrapeProgress(`Fetching data for ${name}...`)
+
+        let exportList = ""
+        let decklistUrl = ""
+
+        if (deckPath) {
+          // 2. Go to Archetype page to find latest list
+          const docArchetype = await fetchHtml(`https://limitlesstcg.com${deckPath}`)
+          if (!docArchetype) {
+            continue
+          }
+          const listLink = docArchetype.querySelector('a[href^="/decks/list/"]')
+          const listPath = listLink?.getAttribute("href")
+
+          if (listPath) {
+            decklistUrl = `https://limitlesstcg.com${listPath}`
+            // 3. Go to List page and extract cards
+            const docList = await fetchHtml(decklistUrl)
+            if (!docList) {
+              console.error('Failed to fetch deck list page', decklistUrl)
+              continue
+            }
+            const cards = Array.from(docList.querySelectorAll('.decklist-card'))
+            
+            const lines = cards.map(card => {
+              const count = card.querySelector('.card-count')?.textContent?.trim() || ""
+              const cardName = card.querySelector('.card-name')?.textContent?.trim() || ""
+              const set = card.getAttribute('data-set') || ""
+              const number = card.getAttribute('data-number') || ""
+              const isBasicEnergy = card.getAttribute('data-basic-energy')
+              
+              if (isBasicEnergy) {
+                // Formatting basic energy for PTCG Live usually uses name + Basic Energy
+                return `${count} ${cardName}`
+              }
+              return `${count} ${cardName} ${set} ${number}`
+            })
+            
+            exportList = lines.join('\n')
+          }
+        }
+
+        scrapedDecks.push({
+          id: `deck-${i}`,
+          name,
+          tier,
+          winRate,
+          popularity,
+          decklistUrl,
+          exportList
+        })
+      }
+
+      setMetaDecks(scrapedDecks)
+      setScrapeProgress("")
+    } catch (error) {
+      console.error("Scraping error:", error)
+      setScrapeProgress("Error fetching meta decks")
+      setTimeout(() => setScrapeProgress(""), 3000)
+    } finally {
+      setIsScraping(false)
+    }
+  }
+
+  useEffect(() => {
+    if (metaDecks.length === 0) {
+      scrapeLimitless()
+    }
+  }, [])
+
 
   const fetchTournaments = useCallback(async () => {
     setIsLoading(true)
@@ -128,21 +284,69 @@ export default function GameplayPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {metaDecks.map((deck, index) => (
-                      <div key={index} className="flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50">
-                        <div className="flex items-center gap-4">
-                          <Badge className={getTierColor(deck.tier)}>Tier {deck.tier}</Badge>
-                          <span className="font-bold">{deck.name}</span>
-                        </div>
-                        <div className="flex items-center gap-6 text-sm text-muted-foreground font-medium">
-                          <span>Win Rate: {deck.winRate}</span>
-                          <span>Popularity: {deck.popularity}</span>
-                          <Button variant="outline" size="sm" className="font-bold">View Deck</Button>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex justify-between items-center mb-4">
+                    <p className="text-sm text-muted-foreground">Top 10 decks pulled live from Limitless TCG</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={scrapeLimitless}
+                      disabled={isScraping}
+                    >
+                      {isScraping ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Refresh Data
+                    </Button>
                   </div>
+                  
+                  {isScraping ? (
+                    <div className="py-12 flex flex-col items-center justify-center space-y-4 opacity-70">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="font-bold italic text-sm">{scrapeProgress}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {metaDecks.map((deck) => (
+                        <div key={deck.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50 gap-4">
+                          <div className="flex items-center gap-4">
+                            <Badge className={getTierColor(deck.tier)}>Tier {deck.tier}</Badge>
+                            <span className="font-bold">{deck.name}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground font-medium">
+                            <span>Points: <span className="text-foreground">{deck.winRate}</span></span>
+                            <span>Share: <span className="text-foreground">{deck.popularity}</span></span>
+                            <div className="flex gap-2">
+                              {deck.decklistUrl && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="font-bold"
+                                  onClick={() => window.open(deck.decklistUrl, '_blank')}
+                                >
+                                  View Source
+                                </Button>
+                              )}
+                              {deck.exportList && (
+                                <Button 
+                                  size="sm" 
+                                  className="font-bold gap-2"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(deck.exportList || "")
+                                    alert("Decklist copied to clipboard!")
+                                  }}
+                                >
+                                  <Download className="h-4 w-4" /> Copy List
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {metaDecks.length === 0 && !isScraping && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          Failed to load meta decks.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
