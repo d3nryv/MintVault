@@ -26,6 +26,10 @@ INSERT INTO tcg_sets (name, abbreviation, era) VALUES
 ('Stellar Crown', 'SCR', 'Scarlet & Violet Era'),
 ('Prismatic Evolutions', 'PRE', 'Scarlet & Violet Era'),
 ('Surging Sparks', 'SSP', 'Scarlet & Violet Era'),
+('Journey Together', 'JTG', 'Scarlet & Violet Era'),
+('Destined Rivals', 'DRI', 'Scarlet & Violet Era'),
+('Black Bolt', 'BLK', 'Scarlet & Violet Era'),
+('White Flare', 'WHT', 'Scarlet & Violet Era'),
 ('Scarlet & Violet Black Star Promos', 'PR-SV', 'Scarlet & Violet Era'),
 ('Scarlet & Violet Energies', 'SVE', 'Scarlet & Violet Era'),
 -- Sword & Shield Era
