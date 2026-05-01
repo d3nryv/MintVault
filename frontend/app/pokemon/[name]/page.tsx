@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, AlertCircle, Flame, X } from "lucide-react"
+import { ArrowLeft, AlertCircle, Flame, X, Loader2 } from "lucide-react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 
@@ -385,6 +385,7 @@ export default function PokemonPage() {
   const [cardsLoading, setCardsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedCard, setSelectedCard] = useState<CardInfo | null>(null)
+  const [visibleCount, setVisibleCount] = useState(15)
 
   const fetchPokemon = useCallback(async () => {
     try {
@@ -425,8 +426,32 @@ export default function PokemonPage() {
     if (decodedName) {
       fetchPokemon()
       fetchCards()
+      setVisibleCount(15)
     }
   }, [decodedName, fetchPokemon, fetchCards])
+
+  const lazyCards = useMemo(() => {
+    return cards.slice(0, visibleCount)
+  }, [cards, visibleCount])
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (cardsLoading || lazyCards.length >= cards.length) return
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount(prev => prev + 10)
+        }
+      },
+      { threshold: 0.1, rootMargin: "300px" }
+    )
+
+    const target = document.querySelector("#pokemon-cards-load-trigger")
+    if (target) observer.observe(target)
+
+    return () => observer.disconnect()
+  }, [cardsLoading, lazyCards.length, cards.length])
 
   const pokemonImageUrl =
     pokemon?.sprites?.other?.["official-artwork"]?.front_default ||
@@ -573,7 +598,7 @@ export default function PokemonPage() {
               {(pokemon?.name || decodedName).charAt(0).toUpperCase() + (pokemon?.name || decodedName).slice(1)}&apos;s Cards
             </h2>
 
-            {cardsLoading ? (
+            {cardsLoading && cards.length === 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {Array.from({ length: 15 }).map((_, i) => (
                   <div key={i} className="space-y-3">
@@ -584,55 +609,63 @@ export default function PokemonPage() {
                 ))}
               </div>
             ) : cards.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {cards.map((card) => (
-                  <Card
-                    key={card.id}
-                    onClick={() => setSelectedCard(card)}
-                    className="group cursor-pointer hover:shadow-xl transition-all duration-500 hover:-translate-y-2 bg-card border-border overflow-hidden rounded-2xl hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Ver detalles de ${card.name}, set ${card.set?.name || 'desconocido'}`}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setSelectedCard(card);
-                      }
-                    }}
-                  >
-                    <CardContent className="p-0">
-                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-                        {card.images?.large || card.images?.small ? (
-                          <img
-                            src={card.images.large || card.images.small}
-                            alt={card.name}
-                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-muted/50">
-                            <span className="text-muted-foreground text-sm text-center px-2">
-                              No image
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      {/* Card info — text size increased for better readability */}
-                      <div className="p-4 space-y-1.5">
-                        <p className="font-bold text-foreground truncate text-lg">
-                          {card.name}
-                        </p>
-                        <div className="text-base text-muted-foreground">
-                          {card.set?.name && <span>{card.set.name}</span>}
-                          {card.number && <span> • #{card.number}</span>}
+              <div className="space-y-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {cards.map((card) => (
+                    <Card
+                      key={card.id}
+                      onClick={() => setSelectedCard(card)}
+                      className="group cursor-pointer hover:shadow-xl transition-all duration-500 hover:-translate-y-2 bg-card border-border overflow-hidden rounded-2xl hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Ver detalles de ${card.name}, set ${card.set?.name || 'desconocido'}`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedCard(card);
+                        }
+                      }}
+                    >
+                      <CardContent className="p-0">
+                        <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+                          {card.images?.large || card.images?.small ? (
+                            <img
+                              src={card.images.large || card.images.small}
+                              alt={card.name}
+                              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted/50">
+                              <span className="text-muted-foreground text-sm text-center px-2">
+                                No image
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        {card.rarity && (
-                          <p className="text-xs text-muted-foreground/70">{card.rarity}</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        {/* Card info — text size increased for better readability */}
+                        <div className="p-4 space-y-1.5">
+                          <p className="font-bold text-foreground truncate text-lg">
+                            {card.name}
+                          </p>
+                          <div className="text-base text-muted-foreground">
+                            {card.set?.name && <span>{card.set.name}</span>}
+                            {card.number && <span> • #{card.number}</span>}
+                          </div>
+                          {card.rarity && (
+                            <p className="text-xs text-muted-foreground/70">{card.rarity}</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div id="pokemon-cards-load-trigger" className="h-20 flex items-center justify-center">
+                  {lazyCards.length < cards.length && (
+                    <Loader2 className="h-8 w-8 animate-spin text-primary opacity-50" />
+                  )}
+                </div>
               </div>
             ) : (
               <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 bg-card border border-border rounded-2xl">
