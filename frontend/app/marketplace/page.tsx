@@ -1209,7 +1209,7 @@ export default function MarketplacePage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="empty">Empty List</SelectItem>
-                                      <SelectItem value="deck">A Mazo</SelectItem>
+                                      <SelectItem value="deck">To Deck</SelectItem>
                                       <SelectItem value="collection">A Collection Set</SelectItem>
                                     </SelectContent>
                                   </Select>

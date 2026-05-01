@@ -194,6 +194,7 @@ export default function DeckBuilderPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [importText, setImportText] = useState("")
   const [isImporting, setIsImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 })
   
   const router = useRouter()
 
@@ -274,6 +275,7 @@ export default function DeckBuilderPage() {
     setIsImporting(true)
     const lines = importText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
     const newDeck: DeckItem[] = []
+    setImportProgress({ current: 0, total: lines.length })
     
     const ENERGY_MAP: Record<string, string> = {
       '{G}': 'Grass', '{R}': 'Fire', '{W}': 'Water', '{L}': 'Lightning',
@@ -313,8 +315,10 @@ export default function DeckBuilderPage() {
         try {
           const apiUrl = `http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`
           
-          await new Promise(r => setTimeout(r, 50))
           const response = await fetch(apiUrl)
+          setImportProgress(prev => ({ ...prev, current: prev.current + 1 }))
+          // Small delay for smooth UI feedback
+          await new Promise(r => setTimeout(r, 20))
           if (!response.ok) continue
           
           const data = await response.json()
@@ -363,6 +367,7 @@ export default function DeckBuilderPage() {
 
     if (newDeck.length > 0) {
       setDeck(newDeck)
+      setSelectedCard(newDeck[0].card)
       showNotification(`Imported ${newDeck.reduce((acc, i) => acc + i.count, 0)} cards!`)
       setIsImportModalOpen(false) // Close only at the end
       setImportText("")
@@ -534,9 +539,9 @@ export default function DeckBuilderPage() {
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-widest animate-pulse">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Procesando mazo...
+                  Processing deck...
                 </div>
-                <p className="text-muted-foreground text-sm font-medium">Sincronizando con la base de datos oficial</p>
+                <p className="text-muted-foreground text-sm font-medium">Syncing with official database</p>
               </div>
               
               {selectedCard && (
