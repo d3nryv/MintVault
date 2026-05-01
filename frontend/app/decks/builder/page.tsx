@@ -98,6 +98,14 @@ export default function DeckBuilderPage() {
   const getSetCode = (setName: string) => {
     if (setAbbreviations[setName]) return setAbbreviations[setName]
     if (setName.includes("McDonald's")) return "MCD"
+    
+    // Gallery rule
+    if (setName.toLowerCase().includes("gallery")) {
+      const parts = setName.split(/\s+/).filter(p => p.toLowerCase() !== 'gallery')
+      const prefix = parts.map(p => p[0]).join('').toUpperCase()
+      return prefix + "G"
+    }
+
     const parts = setName.split(/\s+/).filter(p => p.toLowerCase() !== '&' && p.toLowerCase() !== '—')
     if (parts.length >= 2) return (parts[0][0] + parts[1].substring(0, 2)).toUpperCase()
     return setName.substring(0, 3).toUpperCase()
