@@ -7,6 +7,7 @@ interface User {
   username: string
   email: string
   profilePicUrl?: string
+  balance?: number
 }
 
 interface AuthContextType {
