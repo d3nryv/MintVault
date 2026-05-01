@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, Calendar, Layers, Loader2 } from "lucide-react"
 import { format } from "date-fns"
+import { CardDetailModal } from "@/components/card-detail-modal"
 
 interface TcgSet {
   id: string
@@ -37,6 +38,7 @@ export function SetsSection() {
   const [loadingCards, setLoadingCards] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const [selectedCard, setSelectedCard] = useState<any | null>(null)
 
   useEffect(() => {
     fetchAllSets()
@@ -281,7 +283,7 @@ export function SetsSection() {
         <div className="space-y-8">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
             {cards.map((card) => (
-              <div key={card.id} className="group relative cursor-pointer" onClick={() => window.location.href = `/marketplace/card/${getCardId(selectedSet, card)}`}>
+              <div key={card.id} className="group relative cursor-pointer" onClick={() => setSelectedCard(card)}>
                 <div className="aspect-[2.5/3.5] rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <img 
                     src={card.images.small} 
@@ -306,6 +308,13 @@ export function SetsSection() {
             )}
           </div>
         </div>
+      )}
+
+      {selectedCard && (
+        <CardDetailModal 
+          card={selectedCard} 
+          onClose={() => setSelectedCard(null)} 
+        />
       )}
     </section>
   )

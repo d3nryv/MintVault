@@ -18,4 +18,5 @@ export interface Binder {
   coverValue: string;
   size: BinderSize;
   cards: (BinderCard | null)[];
+  ownedCards?: Record<number, boolean>;
 }

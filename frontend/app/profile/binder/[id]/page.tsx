@@ -61,7 +61,6 @@ export default function BinderDetailPage() {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [setQuery, setSetQuery] = useState("")
-  const [ownedCards, setOwnedCards] = useState<Record<number, boolean>>({})
   const [draggedSlot, setDraggedSlot] = useState<number | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editName, setEditName] = useState("")
@@ -117,7 +116,8 @@ export default function BinderDetailPage() {
       if (foundBinder) {
         setBinder({
           ...foundBinder,
-          cards: foundBinder.cards?.length > 0 ? foundBinder.cards : Array(360).fill(null)
+          cards: foundBinder.cards?.length > 0 ? foundBinder.cards : Array(360).fill(null),
+          ownedCards: foundBinder.ownedCards || {}
         })
         setEditName(foundBinder.name)
         setEditSpineColor(foundBinder.spineColor.includes('gradient') ? '#000000' : foundBinder.spineColor)
@@ -178,20 +178,11 @@ export default function BinderDetailPage() {
     }
     
     // Mark as owned by default
-    const newOwned = { ...ownedCards, [selectedSlot]: true }
-    setOwnedCards(newOwned)
-    
-    setBinder({ ...binder, cards: newCards })
+    const newOwned = { ...(binder.ownedCards || {}), [selectedSlot]: true }
+    setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
     setIsModalOpen(false)
     setSearchResults([])
     setSearchQuery("")
-    
-    // Persist to localStorage
-    const savedBinders = JSON.parse(localStorage.getItem('tcg_temple_binders') || '[]')
-    const updatedBinders = savedBinders.map((b: any) => 
-      String(b.id) === String(binderId) ? { ...b, cards: newCards } : b
-    )
-    localStorage.setItem('tcg_temple_binders', JSON.stringify(updatedBinders))
   }
 
   const handleDragStart = (index: number) => {
@@ -211,14 +202,24 @@ export default function BinderDetailPage() {
     newCards[targetIndex] = temp
     
     // Also swap owned status
-    const newOwned = { ...ownedCards }
+    const newOwned = { ...(binder.ownedCards || {}) }
     const tempOwned = !!newOwned[draggedSlot]
     newOwned[draggedSlot] = !!newOwned[targetIndex]
     newOwned[targetIndex] = tempOwned
     
-    setBinder({ ...binder, cards: newCards })
-    setOwnedCards(newOwned)
+    setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
     setDraggedSlot(null)
+  }
+
+  const handleDeleteBinder = () => {
+    if (!binder) return;
+    if (!confirm('Are you sure you want to delete this album?')) return;
+    // Remove from localStorage
+    const savedBinders = JSON.parse(localStorage.getItem('tcg_temple_binders') || '[]');
+    const updatedBinders = savedBinders.filter((b: any) => String(b.id) !== String(binder.id));
+    localStorage.setItem('tcg_temple_binders', JSON.stringify(updatedBinders));
+    // Navigate back to collection page profile tab
+    router.push('/collection?tab=profile');
   }
 
   const handleUpdateStyle = () => {
@@ -242,13 +243,6 @@ export default function BinderDetailPage() {
     
     setBinder(updatedBinder)
     setIsEditModalOpen(false)
-    
-    // Persist to localStorage
-    const savedBinders = JSON.parse(localStorage.getItem('tcg_temple_binders') || '[]')
-    const updatedBinders = savedBinders.map((b: any) => 
-      String(b.id) === String(binderId) ? updatedBinder : b
-    )
-    localStorage.setItem('tcg_temple_binders', JSON.stringify(updatedBinders))
   }
 
   const handleRemoveCard = (slotIndex: number) => {
@@ -259,10 +253,9 @@ export default function BinderDetailPage() {
   }
 
   const toggleOwned = (slotIndex: number) => {
-    setOwnedCards(prev => ({
-      ...prev,
-      [slotIndex]: !prev[slotIndex]
-    }))
+    if (!binder) return
+    const newOwned = { ...(binder.ownedCards || {}), [slotIndex]: !binder.ownedCards?.[slotIndex] }
+    setBinder({ ...binder, ownedCards: newOwned })
   }
 
   const handleFillBySet = async () => {
@@ -271,7 +264,7 @@ export default function BinderDetailPage() {
     try {
       const cards = await fetchSetCards(setQuery)
       const newCards = [...binder.cards]
-      const newOwned = { ...ownedCards }
+      const newOwned = { ...(binder.ownedCards || {}) }
       cards.forEach((card: any, index: number) => {
         if (index < newCards.length) {
           newCards[index] = {
@@ -285,8 +278,7 @@ export default function BinderDetailPage() {
         }
       })
       
-      setBinder({ ...binder, cards: newCards })
-      setOwnedCards(newOwned)
+      setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
       setIsModalOpen(false)
     } catch (e) {
       console.error("Error filling set:", e)
@@ -421,6 +413,14 @@ export default function BinderDetailPage() {
                 <Share2 className="h-4 w-4" />
                 Share
               </Button>
+              <Button 
+                variant="destructive"
+                onClick={handleDeleteBinder}
+                className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 shadow-xl shadow-destructive/20 hover:scale-105 transition-all"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
             </div>
           </div>
 
@@ -443,7 +443,7 @@ export default function BinderDetailPage() {
                         key={globalIndex} 
                         card={card} 
                         index={globalIndex} 
-                        isOwned={ownedCards[globalIndex] ?? !!card}
+                        isOwned={binder?.ownedCards?.[globalIndex] ?? !!card}
                         onAdd={() => { setSelectedSlot(globalIndex); setIsModalOpen(true); }}
                         onRemove={() => handleRemoveCard(globalIndex)}
                         onToggleOwned={() => toggleOwned(globalIndex)}
@@ -480,7 +480,7 @@ export default function BinderDetailPage() {
                         key={globalIndex} 
                         card={card} 
                         index={globalIndex} 
-                        isOwned={ownedCards[globalIndex] ?? !!card}
+                        isOwned={binder?.ownedCards?.[globalIndex] ?? !!card}
                         onAdd={() => { setSelectedSlot(globalIndex); setIsModalOpen(true); }}
                         onRemove={() => handleRemoveCard(globalIndex)}
                         onToggleOwned={() => toggleOwned(globalIndex)}
