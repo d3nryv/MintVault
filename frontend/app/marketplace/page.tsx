@@ -44,6 +44,10 @@ import {
   Edit3,
   MoreHorizontal,
   ExternalLink,
+  Wallet,
+  CreditCard,
+  History,
+  Clock,
 } from "lucide-react"
 import {
   Dialog,
@@ -233,6 +237,17 @@ const marketNews = [
   { id: 4, title: "Vintage market sees 15% increase in Q1", time: "2 days ago", category: "Analysis" },
 ]
 
+const purchaseHistory = [
+  { id: 1, name: "Gengar VMAX", set: "Fusion Strike", price: 185.00, date: "2024-04-12", status: "Completed", image: null },
+  { id: 2, name: "Rayquaza VMAX", set: "Evolving Skies", price: 295.00, date: "2024-04-28", status: "In Transit", tracking: "UX123456789" },
+  { id: 3, name: "Pikachu ex", set: "Surging Sparks", price: 42.00, date: "2024-05-01", status: "Pending", image: null },
+]
+
+const salesHistory = [
+  { id: 1, name: "Charizard ex", set: "151", price: 120.00, date: "2024-03-15", status: "Completed", buyer: "PokeFan99" },
+  { id: 2, name: "Lugia V", set: "Silver Tempest", price: 18.00, date: "2024-04-05", status: "Completed", buyer: "CardCollector" },
+]
+
 export default function MarketplacePage() {
   const [activeTab, setActiveTab] = useState("buy")
   const [searchQuery, setSearchQuery] = useState("")
@@ -242,7 +257,9 @@ export default function MarketplacePage() {
   const [newListName, setNewListName] = useState("")
   const [newListType, setNewListType] = useState<WantsListType>("empty")
   const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null)
-  const { user } = useAuth()
+  const [isAddFundsOpen, setIsAddFundsOpen] = useState(false)
+  const [addAmount, setAddAmount] = useState("")
+  const { user, updateUser } = useAuth()
 
   const getConditionColor = (condition: string) => {
     switch (condition) {
@@ -389,17 +406,95 @@ export default function MarketplacePage() {
       <Header />
       <main className="pt-20">
         <div className="mx-auto max-w-[1700px] px-4 py-12 sm:px-6 lg:px-8">
-          <div className="mb-8">
-            <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
-              Marketplace
-            </h1>
-            <p className="mt-2 text-muted-foreground">
-              Buy, sell, and trade Pokémon cards with collectors worldwide
-            </p>
+          <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
+                Marketplace
+              </h1>
+              <p className="mt-2 text-muted-foreground">
+                Buy, sell, and trade Pokémon cards with collectors worldwide
+              </p>
+            </div>
+
+            {user && (
+              <div className="flex items-center gap-4">
+                <Card className="bg-secondary/30 border-none shadow-sm">
+                  <CardContent className="flex items-center gap-3 p-3">
+                    <div className="rounded-full bg-primary/10 p-2">
+                      <Wallet className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Your Balance</p>
+                      <p className="text-xl font-bold font-mono">${(user.balance || 0).toFixed(2)}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Dialog open={isAddFundsOpen} onOpenChange={setIsAddFundsOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="gap-2 shadow-lg shadow-primary/20">
+                      <Plus className="h-4 w-4" />
+                      Add Funds
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <CreditCard className="h-5 w-5" />
+                        Add Balance
+                      </DialogTitle>
+                      <DialogDescription>
+                        Add funds to your wallet to purchase cards instantly.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium">Amount ($)</label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={addAmount}
+                          onChange={(e) => setAddAmount(e.target.value)}
+                          className="text-lg font-bold"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[10, 20, 50].map((amount) => (
+                          <Button
+                            key={amount}
+                            variant="outline"
+                            onClick={() => setAddAmount(amount.toString())}
+                          >
+                            +${amount}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsAddFundsOpen(false)}>Cancel</Button>
+                      <Button 
+                        onClick={() => {
+                          const amount = parseFloat(addAmount);
+                          if (isNaN(amount) || amount <= 0) return;
+                          
+                          const newBalance = (user.balance || 0) + amount;
+                          updateUser({ balance: newBalance });
+                          setIsAddFundsOpen(false);
+                          setAddAmount("");
+                        }}
+                        disabled={!addAmount || parseFloat(addAmount) <= 0}
+                      >
+                        Confirm Deposit
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={`mb-8 grid w-full max-w-lg ${user ? 'grid-cols-4' : 'grid-cols-1'}`}>
+            <TabsList className={`mb-8 grid w-full max-w-2xl ${user ? 'grid-cols-5' : 'grid-cols-1'}`}>
               <TabsTrigger value="buy" className="gap-2">
                 <ShoppingBag className="h-4 w-4" />
                 <span className="hidden sm:inline">Buy</span>
@@ -409,6 +504,10 @@ export default function MarketplacePage() {
                   <TabsTrigger value="sell" className="gap-2">
                     <Tag className="h-4 w-4" />
                     <span className="hidden sm:inline">Sell</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="orders" className="gap-2">
+                    <Package className="h-4 w-4" />
+                    <span className="hidden sm:inline">Orders</span>
                   </TabsTrigger>
                   <TabsTrigger value="wants" className="gap-2">
                     <Heart className="h-4 w-4" />
@@ -870,52 +969,195 @@ export default function MarketplacePage() {
                       </CardContent>
                     </Card>
 
-                    {/* Your Listings */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Tag className="h-5 w-5" />
-                          Your Listings
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {yourListings.map((listing) => (
-                            <div
-                              key={listing.id}
-                              className="flex items-center gap-4 rounded-lg border border-border bg-card p-4"
-                            >
-                              <div className="flex h-16 w-12 items-center justify-center rounded bg-muted">
-                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                              </div>
-                              <div className="flex-1 space-y-1">
-                                <h4 className="font-medium">{listing.name}</h4>
-                                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                  <span>{listing.set}</span>
-                                  <Badge className={getConditionColor(listing.condition)}>
-                                    {listing.condition}
-                                  </Badge>
+                    <Tabs defaultValue="active" className="w-full">
+                      <TabsList className="mb-4 grid w-full max-w-md grid-cols-2">
+                        <TabsTrigger value="active" className="gap-2">
+                          <Tag className="h-4 w-4" />
+                          Active Listings
+                        </TabsTrigger>
+                        <TabsTrigger value="history" className="gap-2">
+                          <History className="h-4 w-4" />
+                          Sales History
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="active">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Your Active Listings</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {yourListings.filter(l => l.status === "Active").map((listing) => (
+                                <div
+                                  key={listing.id}
+                                  className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/20"
+                                >
+                                  <div className="flex h-16 w-12 items-center justify-center rounded bg-muted">
+                                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                  </div>
+                                  <div className="flex-1 space-y-1">
+                                    <h4 className="font-medium">{listing.name}</h4>
+                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                      <span>{listing.set}</span>
+                                      <Badge className={getConditionColor(listing.condition)}>
+                                        {listing.condition}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {listing.views} views
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-4">
+                                    <span className="text-lg font-bold">${listing.price.toFixed(2)}</span>
+                                    <Button variant="ghost" size="icon" className="text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                  {listing.views} views
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <Badge variant={listing.status === "Sold" ? "secondary" : "default"}>
-                                  {listing.status}
-                                </Badge>
-                                <span className="text-lg font-bold">${listing.price.toFixed(2)}</span>
-                                {listing.status !== "Sold" && (
-                                  <Button variant="ghost" size="icon" className="text-destructive">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
+                              ))}
+                              {yourListings.filter(l => l.status === "Active").length === 0 && (
+                                <div className="py-8 text-center text-muted-foreground">
+                                  No active listings.
+                                </div>
+                              )}
                             </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      <TabsContent value="history">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Sales History</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {salesHistory.map((sale) => (
+                                <div
+                                  key={sale.id}
+                                  className="flex items-center gap-4 rounded-lg border border-border bg-card p-4"
+                                >
+                                  <div className="flex h-16 w-12 items-center justify-center rounded bg-emerald-500/10">
+                                    <Check className="h-6 w-6 text-emerald-600" />
+                                  </div>
+                                  <div className="flex-1 space-y-1">
+                                    <h4 className="font-medium">{sale.name}</h4>
+                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                      <span>{sale.set}</span>
+                                      <span>Sold to: {sale.buyer}</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Sold on {new Date(sale.date).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-lg font-bold text-emerald-600">+${sale.price.toFixed(2)}</p>
+                                    <Badge variant="outline" className="text-emerald-600 border-emerald-200">Completed</Badge>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                </TabsContent>
+
+                {/* Orders Tab */}
+                <TabsContent value="orders">
+                  <div className="space-y-6">
+                    <Tabs defaultValue="transit" className="w-full">
+                      <TabsList className="mb-4 grid w-full max-w-md grid-cols-2">
+                        <TabsTrigger value="transit" className="gap-2">
+                          <Clock className="h-4 w-4" />
+                          In Transit / Pending
+                        </TabsTrigger>
+                        <TabsTrigger value="completed" className="gap-2">
+                          <Check className="h-4 w-4" />
+                          Completed
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="transit">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Orders on the Way</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {purchaseHistory.filter(p => p.status !== "Completed").map((order) => (
+                                <div
+                                  key={order.id}
+                                  className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/20"
+                                >
+                                  <div className="flex h-16 w-12 items-center justify-center rounded bg-blue-500/10">
+                                    <Package className="h-6 w-6 text-blue-600" />
+                                  </div>
+                                  <div className="flex-1 space-y-1">
+                                    <h4 className="font-medium">{order.name}</h4>
+                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                      <span>{order.set}</span>
+                                      <Badge variant="outline" className={order.status === "Pending" ? "text-amber-600 border-amber-200" : "text-blue-600 border-blue-200"}>
+                                        {order.status}
+                                      </Badge>
+                                    </div>
+                                    {order.tracking && (
+                                      <p className="text-xs font-mono text-muted-foreground">
+                                        Tracking: {order.tracking}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-lg font-bold">${order.price.toFixed(2)}</p>
+                                    <p className="text-xs text-muted-foreground">Ordered {new Date(order.date).toLocaleDateString()}</p>
+                                  </div>
+                                </div>
+                              ))}
+                              {purchaseHistory.filter(p => p.status !== "Completed").length === 0 && (
+                                <div className="py-8 text-center text-muted-foreground">
+                                  No orders in transit.
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+
+                      <TabsContent value="completed">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg">Order History</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {purchaseHistory.filter(p => p.status === "Completed").map((order) => (
+                                <div
+                                  key={order.id}
+                                  className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 opacity-80"
+                                >
+                                  <div className="flex h-16 w-12 items-center justify-center rounded bg-emerald-500/10">
+                                    <Check className="h-6 w-6 text-emerald-600" />
+                                  </div>
+                                  <div className="flex-1 space-y-1">
+                                    <h4 className="font-medium">{order.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{order.set}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Received on {new Date(order.date).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-lg font-bold">${order.price.toFixed(2)}</p>
+                                    <Button variant="link" size="sm" className="h-auto p-0">View Details</Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 </TabsContent>
 

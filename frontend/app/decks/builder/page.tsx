@@ -207,6 +207,20 @@ export default function DeckBuilderPage() {
     setTimeout(() => setNotification(null), 3000)
   }
 
+  // Handle URL import
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const importData = urlParams.get('import')
+    if (importData) {
+      setImportText(decodeURIComponent(importData))
+      // Use a small delay to ensure the component is fully ready
+      setTimeout(() => {
+        setIsImportModalOpen(true)
+        // The handleImport call will be triggered by the user or we can auto-trigger it
+      }, 500)
+    }
+  }, [])
+
   const getSetCode = (setName: string) => {
     if (SET_ABBREVIATIONS[setName]) return SET_ABBREVIATIONS[setName]
     if (setName.includes("McDonald's")) return "MCD"
@@ -283,7 +297,10 @@ export default function DeckBuilderPage() {
         })
 
         const isEnergy = fullName.toLowerCase().includes("energy")
-        const isBasicEnergy = isEnergy && fullName.toLowerCase().includes("basic")
+        const isBasicEnergy = isEnergy && (
+          fullName.toLowerCase().includes("basic") || 
+          ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'].includes(fullName.toLowerCase().replace(/energy/g, '').trim())
+        )
         
         // Exact match with quotes for everything
         let searchTerm = `\"${fullName}\"`
@@ -307,11 +324,18 @@ export default function DeckBuilderPage() {
             
             // 1. Try strict match first for EVERYTHING (including Energy Switch)
             const targetName = normalize(fullName)
+            let finalSetCode = setCode
+            
+            // Energy rule: convert MEE to SVE
+            if (isEnergy && setCode.toUpperCase() === 'MEE') {
+              finalSetCode = 'SVE'
+            }
+
             found = data.find(c => {
               const cSetCode = getSetCode(c.set.name)
               const cNumber = c.id.includes('-') ? c.id.split('-')[1] : c.number
               return normalize(c.name) === targetName && 
-                     cSetCode.toLowerCase() === setCode.toLowerCase() && 
+                     cSetCode.toLowerCase() === finalSetCode.toLowerCase() && 
                      cNumber === number
             })
 
@@ -486,7 +510,13 @@ export default function DeckBuilderPage() {
                 disabled={isImporting}
               />
               <div className="flex gap-3 justify-end">
-                <Button variant="ghost" onClick={() => setIsImportModalOpen(false)} disabled={isImporting}>Cancel</Button>
+                <Button variant="ghost" onClick={() => {
+                  setIsImportModalOpen(false)
+                  // Clean up URL if we were importing
+                  if (window.location.search.includes('import=')) {
+                    router.replace('/decks/builder')
+                  }
+                }} disabled={isImporting}>Cancel</Button>
                 <Button onClick={handleImport} disabled={isImporting || !importText.trim()} className="px-8 font-bold min-w-[120px]">
                   {isImporting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
                   {isImporting ? "Importing..." : "Import Cards"}
