@@ -12,8 +12,7 @@ import { Layers, BookOpen, User } from "lucide-react"
 
 function CollectionTabs() {
     const searchParams = useSearchParams()
-    const initialTab = searchParams.get("tab") || "sets"
-    const [activeTab, setActiveTab] = useState(initialTab)
+    const [activeTab, setActiveTab] = useState("sets")
 
     useEffect(() => {
         const tab = searchParams.get("tab")

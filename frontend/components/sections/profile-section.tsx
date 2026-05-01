@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -8,8 +8,13 @@ import { Progress } from "@/components/ui/progress"
 import { Users, Calendar, Globe, Layers, Search, Filter, ChevronRight, Share2, MoreHorizontal, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/auth-context"
+import { Binder, BinderSize } from "@/lib/types/binder"
+import { binders } from "@/lib/mocks/binders"
 
 const languages = [
   {
@@ -34,46 +39,6 @@ const showcaseCards = [
   { id: 5, name: "Giratina V", number: "186/196", set: "Lost Origin", img: "https://images.pokemontcg.io/swsh11/186_hires.png" },
 ]
 
-const binders = [
-  {
-    id: 1,
-    name: "Rare Holos",
-    spineColor: "linear-gradient(to bottom, oklch(0.60 0.18 20), oklch(0.40 0.20 20))",
-    spineTextColor: "#ffffff",
-    coverType: "color",
-    coverValue: "oklch(0.55 0.20 25)"
-  },
-  {
-    id: 2,
-    name: "Full Arts",
-    spineColor: "linear-gradient(to bottom, oklch(0.55 0.15 250), oklch(0.35 0.18 250))",
-    spineTextColor: "#ffffff",
-    coverType: "image",
-    coverValue: "https://images.pokemontcg.io/swsh11/TG24_hires.png"
-  },
-  {
-    id: 3,
-    name: "Vintage",
-    spineColor: "linear-gradient(to bottom, #795548, #3e2723)",
-    spineTextColor: "#ffffff",
-    coverType: "color",
-    coverValue: "#5d4037"
-  },
-  {
-    id: 4,
-    name: "Legendary",
-    spineColor: "linear-gradient(180deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 56%, #4b0082 70%, #8b00ff 84%, #ff0000 100%)",
-    spineTextColor: "#ffffff",
-    coverType: "gradient",
-    coverValue: "linear-gradient(135deg, oklch(0.70 0.12 180) 0%, oklch(0.45 0.15 250) 100%)"
-  },
-  { id: 5, name: "S&V Base", spineColor: "oklch(0.45 0.15 250)", spineTextColor: "#ffffff", coverType: "color", coverValue: "oklch(0.40 0.12 250)" },
-  { id: 6, name: "Sword & Shield", spineColor: "#b71c1c", spineTextColor: "#ffffff", coverType: "color", coverValue: "#ef5350" },
-  { id: 7, name: "Sun & Moon", spineColor: "#ff9800", spineTextColor: "#ffffff", coverType: "color", coverValue: "#ffb74d" },
-  { id: 8, name: "XY Series", spineColor: "#1a237e", spineTextColor: "#ffffff", coverType: "color", coverValue: "#3f51b5" },
-  { id: 9, name: "Black & White", spineColor: "#212121", spineTextColor: "#ffffff", coverType: "color", coverValue: "#424242" },
-  { id: 10, name: "Promos", spineColor: "#4caf50", spineTextColor: "#ffffff", coverType: "color", coverValue: "#81c784" },
-]
 
 const userSets = [
   { id: 1, name: "Scarlet & Violet", owned: 156, total: 198, date: "Mar 2023", era: "sv", lang: "en", image: "https://images.pokemontcg.io/sv1/logo.png" },
@@ -84,15 +49,78 @@ const userSets = [
   { id: 6, name: "Astral Radiance", owned: 112, total: 189, date: "May 2022", era: "swsh", lang: "en", image: "https://images.pokemontcg.io/swsh10/logo.png" },
 ]
 
-import { useAuth } from "@/context/auth-context"
 
 export function ProfileSection() {
   const { user } = useAuth()
-  const [hoveredBinder, setHoveredBinder] = useState<number | null>(null)
+  const router = useRouter()
+  const [bindersList, setBindersList] = useState<any[]>(binders)
+  
+  useEffect(() => {
+    const saved = localStorage.getItem('tcg_temple_binders')
+    if (saved) {
+      setBindersList(JSON.parse(saved))
+    }
+  }, [])
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  
+  // Create binder state
+  const [newBinderName, setNewBinderName] = useState("")
+  const [newBinderSize, setNewBinderSize] = useState<BinderSize>("3x3")
+  const [newBinderSpineColor, setNewBinderSpineColor] = useState("#000000")
+  const [newBinderSpineColor2, setNewBinderSpineColor2] = useState("#333333")
+  const [newBinderSpineType, setNewBinderSpineType] = useState<"color" | "gradient" | "rainbow">("color")
+  const [newBinderCoverType, setNewBinderCoverType] = useState<"color" | "gradient" | "image" | "rainbow">("color")
+  const [newBinderCoverValue2, setNewBinderCoverValue2] = useState("#333333")
+  const [newBinderCoverValue, setNewBinderCoverValue] = useState("#000000")
+
+  const [hoveredBinder, setHoveredBinder] = useState<number | string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [eraFilter, setEraFilter] = useState("all-eras")
   const [langFilter, setLangFilter] = useState("all")
   const [expandedLang, setExpandedLang] = useState<string | null>(null)
+
+  const handleCreateBinder = () => {
+    if (!newBinderName || !newBinderSize) return
+
+    const spineColor = newBinderSpineType === "gradient" 
+      ? `linear-gradient(to bottom, ${newBinderSpineColor}, ${newBinderSpineColor2})`
+      : newBinderSpineType === "rainbow" ? "linear-gradient(180deg, #ff0000 0%, #ff7f00 14%, #ffff00 28%, #00ff00 42%, #0000ff 56%, #4b0082 70%, #8b00ff 84%, #ff0000 100%)" : newBinderSpineColor
+
+    const coverValue = newBinderCoverType === "gradient"
+      ? `linear-gradient(to bottom right, ${newBinderCoverValue}, ${newBinderCoverValue2})`
+      : newBinderCoverType === "rainbow" ? "linear-gradient(135deg, #ff0000 0%, #ffff00 25%, #00ff00 50%, #0000ff 75%, #ff00ff 100%)" : newBinderCoverValue
+
+    const newBinder: Binder = {
+      id: Date.now().toString(),
+      name: newBinderName,
+      size: newBinderSize,
+      spineColor,
+      spineTextColor: "#ffffff",
+      coverType: newBinderCoverType,
+      coverValue,
+      cards: []
+    }
+
+    setBindersList(prev => {
+      const updated = [newBinder, ...prev]
+      localStorage.setItem('tcg_temple_binders', JSON.stringify(updated))
+      return updated
+    })
+    setIsCreateModalOpen(false)
+    // Reset state
+    setNewBinderName("")
+    setNewBinderSize("3x3")
+    setNewBinderSpineColor("#000000")
+    setNewBinderSpineColor2("#333333")
+    setNewBinderSpineType("color")
+    setNewBinderCoverType("color")
+    setNewBinderCoverValue("#000000")
+    setNewBinderCoverValue2("#333333")
+    
+    // Navigate to the new binder
+    router.push(`/profile/binder/${newBinder.id}`)
+  }
 
   const filteredSets = userSets.filter(set => {
     const matchesSearch = set.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -233,9 +261,10 @@ export function ProfileSection() {
           </CardHeader>
           <CardContent className="p-8 pt-4">
             <div className="flex gap-3 h-80 overflow-x-auto pb-6 scrollbar-hide group/binders">
-              {binders.map((binder) => (
+              {bindersList.map((binder) => (
                 <div
                   key={binder.id}
+                  onClick={() => router.push(`/profile/binder/${binder.id}`)}
                   className="relative flex h-full transition-all duration-700 ease-in-out cursor-pointer overflow-hidden rounded-[2rem] shadow-xl border border-border/10 w-12 md:w-14 hover:w-56 group shrink-0"
                 >
                   <div
@@ -255,7 +284,7 @@ export function ProfileSection() {
                       background: binder.coverType === 'image' ? `url(${binder.coverValue}) center/cover no-repeat` : binder.coverValue,
                     }}
                   >
-                    {binder.coverType !== 'image' && (
+                    {(binder.coverType === 'color' || binder.coverType === 'gradient' || binder.coverType === 'rainbow') && (
                       <div className="w-full h-full flex items-end p-8 bg-black/10 backdrop-blur-[2px]">
                         <span className="text-white/30 font-black text-8xl uppercase tracking-tighter italic">{binder.name[0]}</span>
                       </div>
@@ -263,9 +292,161 @@ export function ProfileSection() {
                   </div>
                 </div>
               ))}
-              <button className="w-14 h-full border-4 border-dashed border-border/50 rounded-[2rem] flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all group shrink-0">
-                <span className="text-3xl font-black group-hover:scale-125 transition-transform duration-500">+</span>
-              </button>
+              
+              <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                <DialogTrigger asChild>
+                  <button className="w-14 h-full border-4 border-dashed border-border/50 rounded-[2rem] flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all group shrink-0">
+                    <span className="text-3xl font-black group-hover:scale-125 transition-transform duration-500">+</span>
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md bg-card/95 backdrop-blur-2xl border-border/50 rounded-[2.5rem] shadow-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-black italic uppercase tracking-tight">Create New Album</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6 py-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Album Name</Label>
+                      <Input 
+                        placeholder="e.g. My Secret Rares" 
+                        className="h-12 bg-secondary/50 border-border/50 rounded-2xl font-bold"
+                        value={newBinderName}
+                        onChange={(e) => setNewBinderName(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Size</Label>
+                        <Select value={newBinderSize} onValueChange={(v: BinderSize) => setNewBinderSize(v)}>
+                          <SelectTrigger className="h-12 bg-secondary/50 border-border/50 rounded-2xl font-bold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-2xl border-border/50">
+                            <SelectItem value="2x2" className="rounded-xl">2x2 Slots</SelectItem>
+                            <SelectItem value="3x3" className="rounded-xl">3x3 Slots</SelectItem>
+                            <SelectItem value="4x3" className="rounded-xl">4x3 Slots</SelectItem>
+                            <SelectItem value="4x4" className="rounded-xl">4x4 Slots</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Spine Style</Label>
+                        <div className="flex gap-2 p-1 bg-secondary/50 rounded-2xl border border-border/50">
+                          {["color", "gradient", "rainbow"].map((type) => (
+                            <button
+                              key={type}
+                              onClick={() => setNewBinderSpineType(type as any)}
+                              className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${newBinderSpineType === type ? "bg-primary text-primary-foreground shadow-lg" : "hover:bg-primary/10"}`}
+                            >
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {newBinderSpineType === "color" && (
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Pick Color</Label>
+                          <Input 
+                            type="color" 
+                            className="h-12 w-full p-1 bg-secondary/50 border-border/50 rounded-2xl cursor-pointer"
+                            value={newBinderSpineColor}
+                            onChange={(e) => setNewBinderSpineColor(e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      {newBinderSpineType === "gradient" && (
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gradient Colors</Label>
+                          <div className="flex gap-2">
+                            <Input 
+                              type="color" 
+                              className="h-12 flex-1 p-1 bg-secondary/50 border-border/50 rounded-2xl cursor-pointer"
+                              value={newBinderSpineColor}
+                              onChange={(e) => setNewBinderSpineColor(e.target.value)}
+                            />
+                            <Input 
+                              type="color" 
+                              className="h-12 flex-1 p-1 bg-secondary/50 border-border/50 rounded-2xl cursor-pointer"
+                              value={newBinderSpineColor2}
+                              onChange={(e) => setNewBinderSpineColor2(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Cover Style</Label>
+                      <div className="flex gap-2 p-1 bg-secondary/50 rounded-2xl border border-border/50">
+                        {["color", "gradient", "image", "rainbow"].map((type) => (
+                          <button
+                            key={type}
+                            onClick={() => setNewBinderCoverType(type as any)}
+                            className={`flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${newBinderCoverType === type ? "bg-primary text-primary-foreground shadow-lg" : "hover:bg-primary/10"}`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {newBinderCoverType === "color" && (
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Pick Color</Label>
+                        <Input 
+                          type="color" 
+                          className="h-12 w-full p-1 bg-secondary/50 border-border/50 rounded-2xl cursor-pointer"
+                          value={newBinderCoverValue}
+                          onChange={(e) => setNewBinderCoverValue(e.target.value)}
+                        />
+                      </div>
+                    )}
+
+                    {newBinderCoverType === "gradient" && (
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gradient Colors</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            type="color" 
+                            className="h-12 flex-1 p-1 bg-secondary/50 border-border/50 rounded-2xl cursor-pointer"
+                            value={newBinderCoverValue}
+                            onChange={(e) => setNewBinderCoverValue(e.target.value)}
+                          />
+                          <Input 
+                            type="color" 
+                            className="h-12 flex-1 p-1 bg-secondary/50 border-border/50 rounded-2xl cursor-pointer"
+                            value={newBinderCoverValue2}
+                            onChange={(e) => setNewBinderCoverValue2(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {newBinderCoverType === "image" && (
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Image URL</Label>
+                        <Input 
+                          placeholder="https://..." 
+                          className="h-12 bg-secondary/50 border-border/50 rounded-2xl font-bold"
+                          value={newBinderCoverValue}
+                          onChange={(e) => setNewBinderCoverValue(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      className="w-full h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                      onClick={handleCreateBinder}
+                      disabled={!newBinderName}
+                    >
+                      Create Album
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardContent>
         </Card>
