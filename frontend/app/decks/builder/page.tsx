@@ -14,6 +14,33 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 
+interface TCGCard {
+  id: string
+  name: string
+  supertype: string
+  subtypes: string[]
+  types?: string[]
+  attacks?: Array<{ name: string; text: string; damage: string; cost: string[] }>
+  abilities?: Array<{ name: string; text: string; type: string }>
+  images: { small: string; large: string }
+  set: { id: string; name: string; series: string; releaseDate: string }
+  number: string
+  text?: string[]
+}
+
+interface DeckItem {
+  card: TCGCard
+  count: number
+}
+
+const ENERGY_MAP: Record<string, string> = {
+  '{G}': 'Grass', '{R}': 'Fire', '{W}': 'Water', '{L}': 'Lightning',
+  '{P}': 'Psychic', '{F}': 'Fighting', '{D}': 'Darkness', '{M}': 'Metal',
+  '{Y}': 'Fairy', '{C}': 'Colorless'
+}
+
+const normalize = (name: string) => name.split('(')[0].replace(/['’]/g, '').trim().toLowerCase()
+
 export default function DeckBuilderPage() {
   const [deckName, setDeckName] = useState("New Deck")
   const [searchQuery, setSearchQuery] = useState("")
@@ -25,29 +52,28 @@ export default function DeckBuilderPage() {
   const [isLoadingReprints, setIsLoadingReprints] = useState(false)
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
   
-  // Set abbreviations state
   const [setAbbreviations, setSetAbbreviations] = useState<Record<string, string>>({})
   const setPriority = useMemo(() => Object.keys(setAbbreviations), [setAbbreviations])
 
-  // Import state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [importText, setImportText] = useState("")
   const [isImporting, setIsImporting] = useState(false)
   
   const router = useRouter()
 
-  // Fetch sets from DB
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }
+
   useEffect(() => {
     const fetchSets = async () => {
       try {
         const response = await fetch('http://127.0.0.1:3000/api/sets')
-        
-        // Validation to avoid HTML-instead-of-JSON errors
         const contentType = response.headers.get("content-type")
         if (!response.ok || !contentType || !contentType.includes("application/json")) {
-          throw new Error(`Invalid response from server: ${response.status} ${response.statusText}`)
+          throw new Error("Invalid response")
         }
-
         const data = await response.json()
         if (Array.isArray(data)) {
           const mapping: Record<string, string> = {}
@@ -58,7 +84,7 @@ export default function DeckBuilderPage() {
         }
       } catch (error) {
         console.error("Error fetching sets:", error)
-        showNotification("Error loading set data. Please check backend.", "error")
+        showNotification("Error loading set abbreviations.", "error")
       }
     }
     fetchSets()
@@ -69,11 +95,6 @@ export default function DeckBuilderPage() {
   const trainerCount = useMemo(() => deck.filter(i => i.card.supertype === 'Trainer').reduce((acc, i) => acc + i.count, 0), [deck])
   const energyCount = useMemo(() => deck.filter(i => i.card.supertype === 'Energy').reduce((acc, i) => acc + i.count, 0), [deck])
 
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ message, type })
-    setTimeout(() => setNotification(null), 3000)
-  }
-
   const getSetCode = (setName: string) => {
     if (setAbbreviations[setName]) return setAbbreviations[setName]
     if (setName.includes("McDonald's")) return "MCD"
@@ -82,7 +103,6 @@ export default function DeckBuilderPage() {
     return setName.substring(0, 3).toUpperCase()
   }
 
-  // Search logic
   useEffect(() => {
     const delayDebounce = setTimeout(async () => {
       if (searchQuery.length < 3) {
@@ -95,7 +115,6 @@ export default function DeckBuilderPage() {
         if (finalQuery.includes(' ') && !finalQuery.startsWith('"')) {
           finalQuery = `"${finalQuery}"`
         }
-
         const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(finalQuery)}`)
         const data = await response.json()
         if (Array.isArray(data)) {
@@ -120,20 +139,11 @@ export default function DeckBuilderPage() {
     return () => clearTimeout(delayDebounce)
   }, [searchQuery, setPriority])
 
-  const normalize = (name: string) => name.split('(')[0].replace(/['’]/g, '').trim().toLowerCase()
-
   const handleImport = async () => {
     if (!importText.trim()) return
     setIsImporting(true)
     const lines = importText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
     const newDeck: DeckItem[] = []
-    
-    const ENERGY_MAP: Record<string, string> = {
-      '{G}': 'Grass', '{R}': 'Fire', '{W}': 'Water', '{L}': 'Lightning',
-      '{P}': 'Psychic', '{F}': 'Fighting', '{D}': 'Darkness', '{M}': 'Metal',
-      '{Y}': 'Fairy', '{C}': 'Colorless'
-    }
-
     const missingCards: string[] = []
 
     for (const line of lines) {
@@ -146,15 +156,12 @@ export default function DeckBuilderPage() {
         const setCode = parts[parts.length - 2]
         let fullName = parts.slice(1, parts.length - 2).join(" ")
         
-        // Translate symbols like {G} to names like Grass
         Object.entries(ENERGY_MAP).forEach(([symbol, name]) => {
           fullName = fullName.replace(symbol, name)
         })
 
         const isEnergy = fullName.toLowerCase().includes("energy")
         const isBasicEnergy = isEnergy && fullName.toLowerCase().includes("basic")
-        
-        // Exact match with quotes for everything
         let searchTerm = `\"${fullName}\"`
         
         if (isBasicEnergy) {
@@ -164,20 +171,15 @@ export default function DeckBuilderPage() {
 
         try {
           const apiUrl = `http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`
-          
           await new Promise(r => setTimeout(r, 50))
           const response = await fetch(apiUrl)
           if (!response.ok) {
             missingCards.push(fullName)
             continue
           }
-          
           const data = await response.json()
-          
           if (Array.isArray(data) && data.length > 0) {
             let found = null
-            
-            // 1. Try strict match first for EVERYTHING (including Energy Switch)
             const targetName = normalize(fullName)
             found = data.find(c => {
               const cSetCode = getSetCode(c.set.name)
@@ -187,7 +189,6 @@ export default function DeckBuilderPage() {
                      cNumber === number
             })
 
-            // 2. Fallback logic only for Basic Energies or if no strict match found
             if (!found) {
               if (isBasicEnergy) {
                 found = data.find(c => c.set.name === 'Scarlet & Violet Energies') || data[0]
@@ -195,7 +196,6 @@ export default function DeckBuilderPage() {
                 found = data[0]
               }
             }
-            
             if (found) {
               setSelectedCard(found)
               newDeck.push({ card: found, count })
@@ -206,7 +206,7 @@ export default function DeckBuilderPage() {
             missingCards.push(fullName)
           }
         } catch (error) {
-          console.error(`Skipping card due to error:`, error)
+          console.error(`Import error:`, error)
           missingCards.push(fullName)
           continue
         }
@@ -216,14 +216,14 @@ export default function DeckBuilderPage() {
     if (newDeck.length > 0) {
       setDeck(newDeck)
       if (missingCards.length > 0) {
-        showNotification(`Imported partially. Could not find: ${missingCards.join(", ")}`, "error")
+        showNotification(`Imported partially. Missing: ${missingCards.join(", ")}`, "error")
       } else {
         showNotification(`Imported ${newDeck.reduce((acc, i) => acc + i.count, 0)} cards!`)
       }
       setIsImportModalOpen(false)
       setImportText("")
     } else {
-      showNotification(`No cards found. Failed: ${missingCards.join(", ")}`, "error")
+      showNotification(`Failed to find cards: ${missingCards.join(", ")}`, "error")
     }
     setIsImporting(false)
   }
@@ -231,23 +231,16 @@ export default function DeckBuilderPage() {
   const fetchReprints = async (card: TCGCard) => {
     setIsLoadingReprints(true)
     setReprints([])
-    
-    const normalize = (name: string) => name.split('(')[0].replace(/['’]/g, '').trim().toLowerCase()
-    
     try {
-      // Use clean full name with quotes for exact matching
       const cleanName = card.name.split('(')[0].trim()
       const searchTerm = `\"${cleanName}\"`
-
       const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`)
       const data = await response.json()
-      
       if (Array.isArray(data)) {
         const cardBaseName = normalize(card.name)
         const versions = data.filter(c => {
           if (c.id === card.id) return false
           const otherBaseName = normalize(c.name)
-          
           if (card.supertype === 'Pokémon') {
             const getTexts = (cd: TCGCard) => {
               const attacks = cd.attacks?.map(a => a.text).join('|') || ''
@@ -346,7 +339,6 @@ export default function DeckBuilderPage() {
         </div>
       )}
 
-      {/* Import Modal */}
       {isImportModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <Card className="w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200">
@@ -405,7 +397,6 @@ export default function DeckBuilderPage() {
       )}
 
       <main className="pt-24 flex h-[calc(100vh-64px)] overflow-hidden">
-        {/* Detail Panel */}
         <div className="w-[420px] border-r border-border bg-card/20 p-8 overflow-y-auto">
           {selectedCard ? (
             <div className="space-y-8">
