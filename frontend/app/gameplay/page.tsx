@@ -20,8 +20,15 @@ export interface MetaDeck {
   tier: string;
   winRate: string;
   popularity: string;
+  imageUrl?: string;
+  archetypeUrl?: string;
   decklistUrl?: string;
   exportList?: string;
+  cards?: {
+    pokemon: string[];
+    trainer: string[];
+    energy: string[];
+  };
 }
 
 // --- Your Decks (Static) ---
@@ -37,7 +44,9 @@ export default function GameplayPage() {
   const router = useRouter()
 
   const [metaDecks, setMetaDecks] = useState<MetaDeck[]>([])
+  const [selectedDeck, setSelectedDeck] = useState<MetaDeck | null>(null)
   const [isScraping, setIsScraping] = useState(false)
+  const [isFetchingDetails, setIsFetchingDetails] = useState(false)
   const [scrapeProgress, setScrapeProgress] = useState("")
 
   const [tournaments, setTournaments] = useState<any[]>([])
@@ -49,69 +58,42 @@ export default function GameplayPage() {
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [page, setPage] = useState(1)
 
+  const fetchHtml = async (url: string) => {
+    try {
+      const res = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`);
+      if (!res.ok) {
+        console.warn(`Proxy failed (Status: ${res.status})`);
+        return null;
+      }
+      
+      const htmlText = await res.text();
+      const parser = new DOMParser();
+      return parser.parseFromString(htmlText, "text/html");
+    } catch (e) {
+      console.warn(`Network error with proxy:`, e);
+      return null;
+    }
+  }
+
   // --- Limitless Scraper Logic ---
   const scrapeLimitless = async () => {
     setIsScraping(true)
     setScrapeProgress("Fetching top decks...")
     try {
-      const fetchHtml = async (url: string) => {
-        const proxies = [
-          "https://api.allorigins.win/raw?url=",
-          "https://api.allorigins.win/get?url=",
-          "https://r.jina.ai/https://"
-        ];
-        
-        for (const proxyBase of proxies) {
-          try {
-            const isJsonProxy = proxyBase.includes('/get?url=');
-            const isJina = proxyBase.includes('jina.ai');
-            
-            const targetUrl = isJina 
-              ? `${proxyBase}${url.replace(/^https?:\/\//, '')}` 
-              : `${proxyBase}${encodeURIComponent(url)}`;
-                
-            const res = await fetch(targetUrl);
-            if (!res.ok) {
-              console.warn(`Proxy failed: ${proxyBase} (Status: ${res.status})`);
-              continue;
-            }
-            
-            let htmlText = "";
-            if (isJsonProxy) {
-               const data = await res.json();
-               if (!data || !data.contents) continue;
-               htmlText = data.contents;
-            } else {
-               htmlText = await res.text();
-            }
-            
-            const parser = new DOMParser();
-            return parser.parseFromString(htmlText, "text/html");
-          } catch (e) {
-            console.warn(`Network error with proxy ${proxyBase}:`, e);
-            continue;
-          }
-        }
-        
-        console.error('All proxies failed for URL:', url);
-        return null;
-      }
-
-
-      // 1. Get Top 10 Decks
       const docDecks = await fetchHtml("https://limitlesstcg.com/decks")
       if (!docDecks) {
-  console.error('Failed to fetch deck list')
-  setScrapeProgress('Error fetching decks')
-  setIsScraping(false)
-  return
-}
-const rows = Array.from(docDecks.querySelectorAll("table.data-table.striped tbody tr")).slice(1, 11) // Skip header, get 10
+        console.error('Failed to fetch deck list')
+        setScrapeProgress('Error fetching decks')
+        setIsScraping(false)
+        return
+      }
 
+      const rows = Array.from(docDecks.querySelectorAll("table.data-table.striped tbody tr")).slice(0, 25) 
       const scrapedDecks: MetaDeck[] = []
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i]
+        const imgNode = row.querySelector("td:nth-child(2) img")
         const nameNode = row.querySelector("td:nth-child(3) a")
         const shareNode = row.querySelector("td:nth-child(5)")
         const pointsNode = row.querySelector("td:nth-child(4)")
@@ -119,65 +101,19 @@ const rows = Array.from(docDecks.querySelectorAll("table.data-table.striped tbod
         if (!nameNode) continue
 
         const name = nameNode.textContent?.trim() || "Unknown"
-        const deckPath = nameNode.getAttribute("href")
+        const archetypeUrl = nameNode.getAttribute("href") || ""
         const popularity = shareNode?.textContent?.trim() || ""
-        const winRate = pointsNode?.textContent?.trim() + " pts" || "" // Limitless shows points, we'll map it to winRate display
+        const winRate = pointsNode?.textContent?.trim() + " pts" || ""
+        const imageUrl = imgNode?.getAttribute("src") || ""
         
-        // Tier approximation based on rank
-        let tier = "B"
-        if (i < 2) tier = "S"
-        else if (i < 5) tier = "A"
-
-        setScrapeProgress(`Fetching data for ${name}...`)
-
-        let exportList = ""
-        let decklistUrl = ""
-
-        if (deckPath) {
-          // 2. Go to Archetype page to find latest list
-          const docArchetype = await fetchHtml(`https://limitlesstcg.com${deckPath}`)
-          if (!docArchetype) {
-            continue
-          }
-          const listLink = docArchetype.querySelector('a[href^="/decks/list/"]')
-          const listPath = listLink?.getAttribute("href")
-
-          if (listPath) {
-            decklistUrl = `https://limitlesstcg.com${listPath}`
-            // 3. Go to List page and extract cards
-            const docList = await fetchHtml(decklistUrl)
-            if (!docList) {
-              console.error('Failed to fetch deck list page', decklistUrl)
-              continue
-            }
-            const cards = Array.from(docList.querySelectorAll('.decklist-card'))
-            
-            const lines = cards.map(card => {
-              const count = card.querySelector('.card-count')?.textContent?.trim() || ""
-              const cardName = card.querySelector('.card-name')?.textContent?.trim() || ""
-              const set = card.getAttribute('data-set') || ""
-              const number = card.getAttribute('data-number') || ""
-              const isBasicEnergy = card.getAttribute('data-basic-energy')
-              
-              if (isBasicEnergy) {
-                // Formatting basic energy for PTCG Live usually uses name + Basic Energy
-                return `${count} ${cardName}`
-              }
-              return `${count} ${cardName} ${set} ${number}`
-            })
-            
-            exportList = lines.join('\n')
-          }
-        }
-
         scrapedDecks.push({
           id: `deck-${i}`,
           name,
-          tier,
+          tier: "", // Tier removed
           winRate,
           popularity,
-          decklistUrl,
-          exportList
+          imageUrl,
+          archetypeUrl: archetypeUrl ? `https://limitlesstcg.com${archetypeUrl}` : undefined
         })
       }
 
@@ -190,6 +126,98 @@ const rows = Array.from(docDecks.querySelectorAll("table.data-table.striped tbod
     } finally {
       setIsScraping(false)
     }
+  }
+
+  const fetchDeckDetails = async (deck: MetaDeck) => {
+    if (!deck.archetypeUrl) return
+    
+    setIsFetchingDetails(true)
+    setSelectedDeck(deck)
+    
+    try {
+      // 1. Go to Archetype page to find latest list
+      const docArchetype = await fetchHtml(deck.archetypeUrl)
+      if (!docArchetype) throw new Error("Could not load archetype page")
+
+      const listLink = docArchetype.querySelector('a[href^="/decks/list/"]')
+      const listPath = listLink?.getAttribute("href")
+
+      if (!listPath) throw new Error("No deck list found for this archetype")
+
+      const decklistUrl = `https://limitlesstcg.com${listPath}`
+      
+      // 2. Go to List page and extract cards
+      const docList = await fetchHtml(decklistUrl)
+      if (!docList) throw new Error("Could not load deck list page")
+
+      const columns = Array.from(docList.querySelectorAll('.decklist-column'))
+      
+      const pokemon: string[] = []
+      const trainer: string[] = []
+      const energy: string[] = []
+
+      columns.forEach(column => {
+        const header = column.querySelector('.decklist-column-heading')?.textContent?.toLowerCase() || ""
+        const cards = Array.from(column.querySelectorAll('.decklist-card'))
+        
+        let targetArray: string[] = []
+        if (header.includes("pokemon") || header.includes("pokémon")) targetArray = pokemon
+        else if (header.includes("trainer")) targetArray = trainer
+        else if (header.includes("energy")) targetArray = energy
+        else return // Skip unknown sections
+
+        cards.forEach(card => {
+          const count = card.querySelector('.card-count')?.textContent?.trim() || ""
+          const cardName = card.querySelector('.card-name')?.textContent?.trim() || ""
+          const set = card.getAttribute('data-set') || ""
+          const number = card.getAttribute('data-number') || ""
+          // Check for basic energy in multiple ways
+          const isBasicEnergy = card.hasAttribute('data-basic-energy') || card.getAttribute('data-basic-energy') !== null
+          
+          let line = ""
+          if (isBasicEnergy) {
+            line = set && number ? `${count} ${cardName} ${set} ${number}` : `${count} ${cardName}`
+          } else {
+            line = `${count} ${cardName} ${set} ${number}`
+          }
+          targetArray.push(line)
+        })
+      })
+
+      const pokemonTotal = pokemon.reduce((acc, l) => acc + parseInt(l.split(' ')[0] || "0"), 0)
+      const trainerTotal = trainer.reduce((acc, l) => acc + parseInt(l.split(' ')[0] || "0"), 0)
+      const energyTotal = energy.reduce((acc, l) => acc + parseInt(l.split(' ')[0] || "0"), 0)
+
+      const exportList = [
+        `Pokémon: ${pokemonTotal}`,
+        ...pokemon,
+        "",
+        `Trainer: ${trainerTotal}`,
+        ...trainer,
+        "",
+        `Energy: ${energyTotal}`,
+        ...energy
+      ].join('\n')
+
+      setSelectedDeck(prev => prev ? {
+        ...prev,
+        decklistUrl,
+        exportList,
+        cards: { pokemon, trainer, energy }
+      } : null)
+
+    } catch (error) {
+      console.error("Error fetching deck details:", error)
+      alert("Failed to load deck details. Please try again.")
+    } finally {
+      setIsFetchingDetails(false)
+    }
+  }
+
+  const handleImportToBuilder = (exportList: string) => {
+    if (!exportList) return
+    const encodedList = encodeURIComponent(exportList)
+    router.push(`/decks/builder?import=${encodedList}`)
   }
 
   useEffect(() => {
@@ -302,46 +330,157 @@ const rows = Array.from(docDecks.querySelectorAll("table.data-table.striped tbod
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       <p className="font-bold italic text-sm">{scrapeProgress}</p>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {metaDecks.map((deck) => (
-                        <div key={deck.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50 gap-4">
-                          <div className="flex items-center gap-4">
-                            <Badge className={getTierColor(deck.tier)}>Tier {deck.tier}</Badge>
-                            <span className="font-bold">{deck.name}</span>
+                  ) : selectedDeck ? (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedDeck(null)} className="font-bold">
+                          <ArrowLeft className="h-4 w-4 mr-2" /> Back to list
+                        </Button>
+                        <h3 className="text-2xl font-bold italic uppercase tracking-tight">Latest played deck of this archetype</h3>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        <div className="md:col-span-1 space-y-6">
+                          <div className="p-6 bg-secondary/10 rounded-3xl border border-border/50 flex flex-col items-center gap-4 text-center">
+                            {selectedDeck.imageUrl && (
+                              <img 
+                                src={selectedDeck.imageUrl} 
+                                alt="" 
+                                className="w-20 h-20 object-contain" 
+                              />
+                            )}
+                            <h2 className="text-2xl font-black italic uppercase text-primary leading-tight">{selectedDeck.name}</h2>
+                            <div className="flex flex-wrap justify-center gap-2">
+                              <Badge variant="outline" className="font-bold italic text-[10px]">{selectedDeck.winRate}</Badge>
+                              <Badge variant="outline" className="font-bold italic text-[10px]">{selectedDeck.popularity} Usage</Badge>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground font-medium">
-                            <span>Points: <span className="text-foreground">{deck.winRate}</span></span>
-                            <span>Share: <span className="text-foreground">{deck.popularity}</span></span>
-                            <div className="flex gap-2">
-                              {deck.decklistUrl && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="font-bold"
-                                  onClick={() => window.open(deck.decklistUrl, '_blank')}
-                                >
-                                  View Source
-                                </Button>
+
+                          <div className="flex flex-col gap-3">
+                            <Button 
+                              className="w-full h-14 text-lg font-black italic uppercase shadow-lg shadow-primary/20 gap-3"
+                              onClick={() => handleImportToBuilder(selectedDeck.exportList || "")}
+                              disabled={isFetchingDetails}
+                            >
+                              <Plus className="h-6 w-6" /> Import into deck creator
+                            </Button>
+                            <Button 
+                              variant="outline"
+                              className="w-full h-14 text-lg font-black italic uppercase gap-3 border-2"
+                              onClick={() => {
+                                navigator.clipboard.writeText(selectedDeck.exportList || "")
+                                alert("Decklist copied to clipboard!")
+                              }}
+                              disabled={isFetchingDetails}
+                            >
+                              <Download className="h-6 w-6" /> Export deck
+                            </Button>
+                            {selectedDeck.decklistUrl && (
+                              <Button 
+                                variant="ghost"
+                                className="w-full h-12 text-sm font-bold opacity-60 hover:opacity-100"
+                                onClick={() => window.open(selectedDeck.decklistUrl, '_blank')}
+                              >
+                                View on Limitless TCG
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <Card className="border-border/60 bg-secondary/5 h-full min-h-[600px]">
+                            <CardContent className="p-6">
+                              {isFetchingDetails ? (
+                                <div className="h-full flex flex-col items-center justify-center space-y-4 py-24">
+                                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                  <p className="font-black italic uppercase tracking-widest text-muted-foreground animate-pulse">Syncing decklist...</p>
+                                </div>
+                              ) : selectedDeck.cards ? (
+                                <div className="space-y-8 font-mono text-xs">
+                                  {(() => {
+                                    const pTotal = selectedDeck.cards?.pokemon.reduce((acc, l) => acc + parseInt(l.split(' ')[0] || "0"), 0) || 0;
+                                    const tTotal = selectedDeck.cards?.trainer.reduce((acc, l) => acc + parseInt(l.split(' ')[0] || "0"), 0) || 0;
+                                    const eTotal = selectedDeck.cards?.energy.reduce((acc, l) => acc + parseInt(l.split(' ')[0] || "0"), 0) || 0;
+
+                                    return (
+                                      <>
+                                        <div>
+                                          <h4 className="font-black text-primary uppercase tracking-tighter text-base mb-4 border-b border-primary/20 pb-1">Pokémon ({pTotal})</h4>
+                                          <div className="grid grid-cols-1 gap-1">
+                                            {selectedDeck.cards?.pokemon.map((line, idx) => (
+                                              <div key={idx} className="flex gap-3 hover:bg-primary/5 px-2 py-1 rounded transition-colors group items-center">
+                                                <span className="font-black text-primary min-w-[24px]">{line.split(' ')[0]}</span>
+                                                <span className="font-medium text-foreground/80 group-hover:text-foreground">{line.split(' ').slice(1).join(' ')}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <h4 className="font-black text-primary uppercase tracking-tighter text-base mb-4 border-b border-primary/20 pb-1">Trainer ({tTotal})</h4>
+                                          <div className="grid grid-cols-1 gap-1">
+                                            {selectedDeck.cards?.trainer.map((line, idx) => (
+                                              <div key={idx} className="flex gap-3 hover:bg-primary/5 px-2 py-1 rounded transition-colors group items-center">
+                                                <span className="font-black text-primary min-w-[24px]">{line.split(' ')[0]}</span>
+                                                <span className="font-medium text-foreground/80 group-hover:text-foreground">{line.split(' ').slice(1).join(' ')}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <h4 className="font-black text-primary uppercase tracking-tighter text-base mb-4 border-b border-primary/20 pb-1">Energy ({eTotal})</h4>
+                                          <div className="grid grid-cols-1 gap-1">
+                                            {selectedDeck.cards?.energy.map((line, idx) => (
+                                              <div key={idx} className="flex gap-3 hover:bg-primary/5 px-2 py-1 rounded transition-colors group items-center">
+                                                <span className="font-black text-primary min-w-[24px]">{line.split(' ')[0]}</span>
+                                                <span className="font-medium text-foreground/80 group-hover:text-foreground">{line.split(' ').slice(1).join(' ')}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              ) : (
+                                <div className="h-full flex items-center justify-center text-muted-foreground italic font-medium">
+                                  No cards loaded.
+                                </div>
                               )}
-                              {deck.exportList && (
-                                <Button 
-                                  size="sm" 
-                                  className="font-bold gap-2"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(deck.exportList || "")
-                                    alert("Decklist copied to clipboard!")
-                                  }}
-                                >
-                                  <Download className="h-4 w-4" /> Copy List
-                                </Button>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                      {metaDecks.map((deck) => (
+                        <div 
+                          key={deck.id} 
+                          className="group relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden transition-all hover:border-primary/50 hover:shadow-xl cursor-pointer p-4"
+                          onClick={() => fetchDeckDetails(deck)}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-secondary/20 rounded-xl flex items-center justify-center p-2 shrink-0">
+                              {deck.imageUrl && (
+                                <img 
+                                  src={deck.imageUrl} 
+                                  alt="" 
+                                  className="w-full h-full object-contain transition-transform group-hover:scale-110 duration-500" 
+                                />
                               )}
                             </div>
+                            <h4 className="flex-1 font-black italic uppercase text-base leading-tight group-hover:text-primary transition-colors truncate">
+                              {deck.name}
+                            </h4>
+                          </div>
+                          <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-muted-foreground mt-4 px-1">
+                            <span>Points: <span className="text-foreground">{deck.winRate}</span></span>
+                            <span>Share: <span className="text-foreground">{deck.popularity}</span></span>
                           </div>
                         </div>
                       ))}
                       {metaDecks.length === 0 && !isScraping && (
-                        <div className="text-center py-8 text-muted-foreground">
+                        <div className="col-span-full text-center py-8 text-muted-foreground">
                           Failed to load meta decks.
                         </div>
                       )}
