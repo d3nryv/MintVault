@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect } from "react"
-import { AlertCircle, X } from "lucide-react"
+import { useEffect, useState } from "react"
+import { AlertCircle, X, Plus, Minus, Loader2 } from "lucide-react"
+import { useAuth } from "@/context/auth-context"
 
 export interface Attack {
   name: string
@@ -72,7 +73,53 @@ export const tcgTypeColors: Record<string, string> = {
   Fairy: "#F472B6",
 }
 
-export function CardDetailModal({ card, onClose }: { card: CardInfo; onClose: () => void }) {
+export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { card: CardInfo; collectionTarget?: 'pokemon' | 'sets'; onClose: () => void }) {
+  const { user, updateUser } = useAuth()
+  const [isUpdating, setIsUpdating] = useState(false)
+  
+  const isPokedexContext = typeof window !== 'undefined' && 
+    (window.location.pathname.includes('/pokemon/') || window.location.search.includes('tab=pokedex'))
+
+  const handleToggleCollection = async (action: 'add' | 'remove') => {
+    if (!user) return
+    
+    setIsUpdating(true)
+    try {
+      const field = collectionTarget === 'pokemon' ? 'ownedPokemon' : 'ownedEnglishCards'
+      const dbField = collectionTarget === 'pokemon' ? 'owned_pokemon' : 'owned_english_cards'
+      const currentValue = [...(user[field] || [])]
+      
+      const itemToModify = card.id
+      let newValue: string[]
+      
+      if (action === 'add') {
+        newValue = [...currentValue, itemToModify]
+      } else {
+        const index = currentValue.lastIndexOf(itemToModify)
+        if (index > -1) {
+          currentValue.splice(index, 1)
+        }
+        newValue = currentValue
+      }
+
+      const updateData: any = { [dbField]: newValue }
+
+      const response = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      })
+
+      if (response.ok) {
+        updateUser({ [field]: newValue })
+      }
+    } catch (error) {
+      console.error('Failed to update collection', error)
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   // Close on backdrop click
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose()
@@ -90,6 +137,10 @@ export function CardDetailModal({ card, onClose }: { card: CardInfo; onClose: ()
   const primaryType = card.types?.[0]
   const typeAccent = primaryType ? (tcgTypeColors[primaryType] ?? "#6366F1") : "#6366F1"
 
+  // Count specific card copies by ID based on collection target
+  const targetField = collectionTarget === 'pokemon' ? 'ownedPokemon' : 'ownedEnglishCards'
+  const ownedCount = user?.[targetField]?.filter((id: string) => id === card.id).length || 0
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md"
@@ -102,20 +153,22 @@ export function CardDetailModal({ card, onClose }: { card: CardInfo; onClose: ()
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        {/* Close button - top right, contrasting color */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 p-2 sm:p-3 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-offset-2"
-          style={{
-            background: typeAccent,
-            color: "#fff",
-            boxShadow: `0 4px 14px 0 ${typeAccent}40`
-          }}
-          aria-label="Cerrar modal"
-          title="Cerrar"
-        >
-          <X className="h-6 w-6 sm:h-8 sm:w-8" strokeWidth={2.5} />
-        </button>
+        {/* Close button - top right */}
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 flex gap-2">
+          <button
+            onClick={onClose}
+            className="p-2 sm:p-3 rounded-full transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-offset-2"
+            style={{
+              background: typeAccent,
+              color: "#fff",
+              boxShadow: `0 4px 14px 0 ${typeAccent}40`
+            }}
+            aria-label="Cerrar modal"
+            title="Cerrar"
+          >
+            <X className="h-6 w-6 sm:h-8 sm:w-8" strokeWidth={2.5} />
+          </button>
+        </div>
 
         {/* Left: Card image */}
         <div
@@ -309,6 +362,47 @@ export function CardDetailModal({ card, onClose }: { card: CardInfo; onClose: ()
               </InfoRow>
             )}
           </div>
+
+          {/* Collection Management */}
+          {user && (
+            <div className="pt-6 border-t border-border/60">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-2xl bg-secondary/30 border border-border/50 shadow-inner">
+                <div className="space-y-1 text-center sm:text-left">
+                  <h4 className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground">Your Collection</h4>
+                  <p className="text-2xl font-black italic uppercase tracking-tight">
+                    {ownedCount} {ownedCount === 1 ? 'Copy' : 'Copies'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-6">
+                  <button
+                    onClick={() => handleToggleCollection('remove')}
+                    disabled={isUpdating || ownedCount === 0}
+                    className="p-4 rounded-full transition-all hover:scale-110 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive hover:text-white"
+                    title="Remove copy"
+                  >
+                    <Minus className="h-6 w-6" strokeWidth={3} />
+                  </button>
+                  
+                  <div className="min-w-[4rem] text-center">
+                    {isUpdating ? (
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                    ) : (
+                      <span className="text-4xl font-black tabular-nums" style={{ color: typeAccent }}>{ownedCount}</span>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => handleToggleCollection('add')}
+                    disabled={isUpdating}
+                    className="p-4 rounded-full transition-all hover:scale-110 active:scale-95 disabled:opacity-30 disabled:hover:scale-100 bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white"
+                    title="Add copy"
+                  >
+                    <Plus className="h-6 w-6" strokeWidth={3} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

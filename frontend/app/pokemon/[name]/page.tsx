@@ -6,9 +6,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, AlertCircle, Flame, X, Loader2 } from "lucide-react"
+import { ArrowLeft, AlertCircle, Flame, X, Loader2, Search, Filter, Hash, CheckCircle, Circle } from "lucide-react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useAuth } from "@/context/auth-context"
 
 import { CardDetailModal, CardInfo } from "@/components/card-detail-modal"
 
@@ -62,6 +65,14 @@ export default function PokemonPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedCard, setSelectedCard] = useState<CardInfo | null>(null)
   const [visibleCount, setVisibleCount] = useState(15)
+  const { user, updateUser } = useAuth()
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortBy, setSortBy] = useState<"number" | "owned">("number")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [collectionFilter, setCollectionFilter] = useState<"all" | "owned" | "not-owned">("all")
+  const [showGrayscale, setShowGrayscale] = useState(false)
 
   const fetchPokemon = useCallback(async () => {
     try {
@@ -106,9 +117,45 @@ export default function PokemonPage() {
     }
   }, [decodedName, fetchPokemon, fetchCards])
 
+  const filteredCards = useMemo(() => {
+    let result = [...cards]
+
+    // Search by set name
+    if (searchQuery) {
+      result = result.filter(c => 
+        c.set?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    }
+
+    // Filter by collection
+    if (collectionFilter !== "all") {
+      result = result.filter(c => {
+        const isOwned = user?.ownedPokemon?.includes(c.id)
+        return collectionFilter === "owned" ? isOwned : !isOwned
+      })
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortBy === "owned") {
+        const aOwned = user?.ownedPokemon?.includes(a.id) ? 1 : 0
+        const bOwned = user?.ownedPokemon?.includes(b.id) ? 1 : 0
+        return sortOrder === "asc" ? aOwned - bOwned : bOwned - aOwned
+      } else {
+        const aNumMatch = a.number?.match(/\d+/)
+        const bNumMatch = b.number?.match(/\d+/)
+        const aNum = aNumMatch ? parseInt(aNumMatch[0]) : 0
+        const bNum = bNumMatch ? parseInt(bNumMatch[0]) : 0
+        return sortOrder === "asc" ? aNum - bNum : bNum - aNum
+      }
+    })
+
+    return result
+  }, [cards, searchQuery, collectionFilter, sortBy, sortOrder, user?.ownedEnglishCards, user?.ownedPokemon])
+
   const lazyCards = useMemo(() => {
-    return cards.slice(0, visibleCount)
-  }, [cards, visibleCount])
+    return filteredCards.slice(0, visibleCount)
+  }, [filteredCards, visibleCount])
 
   // Infinite scroll observer
   useEffect(() => {
@@ -195,14 +242,44 @@ export default function PokemonPage() {
 
               {/* Pokemon Info */}
               <div className="md:col-span-2 space-y-6">
-                <div>
-                  <h1 className="text-5xl font-black text-foreground capitalize mb-2">
-                    {decodedName}
-                  </h1>
-                  {pokemon && (
-                    <p className="text-muted-foreground text-lg">
-                      Pokédex #{pokemon.id}
-                    </p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h1 className="text-5xl font-black text-foreground capitalize mb-2">
+                      {decodedName}
+                    </h1>
+                    {pokemon && (
+                      <p className="text-muted-foreground text-lg">
+                        Pokédex #{pokemon.id}
+                      </p>
+                    )}
+                  </div>
+                  {user && (
+                    <Button 
+                      variant={user?.ownedPokemon?.includes(decodedName) ? "default" : "outline"}
+                      className="rounded-xl font-black uppercase tracking-widest text-xs h-10 px-4"
+                      onClick={async () => {
+                        const current = [...(user.ownedPokemon || [])]
+                        const isTracking = current.includes(decodedName)
+                        const newValue = isTracking 
+                          ? current.filter(n => n !== decodedName)
+                          : [...current, decodedName]
+                        
+                        try {
+                          const res = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ owned_pokemon: newValue })
+                          })
+                          if (res.ok) {
+                            updateUser({ ownedPokemon: newValue })
+                          }
+                        } catch (err) {
+                          console.error("Failed to update tracking", err)
+                        }
+                      }}
+                    >
+                      {user?.ownedPokemon?.includes(decodedName) ? "Tracking Species" : "Track Species"}
+                    </Button>
                   )}
                 </div>
 
@@ -268,11 +345,66 @@ export default function PokemonPage() {
             </div>
           )}
 
-          {/* Cards Section */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-foreground mb-6">
-              {(pokemon?.name || decodedName).charAt(0).toUpperCase() + (pokemon?.name || decodedName).slice(1)}&apos;s Cards
-            </h2>
+          <div className="mb-12">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 bg-card/50 p-6 rounded-3xl border border-border/50 backdrop-blur-sm">
+              <h2 className="text-3xl font-black text-foreground uppercase tracking-tight italic">
+                {(pokemon?.name || decodedName)}&apos;s Cards
+              </h2>
+
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative group min-w-[250px]">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input
+                    placeholder="Search set name..."
+                    className="pl-10 h-12 bg-secondary/30 border-border/50 rounded-2xl font-bold"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Select value={collectionFilter} onValueChange={(v: any) => setCollectionFilter(v)}>
+                    <SelectTrigger className="h-12 w-[140px] bg-secondary/30 border-border/50 rounded-2xl font-black uppercase text-[10px] tracking-widest">
+                      <Filter className="h-4 w-4 mr-2 text-primary" />
+                      <SelectValue placeholder="Collection" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-border/50">
+                      <SelectItem value="all" className="rounded-xl">All Cards</SelectItem>
+                      <SelectItem value="owned" className="rounded-xl">Owned Only</SelectItem>
+                      <SelectItem value="not-owned" className="rounded-xl">Not Owned</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                    <SelectTrigger className="h-12 w-[140px] bg-secondary/30 border-border/50 rounded-2xl font-black uppercase text-[10px] tracking-widest">
+                      <Filter className="h-4 w-4 mr-2 text-primary" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-border/50">
+                      <SelectItem value="number" className="rounded-xl">Number</SelectItem>
+                      <SelectItem value="owned" className="rounded-xl">Owned</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-12 w-12 rounded-2xl bg-secondary/30 border-border/50"
+                    onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
+                  >
+                    <Hash className={`h-4 w-4 transition-transform duration-500 ${sortOrder === "desc" ? "rotate-180" : ""}`} />
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className={`h-12 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${showGrayscale ? 'bg-primary/10 text-primary border-primary/20' : 'bg-secondary/30 border-border/50'}`}
+                    onClick={() => setShowGrayscale(!showGrayscale)}
+                  >
+                    {showGrayscale ? "B&W: ON" : "B&W: OFF"}
+                  </Button>
+                </div>
+              </div>
+            </div>
 
             {cardsLoading && cards.length === 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -287,21 +419,20 @@ export default function PokemonPage() {
             ) : cards.length > 0 ? (
               <div className="space-y-10">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {cards.map((card) => (
+                  {lazyCards.map((card) => (
                     <Card
                       key={card.id}
+                      className={`group cursor-pointer hover:shadow-xl transition-all duration-500 hover:-translate-y-2 bg-card border-border overflow-hidden rounded-2xl hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none relative ${showGrayscale && !user?.ownedPokemon?.includes(card.id) ? 'grayscale opacity-70' : ''}`}
                       onClick={() => setSelectedCard(card)}
-                      className="group cursor-pointer hover:shadow-xl transition-all duration-500 hover:-translate-y-2 bg-card border-border overflow-hidden rounded-2xl hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-                      role="button"
+                      onKeyDown={(e) => { if (e.key === 'Enter') setSelectedCard(card) }}
                       tabIndex={0}
-                      aria-label={`Ver detalles de ${card.name}, set ${card.set?.name || 'desconocido'}`}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setSelectedCard(card);
-                        }
-                      }}
                     >
+                      {/* Owned Badge Overlay */}
+                      {user?.ownedPokemon?.includes(card.id) && (
+                        <div className="absolute top-3 right-3 z-10 bg-primary text-white p-1.5 rounded-full shadow-lg scale-110">
+                          <CheckCircle className="h-4 w-4" strokeWidth={3} />
+                        </div>
+                      )}
                       <CardContent className="p-0">
                         <div className="relative aspect-[3/4] w-full overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/5">
                           {card.images?.large || card.images?.small ? (
@@ -366,7 +497,11 @@ export default function PokemonPage() {
 
       {/* Card Detail Modal */}
       {selectedCard && (
-        <CardDetailModal card={selectedCard} onClose={() => setSelectedCard(null)} />
+        <CardDetailModal 
+          card={selectedCard} 
+          collectionTarget="pokemon"
+          onClose={() => setSelectedCard(null)} 
+        />
       )}
     </div>
   )
