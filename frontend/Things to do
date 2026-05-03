@@ -1,0 +1,22 @@
+Al pulsar en el + deberá pedirte:
+
+Nombre del álbum (Aparecera en el canto del álbum en vertical como aparece ahora)
+
+Color del canto del álbum (Se puede seleccionar color solido, degradado o arcoiris)
+
+Portada del álbum (Se puede seleccionar color solido, degradado, arcoiris o subir foto personalizada)
+
+Tamaño del álbum (2x2,3x3,4x3,4x4)
+
+Le das a crear álbum tras seleccionar mínimo el nombre y el tamaño (Si no se elige color y portada se pondrá en negro por defecto)
+
+Una vez en la pagina del álbum te mostrará un grid con "+" en ellos donde podras elegir las cartas que quieres ir metiendo, podras buscarlas por nombre o buscar un set y rellenar el álbum entero con las cartas de ese set ordenadas desde la primera hasta la ultima carta del set
+
+Cachos de código de pkmnbndr (referencia)
+
+Modal de selección de carta para el slot seleccionado donde se puede elegir entre single cards o sets y sleeves, sleeves no será una funciona a implementar en mi pagina, y los filtros de abajo como el subtipo, rareza y set tampoco, solo te dejará elegir entre cartas individuales y sets, en las cartas individuales te deja buscar el nombre de la carta y puedes añadirla
+
+
+En caso de haber elegido un set te mostrará esto donde te enseñará los nombres de los sets y una vez que eligas uno te preguntará si quieres añadirlo desde el slot 1 del álbum o desde tu slot actual, si lo metes en el slot actual y hay cartas después del slot serán movidas al final del set que hayas añadido
+
+Opciones adicionales de la pagina para tus cartas:
