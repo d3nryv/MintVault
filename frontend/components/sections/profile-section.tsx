@@ -180,6 +180,15 @@ export function ProfileSection() {
       height: parseInt(newBinderSize.split('x')[0], 10),
       width: parseInt(newBinderSize.split('x')[1], 10),
       coverUrl: newBinderCoverType === 'image' ? newBinderCoverValue : null,
+      metadata: {
+        spineColor,
+        spineType: newBinderSpineType,
+        spineColor2: newBinderSpineColor2,
+        coverType: newBinderCoverType,
+        coverValue: coverValue,
+        coverValue2: newBinderCoverValue2,
+        spineTextColor: "#ffffff"
+      }
     }
 
     try {
@@ -509,7 +518,7 @@ export function ProfileSection() {
                 >
                   <div
                     className="w-12 md:w-14 h-full flex items-center justify-center shrink-0 z-10 shadow-[5px_0_20px_rgba(0,0,0,0.2)]"
-                    style={{ background: binder.spineColor }}
+                    style={{ background: binder.metadata?.spineColor || binder.spineColor }}
                   >
                     <span
                       className="whitespace-nowrap font-black text-[10px] md:text-xs uppercase tracking-[0.3em] [writing-mode:vertical-rl] rotate-180"

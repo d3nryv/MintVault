@@ -9,6 +9,7 @@ export class AlbumEntity {
     public width: number,  // Columns
     public pages: string[], // Array of page IDs
     public createdAt: Date,
-    public updatedAt: Date
+    public updatedAt: Date,
+    public metadata: any = {}
   ) {}
 }
