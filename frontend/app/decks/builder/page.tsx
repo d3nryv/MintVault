@@ -182,6 +182,7 @@ interface DeckItem {
 
 export default function DeckBuilderPage() {
   const [deckName, setDeckName] = useState("New Deck")
+  const [deckId, setDeckId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<TCGCard[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -213,6 +214,25 @@ export default function DeckBuilderPage() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const importData = urlParams.get('import')
+    const idParam = urlParams.get('id')
+
+    if (idParam) {
+      setDeckId(idParam)
+      const fetchDeck = async () => {
+        try {
+          const response = await fetch(`http://127.0.0.1:3000/api/decks/${idParam}`)
+          if (response.ok) {
+            const data = await response.json()
+            setDeckName(data.name)
+            setDeck(data.cards)
+          }
+        } catch (error) {
+          console.error("Error fetching deck:", error)
+        }
+      }
+      fetchDeck()
+    }
+
     if (importData) {
       setImportText(decodeURIComponent(importData))
       // Use a small delay to ensure the component is fully ready
@@ -491,8 +511,11 @@ export default function DeckBuilderPage() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:3000/api/decks', {
-        method: 'POST',
+      const url = deckId ? `http://127.0.0.1:3000/api/decks/${deckId}` : 'http://127.0.0.1:3000/api/decks'
+      const method = deckId ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },

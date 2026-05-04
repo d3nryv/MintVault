@@ -39,3 +39,4 @@ export * from './pokemon/get-all-pokemons.use-case';
 export * from './deck/create-deck.use-case';
 export * from './deck/update-deck.use-case';
 export * from './deck/get-decks-by-owner.use-case';
+export * from './deck/get-deck-by-id.use-case';

@@ -7,7 +7,7 @@ export class DeckMapper {
             row.id,
             row.owner_id,
             row.name,
-            row.cards || [],
+            typeof row.cards === 'string' ? JSON.parse(row.cards) : (row.cards || []),
             row.created_at,
             row.updated_at,
             row.strategy
