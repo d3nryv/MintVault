@@ -6,8 +6,8 @@ import { Footer } from "@/components/footer"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { 
-  Search, Save, Share2, Trash2, Plus, Minus, 
+import {
+  Search, Save, Share2, Trash2, Plus, Minus,
   Info, Loader2, Layers, CheckCircle2, AlertCircle,
   ArrowLeft, ArrowUpDown, FileUp, X
 } from "lucide-react"
@@ -170,7 +170,7 @@ interface TCGCard {
   attacks?: Array<{ name: string; text: string; damage: string; cost: string[] }>
   abilities?: Array<{ name: string; text: string; type: string }>
   images: { small: string; large: string }
-  set: { id: string; name: string; series: string; releaseDate: string }
+  set: { id: string; name: string; series: string; releaseDate: string; ptcgoCode?: string }
   number: string
   text?: string[]
 }
@@ -191,12 +191,12 @@ export default function DeckBuilderPage() {
   const [reprints, setReprints] = useState<TCGCard[]>([])
   const [isLoadingReprints, setIsLoadingReprints] = useState(false)
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
-  
+
   // Import state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [importText, setImportText] = useState("")
   const [isImporting, setIsImporting] = useState(false)
-  
+
   const router = useRouter()
   const { user } = useAuth()
 
@@ -243,7 +243,9 @@ export default function DeckBuilderPage() {
     }
   }, [])
 
-  const getSetCode = (setName: string) => {
+  const getSetCode = (card: TCGCard) => {
+    if (card.set.ptcgoCode) return card.set.ptcgoCode
+    const setName = card.set.name
     if (SET_ABBREVIATIONS[setName]) return SET_ABBREVIATIONS[setName]
     if (setName.includes("McDonald's")) return "MCD"
     const parts = setName.split(/\s+/).filter(p => p.toLowerCase() !== '&' && p.toLowerCase() !== '—')
@@ -296,7 +298,7 @@ export default function DeckBuilderPage() {
     setIsImporting(true)
     const lines = importText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
     const newDeck: DeckItem[] = []
-    
+
     const ENERGY_MAP: Record<string, string> = {
       '{G}': 'Grass', '{R}': 'Fire', '{W}': 'Water', '{L}': 'Lightning',
       '{P}': 'Psychic', '{F}': 'Fighting', '{D}': 'Darkness', '{M}': 'Metal',
@@ -312,7 +314,7 @@ export default function DeckBuilderPage() {
         const number = parts[parts.length - 1]
         const setCode = parts[parts.length - 2]
         let fullName = parts.slice(1, parts.length - 2).join(" ")
-        
+
         // Translate symbols like {G} to names like Grass
         Object.entries(ENERGY_MAP).forEach(([symbol, name]) => {
           fullName = fullName.replace(symbol, name)
@@ -320,13 +322,13 @@ export default function DeckBuilderPage() {
 
         const isEnergy = fullName.toLowerCase().includes("energy")
         const isBasicEnergy = isEnergy && (
-          fullName.toLowerCase().includes("basic") || 
+          fullName.toLowerCase().includes("basic") ||
           ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'].includes(fullName.toLowerCase().replace(/energy/g, '').trim())
         )
-        
+
         // Exact match with quotes for everything
         let searchTerm = `\"${fullName}\"`
-        
+
         if (isBasicEnergy) {
           const type = fullName.toLowerCase().replace(/basic/g, '').replace(/energy/g, '').trim()
           searchTerm = `\"basic ${type} energy\"`
@@ -334,31 +336,31 @@ export default function DeckBuilderPage() {
 
         try {
           const apiUrl = `http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`
-          
+
           await new Promise(r => setTimeout(r, 50))
           const response = await fetch(apiUrl)
           if (!response.ok) continue
-          
+
           const data = await response.json()
-          
+
           if (Array.isArray(data) && data.length > 0) {
             let found = null
-            
+
             // 1. Try strict match first for EVERYTHING (including Energy Switch)
             const targetName = normalize(fullName)
             let finalSetCode = setCode
-            
+
             // Energy rule: convert MEE to SVE
             if (isEnergy && setCode.toUpperCase() === 'MEE') {
               finalSetCode = 'SVE'
             }
 
             found = data.find(c => {
-              const cSetCode = getSetCode(c.set.name)
+              const cSetCode = getSetCode(c)
               const cNumber = c.id.includes('-') ? c.id.split('-')[1] : c.number
-              return normalize(c.name) === targetName && 
-                     cSetCode.toLowerCase() === finalSetCode.toLowerCase() && 
-                     cNumber === number
+              return normalize(c.name) === targetName &&
+                cSetCode.toLowerCase() === finalSetCode.toLowerCase() &&
+                cNumber === number
             })
 
             // 2. Fallback logic only for Basic Energies or if no strict match found
@@ -370,7 +372,7 @@ export default function DeckBuilderPage() {
                 found = data[0]
               }
             }
-            
+
             if (found) {
               setSelectedCard(found)
               newDeck.push({ card: found, count })
@@ -397,9 +399,9 @@ export default function DeckBuilderPage() {
   const fetchReprints = async (card: TCGCard) => {
     setIsLoadingReprints(true)
     setReprints([])
-    
+
     const normalize = (name: string) => name.split('(')[0].replace(/['’]/g, '').trim().toLowerCase()
-    
+
     try {
       // Use clean full name with quotes for exact matching
       const cleanName = card.name.split('(')[0].trim()
@@ -407,13 +409,13 @@ export default function DeckBuilderPage() {
 
       const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`)
       const data = await response.json()
-      
+
       if (Array.isArray(data)) {
         const cardBaseName = normalize(card.name)
         const versions = data.filter(c => {
           if (c.id === card.id) return false
           const otherBaseName = normalize(c.name)
-          
+
           if (card.supertype === 'Pokémon') {
             const getTexts = (cd: TCGCard) => {
               const attacks = cd.attacks?.map(a => a.text).join('|') || ''
@@ -486,17 +488,31 @@ export default function DeckBuilderPage() {
   }
 
   const handleShare = () => {
+    const ENERGY_SYMBOLS: Record<string, string> = {
+      'Grass': '{G}', 'Fire': '{R}', 'Water': '{W}', 'Lightning': '{L}',
+      'Psychic': '{P}', 'Fighting': '{F}', 'Darkness': '{D}', 'Metal': '{M}',
+      'Dark': '{D}'
+    }
+
     const formatLine = (item: DeckItem) => {
       let name = item.card.name
-      if (item.card.supertype === 'Energy') {
-        name = name.replace(/Basic\s+/i, '')
+      let setCode = getSetCode(item.card)
+      let cardNumber = item.card.id.includes('-') ? item.card.id.split('-')[1] : item.card.number
+
+      if (item.card.supertype === 'Energy' && item.card.subtypes.includes('Basic')) {
+        const type = name.replace(/Basic\s+|Energy\s+/gi, '').trim()
+        const symbol = ENERGY_SYMBOLS[type] || type
+        name = `Basic ${symbol} Energy`
+        setCode = 'SVE'
+        // Basic energies usually don't need a number in Live or use a default one, but keeping it for now
       }
-      const setCode = getSetCode(item.card.set.name)
-      const cardNumber = item.card.id.includes('-') ? item.card.id.split('-')[1] : item.card.number
+
       return `${item.count} ${name} ${setCode} ${cardNumber}`
     }
+
     const format = `Pokémon: ${pokemonCount}\n${deck.filter(i => i.card.supertype === 'Pokémon').map(formatLine).join('\n')}\n\nTrainer: ${trainerCount}\n${deck.filter(i => i.card.supertype === 'Trainer').map(formatLine).join('\n')}\n\nEnergy: ${energyCount}\n${deck.filter(i => i.card.supertype === 'Energy').map(formatLine).join('\n')}`
-    navigator.clipboard.writeText(format); showNotification("Copied to clipboard!")
+    navigator.clipboard.writeText(format)
+    showNotification("Copied to clipboard!")
   }
 
   const handleSave = async () => {
@@ -541,11 +557,10 @@ export default function DeckBuilderPage() {
   return (
     <div className="min-h-screen bg-background relative">
       <Header />
-      
+
       {notification && (
-        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 ${
-          notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'
-        }`}>
+        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
           {notification.type === 'success' ? <CheckCircle2 className="h-6 w-6" /> : <AlertCircle className="h-6 w-6" />}
           <span className="text-base font-bold">{notification.message}</span>
         </div>
@@ -563,7 +578,7 @@ export default function DeckBuilderPage() {
               <Button variant="ghost" size="icon" onClick={() => setIsImportModalOpen(false)} disabled={isImporting}><X className="h-6 w-6" /></Button>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
-              <textarea 
+              <textarea
                 className={`w-full h-64 bg-secondary/20 rounded-xl p-4 font-mono text-sm border-2 border-border focus:border-primary focus:ring-0 outline-none transition-all resize-none ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 placeholder="4 Dreepy TWM 128&#10;4 Drakloak TWM 129&#10;..."
                 value={importText}
@@ -599,13 +614,13 @@ export default function DeckBuilderPage() {
                 </div>
                 <p className="text-muted-foreground text-sm font-medium">Sincronizando con la base de datos oficial</p>
               </div>
-              
+
               {selectedCard && (
                 <div className="relative">
-                  <img 
-                    src={selectedCard.images.small} 
-                    alt="" 
-                    className="w-56 h-auto rounded-xl shadow-2xl border-4 border-background animate-in zoom-in-90 duration-300" 
+                  <img
+                    src={selectedCard.images.small}
+                    alt=""
+                    className="w-56 h-auto rounded-xl shadow-2xl border-4 border-background animate-in zoom-in-90 duration-300"
                   />
                   <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full -z-10 animate-pulse" />
                 </div>
@@ -639,11 +654,11 @@ export default function DeckBuilderPage() {
                     <div className="grid grid-cols-3 gap-3">
                       {reprints.map(r => (
                         <div key={r.id} className="relative group">
-                          <img 
-                            src={r.images.small} 
-                            onClick={() => setSelectedCard(r)} 
-                            className="cursor-pointer rounded-lg border-2 border-transparent hover:border-primary transition-all hover:scale-105 shadow-sm" 
-                            title={`${r.set.name} - ${r.number}`} 
+                          <img
+                            src={r.images.small}
+                            onClick={() => setSelectedCard(r)}
+                            className="cursor-pointer rounded-lg border-2 border-transparent hover:border-primary transition-all hover:scale-105 shadow-sm"
+                            title={`${r.set.name} - ${r.number}`}
                           />
                         </div>
                       ))}
@@ -666,7 +681,7 @@ export default function DeckBuilderPage() {
           )}
         </div>
 
-        <div className="flex-1 flex flex-col bg-background" onDrop={(e) => { e.preventDefault(); const d = e.dataTransfer.getData("card"); if(d) addToDeck(JSON.parse(d)) }} onDragOver={(e) => e.preventDefault()}>
+        <div className="flex-1 flex flex-col bg-background" onDrop={(e) => { e.preventDefault(); const d = e.dataTransfer.getData("card"); if (d) addToDeck(JSON.parse(d)) }} onDragOver={(e) => e.preventDefault()}>
           <div className="p-8 border-b border-border flex items-center justify-between gap-6 bg-card/5">
             <div className="flex items-center gap-6">
               <Button variant="ghost" size="icon" onClick={() => router.push("/gameplay")} className="h-12 w-12"><ArrowLeft className="h-6 w-6" /></Button>

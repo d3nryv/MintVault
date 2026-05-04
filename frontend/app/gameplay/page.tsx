@@ -53,7 +53,7 @@ export default function GameplayPage() {
   const [selectedTournament, setSelectedTournament] = useState<any | null>(null)
   const [standings, setStandings] = useState<any[]>([])
   const [pairings, setPairings] = useState<any[]>([])
-  
+
   const [isLoading, setIsLoading] = useState(false)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [page, setPage] = useState(1)
@@ -67,7 +67,7 @@ export default function GameplayPage() {
         console.warn(`Proxy failed (Status: ${res.status})`);
         return null;
       }
-      
+
       const htmlText = await res.text();
       const parser = new DOMParser();
       return parser.parseFromString(htmlText, "text/html");
@@ -90,7 +90,7 @@ export default function GameplayPage() {
         return
       }
 
-      const rows = Array.from(docDecks.querySelectorAll("table.data-table.striped tbody tr")).slice(0, 25) 
+      const rows = Array.from(docDecks.querySelectorAll("table.data-table.striped tbody tr")).slice(0, 25)
       const scrapedDecks: MetaDeck[] = []
 
       for (let i = 0; i < rows.length; i++) {
@@ -99,7 +99,7 @@ export default function GameplayPage() {
         const nameNode = row.querySelector("td:nth-child(3) a")
         const shareNode = row.querySelector("td:nth-child(5)")
         const pointsNode = row.querySelector("td:nth-child(4)")
-        
+
         if (!nameNode) continue
 
         const name = nameNode.textContent?.trim() || "Unknown"
@@ -107,7 +107,7 @@ export default function GameplayPage() {
         const popularity = shareNode?.textContent?.trim() || ""
         const winRate = pointsNode?.textContent?.trim() + " pts" || ""
         const imageUrl = imgNode?.getAttribute("src") || ""
-        
+
         scrapedDecks.push({
           id: `deck-${i}`,
           name,
@@ -132,10 +132,10 @@ export default function GameplayPage() {
 
   const fetchDeckDetails = async (deck: MetaDeck) => {
     if (!deck.archetypeUrl) return
-    
+
     setIsFetchingDetails(true)
     setSelectedDeck(deck)
-    
+
     try {
       // 1. Go to Archetype page to find latest list
       const docArchetype = await fetchHtml(deck.archetypeUrl)
@@ -147,13 +147,13 @@ export default function GameplayPage() {
       if (!listPath) throw new Error("No deck list found for this archetype")
 
       const decklistUrl = `https://limitlesstcg.com${listPath}`
-      
+
       // 2. Go to List page and extract cards
       const docList = await fetchHtml(decklistUrl)
       if (!docList) throw new Error("Could not load deck list page")
 
       const columns = Array.from(docList.querySelectorAll('.decklist-column'))
-      
+
       const pokemon: string[] = []
       const trainer: string[] = []
       const energy: string[] = []
@@ -161,7 +161,7 @@ export default function GameplayPage() {
       columns.forEach(column => {
         const header = column.querySelector('.decklist-column-heading')?.textContent?.toLowerCase() || ""
         const cards = Array.from(column.querySelectorAll('.decklist-card'))
-        
+
         let targetArray: string[] = []
         if (header.includes("pokemon") || header.includes("pokémon")) targetArray = pokemon
         else if (header.includes("trainer")) targetArray = trainer
@@ -175,7 +175,7 @@ export default function GameplayPage() {
           const number = card.getAttribute('data-number') || ""
           // Check for basic energy in multiple ways
           const isBasicEnergy = card.hasAttribute('data-basic-energy') || card.getAttribute('data-basic-energy') !== null
-          
+
           let line = ""
           if (isBasicEnergy) {
             line = set && number ? `${count} ${cardName} ${set} ${number}` : `${count} ${cardName}`
@@ -216,7 +216,9 @@ export default function GameplayPage() {
     }
   }
 
-  const getSetCode = (setName: string) => {
+  const getSetCode = (card: any) => {
+    if (card.set.ptcgoCode) return card.set.ptcgoCode
+    const setName = card.set.name
     const SET_ABBREVIATIONS: Record<string, string> = {
       "Perfect Order": "POR", "Ascended Heroes": "ASC", "Mega Evolution": "MEG",
       "Black Bolt": "BLK", "White Flare": "WHT", "Destined Rivals": "DRI",
@@ -299,7 +301,7 @@ export default function GameplayPage() {
       const pairingsRes = await fetch(`${BASE_URL}/tournaments/${id}/pairings`)
       const pairingsData = await pairingsRes.json()
       setPairings(Array.isArray(pairingsData) ? pairingsData : [])
-      
+
     } catch (err) {
       console.error("Error fetching details:", err)
     } finally {
@@ -355,9 +357,9 @@ export default function GameplayPage() {
                 <CardContent>
                   <div className="flex justify-between items-center mb-4">
                     <p className="text-sm text-muted-foreground">Top 10 decks pulled live from Limitless TCG</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={scrapeLimitless}
                       disabled={isScraping}
                     >
@@ -365,7 +367,7 @@ export default function GameplayPage() {
                       Refresh Data
                     </Button>
                   </div>
-                  
+
                   {isScraping ? (
                     <div className="py-12 flex flex-col items-center justify-center space-y-4 opacity-70">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -384,10 +386,10 @@ export default function GameplayPage() {
                         <div className="md:col-span-1 space-y-6">
                           <div className="p-6 bg-secondary/10 rounded-3xl border border-border/50 flex flex-col items-center gap-4 text-center">
                             {selectedDeck.imageUrl && (
-                              <img 
-                                src={selectedDeck.imageUrl} 
-                                alt="" 
-                                className="w-20 h-20 object-contain" 
+                              <img
+                                src={selectedDeck.imageUrl}
+                                alt=""
+                                className="w-20 h-20 object-contain"
                               />
                             )}
                             <h2 className="text-2xl font-black italic uppercase text-primary leading-tight">{selectedDeck.name}</h2>
@@ -398,14 +400,14 @@ export default function GameplayPage() {
                           </div>
 
                           <div className="flex flex-col gap-3">
-                            <Button 
+                            <Button
                               className="w-full h-14 text-lg font-black italic uppercase shadow-lg shadow-primary/20 gap-3"
                               onClick={() => handleImportToBuilder(selectedDeck.exportList || "")}
                               disabled={isFetchingDetails}
                             >
                               <Plus className="h-6 w-6" /> Import into deck creator
                             </Button>
-                            <Button 
+                            <Button
                               variant="outline"
                               className="w-full h-14 text-lg font-black italic uppercase gap-3 border-2"
                               onClick={() => {
@@ -417,7 +419,7 @@ export default function GameplayPage() {
                               <Download className="h-6 w-6" /> Export deck
                             </Button>
                             {selectedDeck.decklistUrl && (
-                              <Button 
+                              <Button
                                 variant="ghost"
                                 className="w-full h-12 text-sm font-bold opacity-60 hover:opacity-100"
                                 onClick={() => window.open(selectedDeck.decklistUrl, '_blank')}
@@ -495,18 +497,18 @@ export default function GameplayPage() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                       {metaDecks.map((deck) => (
-                        <div 
-                          key={deck.id} 
+                        <div
+                          key={deck.id}
                           className="group relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden transition-all hover:border-primary/50 hover:shadow-xl cursor-pointer p-4"
                           onClick={() => fetchDeckDetails(deck)}
                         >
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-secondary/20 rounded-xl flex items-center justify-center p-2 shrink-0">
                               {deck.imageUrl && (
-                                <img 
-                                  src={deck.imageUrl} 
-                                  alt="" 
-                                  className="w-full h-full object-contain transition-transform group-hover:scale-110 duration-500" 
+                                <img
+                                  src={deck.imageUrl}
+                                  alt=""
+                                  className="w-full h-full object-contain transition-transform group-hover:scale-110 duration-500"
                                 />
                               )}
                             </div>
@@ -722,19 +724,30 @@ export default function GameplayPage() {
                             <div className="flex items-center gap-2">
                               <Button variant="ghost" size="icon" onClick={() => router.push(`/decks/builder?id=${deck.id}`)}><Edit className="h-4 w-4" /></Button>
                               <Button variant="ghost" size="icon" onClick={() => {
+                                const ENERGY_SYMBOLS: Record<string, string> = {
+                                  'Grass': '{G}', 'Fire': '{R}', 'Water': '{W}', 'Lightning': '{L}',
+                                  'Psychic': '{P}', 'Fighting': '{F}', 'Darkness': '{D}', 'Metal': '{M}',
+                                  'Dark': '{D}'
+                                }
+
                                 const formatLine = (item: any) => {
                                   let name = item.card.name
-                                  if (item.card.supertype === 'Energy') {
-                                    name = name.replace(/Basic\s+/i, '')
+                                  let setCode = getSetCode(item.card)
+                                  let cardNumber = item.card.id.includes('-') ? item.card.id.split('-')[1] : item.card.number
+
+                                  if (item.card.supertype === 'Energy' && item.card.subtypes.includes('Basic')) {
+                                    const type = name.replace(/Basic\s+|Energy\s+/gi, '').trim()
+                                    const symbol = ENERGY_SYMBOLS[type] || type
+                                    name = `Basic ${symbol} Energy`
+                                    setCode = 'SVE'
                                   }
-                                  const setCode = getSetCode(item.card.set.name)
-                                  const cardNumber = item.card.id.includes('-') ? item.card.id.split('-')[1] : item.card.number
+
                                   return `${item.count} ${name} ${setCode} ${cardNumber}`
                                 }
                                 const p = deck.cards.filter((i: any) => i.card.supertype === 'Pokémon')
                                 const t = deck.cards.filter((i: any) => i.card.supertype === 'Trainer')
                                 const e = deck.cards.filter((i: any) => i.card.supertype === 'Energy')
-                                
+
                                 const pCount = p.reduce((acc: number, i: any) => acc + i.count, 0)
                                 const tCount = t.reduce((acc: number, i: any) => acc + i.count, 0)
                                 const eCount = e.reduce((acc: number, i: any) => acc + i.count, 0)

@@ -37,6 +37,7 @@ export interface CardInfo {
     id?: string
     name?: string
     series?: string
+    ptcgoCode?: string
     images?: {
       symbol?: string
       logo?: string
