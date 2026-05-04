@@ -1,14 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
-import { DeckRepository } from '../../../domain/repositories';
+import { DeckRepository, UserRepository } from '../../../domain/repositories';
 import { 
     CreateDeckUseCase, 
     UpdateDeckUseCase, 
-    GetDecksByOwnerUseCase
+    GetDecksByOwnerUseCase,
+    GetDeckByIdUseCase
 } from '../../../application/use-cases';
 
 export class DeckController {
     constructor(
-        private readonly deckRepository: DeckRepository
+        private readonly deckRepository: DeckRepository,
+        private readonly userRepository: UserRepository
     ) {}
 
     getByOwner = async (req: Request, res: Response, next: NextFunction) => {
@@ -21,12 +23,23 @@ export class DeckController {
         }
     }
 
+    getById = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const id = req.params.id as string;
+            const deck = await new GetDeckByIdUseCase(this.deckRepository).execute(id);
+            if (!deck) return res.status(404).json({ error: 'Deck not found' });
+            res.json(deck);
+        } catch (error) {
+            next(error);
+        }
+    }
+
     create = async (req: Request, res: Response, next: NextFunction) => {
         try {
             if (!req.body || Object.keys(req.body).length === 0) {
                 return res.status(400).json({ error: 'Request body is required' });
             }
-            const deck = await new CreateDeckUseCase(this.deckRepository).execute(req.body);
+            const deck = await new CreateDeckUseCase(this.deckRepository, this.userRepository).execute(req.body);
             res.status(201).json(deck);
         } catch (error) {
             next(error);

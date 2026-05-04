@@ -32,11 +32,11 @@ export interface MetaDeck {
 }
 
 // --- Your Decks (Static) ---
-const yourDecks = [
-  { name: "My Charizard Deck", format: "Standard", cards: 60, lastEdited: "2 days ago" },
-  { name: "Budget Gardevoir", format: "Standard", cards: 60, lastEdited: "1 week ago" },
-  { name: "Fun Mew VMAX", format: "Expanded", cards: 60, lastEdited: "2 weeks ago" },
-]
+// const yourDecks = [
+//   { name: "My Charizard Deck", format: "Standard", cards: 60, lastEdited: "2 days ago" },
+//   { name: "Budget Gardevoir", format: "Standard", cards: 60, lastEdited: "1 week ago" },
+//   { name: "Fun Mew VMAX", format: "Expanded", cards: 60, lastEdited: "2 weeks ago" },
+// ]
 
 export default function GameplayPage() {
   const [activeTab, setActiveTab] = useState("meta")
@@ -57,6 +57,8 @@ export default function GameplayPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [page, setPage] = useState(1)
+  const [userDecks, setUserDecks] = useState<any[]>([])
+  const [isLoadingDecks, setIsLoadingDecks] = useState(false)
 
   const fetchHtml = async (url: string) => {
     try {
@@ -214,10 +216,43 @@ export default function GameplayPage() {
     }
   }
 
+  const getSetCode = (setName: string) => {
+    const SET_ABBREVIATIONS: Record<string, string> = {
+      "Perfect Order": "POR", "Ascended Heroes": "ASC", "Mega Evolution": "MEG",
+      "Black Bolt": "BLK", "White Flare": "WHT", "Destined Rivals": "DRI",
+      "Prismatic Evolutions": "PRE", "Surging Sparks": "SSP", "Stellar Crown": "SCR",
+      "Twilight Masquerade": "TWM", "Temporal Forces": "TEF", "Paldean Fates": "PAF",
+      "Paradox Rift": "PAR", "151": "MEW", "Obsidian Flames": "OBF",
+      "Paldea Evolved": "PAL", "Scarlet & Violet": "SVI", "Scarlet & Violet Energies": "SVE",
+      "Pokémon TCG Classic": "MEE"
+    }
+    if (SET_ABBREVIATIONS[setName]) return SET_ABBREVIATIONS[setName]
+    if (setName.includes("McDonald's")) return "MCD"
+    const parts = setName.split(/\s+/).filter(p => p.toLowerCase() !== '&' && p.toLowerCase() !== '—')
+    if (parts.length >= 2) return (parts[0][0] + parts[1].substring(0, 2)).toUpperCase()
+    return setName.substring(0, 3).toUpperCase()
+  }
+
   const handleImportToBuilder = (exportList: string) => {
     if (!exportList) return
     const encodedList = encodeURIComponent(exportList)
     router.push(`/decks/builder?import=${encodedList}`)
+  }
+
+  const fetchUserDecks = async () => {
+    if (!user) return
+    setIsLoadingDecks(true)
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/decks/owner/${user.id}`)
+      const data = await response.json()
+      if (Array.isArray(data)) {
+        setUserDecks(data)
+      }
+    } catch (error) {
+      console.error("Error fetching user decks:", error)
+    } finally {
+      setIsLoadingDecks(false)
+    }
   }
 
   useEffect(() => {
@@ -225,6 +260,12 @@ export default function GameplayPage() {
       scrapeLimitless()
     }
   }, [])
+
+  useEffect(() => {
+    if (activeTab === "decks" && user) {
+      fetchUserDecks()
+    }
+  }, [activeTab, user])
 
 
   const fetchTournaments = useCallback(async () => {
@@ -663,23 +704,54 @@ export default function GameplayPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {yourDecks.map((deck, index) => (
-                        <div key={index} className="flex items-center justify-between rounded-lg border border-border bg-card p-4 hover:border-primary/20 transition-all">
-                          <div className="space-y-1">
-                            <h4 className="font-bold text-lg uppercase italic">{deck.name}</h4>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground font-bold italic">
-                              <Badge variant="outline" className="font-bold text-[10px]">{deck.format}</Badge>
-                              <span>{deck.cards} cards</span>
-                              <span>Edited: {deck.lastEdited}</span>
+                      {isLoadingDecks ? (
+                        <div className="py-12 flex justify-center">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                      ) : userDecks.length > 0 ? (
+                        userDecks.map((deck, index) => (
+                          <div key={deck.id || index} className="flex items-center justify-between rounded-lg border border-border bg-card p-4 hover:border-primary/20 transition-all">
+                            <div className="space-y-1">
+                              <h4 className="font-bold text-lg uppercase italic">{deck.name}</h4>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground font-bold italic">
+                                <Badge variant="outline" className="font-bold text-[10px]">Standard</Badge>
+                                <span>{deck.cards?.reduce((acc: number, i: any) => acc + i.count, 0) || 0} cards</span>
+                                <span>Created: {new Date(deck.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="icon" onClick={() => router.push(`/decks/builder?id=${deck.id}`)}><Edit className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" onClick={() => {
+                                const formatLine = (item: any) => {
+                                  let name = item.card.name
+                                  if (item.card.supertype === 'Energy') {
+                                    name = name.replace(/Basic\s+/i, '')
+                                  }
+                                  const setCode = getSetCode(item.card.set.name)
+                                  const cardNumber = item.card.id.includes('-') ? item.card.id.split('-')[1] : item.card.number
+                                  return `${item.count} ${name} ${setCode} ${cardNumber}`
+                                }
+                                const p = deck.cards.filter((i: any) => i.card.supertype === 'Pokémon')
+                                const t = deck.cards.filter((i: any) => i.card.supertype === 'Trainer')
+                                const e = deck.cards.filter((i: any) => i.card.supertype === 'Energy')
+                                
+                                const pCount = p.reduce((acc: number, i: any) => acc + i.count, 0)
+                                const tCount = t.reduce((acc: number, i: any) => acc + i.count, 0)
+                                const eCount = e.reduce((acc: number, i: any) => acc + i.count, 0)
+
+                                const exportText = `Pokémon: ${pCount}\n${p.map(formatLine).join('\n')}\n\nTrainer: ${tCount}\n${t.map(formatLine).join('\n')}\n\nEnergy: ${eCount}\n${e.map(formatLine).join('\n')}`
+                                navigator.clipboard.writeText(exportText)
+                                alert("Decklist copied to clipboard!")
+                              }}><Download className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => router.push("/decks/builder")}><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon"><Download className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="py-12 text-center text-muted-foreground italic">
+                          No tienes mazos guardados. ¡Crea uno nuevo!
                         </div>
-                      ))}
+                      )}
                     </div>
                   </CardContent>
                 </Card>

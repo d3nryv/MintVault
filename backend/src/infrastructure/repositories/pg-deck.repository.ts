@@ -36,6 +36,7 @@ export class PostgresDeckRepository implements DeckRepository {
             VALUES (${placeholders}) 
             RETURNING *`;
         
+        console.log('Deck creation values:', JSON.stringify(values, null, 2));
         const { rows } = await db.query(query, values);
         return DeckMapper.toEntity(rows[0]);
     }
