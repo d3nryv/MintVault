@@ -6,3 +6,4 @@ export * from './pg-sale.repository';
 export * from './pg-transaction.repository';
 export * from './pg-pokemon.repository';
 export * from './tcg-sdk.repository';
+export * from './pg-deck.repository';
