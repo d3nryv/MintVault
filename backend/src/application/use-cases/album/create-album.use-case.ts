@@ -27,6 +27,7 @@ export class CreateAlbumUseCase {
         coverUrl: coverUrl,
         height: dto.height || 3,
         width: dto.width || 3,
+        metadata: dto.metadata || {}
     };
 
     const album = await this.albumRepository.create(albumData);

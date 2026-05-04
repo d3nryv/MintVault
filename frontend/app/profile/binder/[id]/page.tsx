@@ -51,6 +51,7 @@ export default function BinderDetailPage() {
   const binderId = params.id as string
 
   const [binder, setBinder] = useState<Binder | null>(null)
+  const [pages, setPages] = useState<any[]>([])
   const [currentSpread, setCurrentSpread] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<"pages" | "cover">("pages")
@@ -101,59 +102,96 @@ export default function BinderDetailPage() {
   }, [setQuery, allSets])
 
   useEffect(() => {
-    const fetchBinder = async () => {
+    const fetchBinderData = async () => {
       setIsLoading(true)
-      
-      // Load from localStorage (priority for cross-page persistence)
-      const savedBinders = JSON.parse(localStorage.getItem('tcg_temple_binders') || '[]')
-      let foundBinder = savedBinders.find((b: any) => String(b.id) === String(binderId))
-      
-      // Fallback to shared mocks
-      if (!foundBinder) {
-        foundBinder = mockBinders.find(b => String(b.id) === String(binderId))
-      }
-      
-      if (foundBinder) {
-        setBinder({
-          ...foundBinder,
-          cards: foundBinder.cards?.length > 0 ? foundBinder.cards : Array(360).fill(null),
-          ownedCards: foundBinder.ownedCards || {}
+      try {
+        // 1. Fetch Album details
+        const albumRes = await fetch(`http://127.0.0.1:3000/api/albums/${binderId}`)
+        if (!albumRes.ok) throw new Error('Album not found')
+        const albumData = await albumRes.json()
+
+        // 2. Fetch Pages for this album
+        const pagesRes = await fetch(`http://127.0.0.1:3000/api/pages/album/${binderId}`)
+        const pagesData = await pagesRes.json()
+
+        // 3. Reconstruct flat cards array
+        const cardsPerPage = albumData.height * albumData.width
+        const totalSlots = 360 // Standard binder size for UI
+        const flatCards = Array(totalSlots).fill(null)
+        const ownedCards: Record<number, boolean> = {}
+
+        // We need to fetch card details for each ID in the slots
+        // To avoid too many requests, we'll collect all unique card IDs first
+        const allCardIds = new Set<string>()
+        pagesData.forEach((page: any) => {
+          Object.values(page.slots).forEach((cardId: any) => {
+            if (cardId) allCardIds.add(cardId)
+          })
         })
-        setEditName(foundBinder.name)
-        setEditSpineColor(foundBinder.spineColor.includes('gradient') ? '#000000' : foundBinder.spineColor)
-        setEditCoverType(foundBinder.coverType)
-        setEditCoverValue(foundBinder.coverValue)
-      } else {
-        setBinder({
-          id: binderId,
-          name: "New Collection",
-          size: "3x3",
-          spineColor: "oklch(0.60 0.18 20)",
-          spineTextColor: "#ffffff",
-          coverType: "color",
-          coverValue: "oklch(0.55 0.20 25)",
-          cards: Array(360).fill(null)
+
+        const cardDetailsMap = new Map<string, any>()
+        if (allCardIds.size > 0) {
+          const idsQuery = Array.from(allCardIds).join(' OR id:')
+          const cardsRes = await fetch(`https://api.pokemontcg.io/v2/cards?q=id:${idsQuery}`)
+          const cardsResult = await cardsRes.json()
+          cardsResult.data.forEach((c: any) => cardDetailsMap.set(c.id, c))
+        }
+
+        pagesData.forEach((page: any) => {
+          const pageOffset = (page.pageNumber - 1) * cardsPerPage
+          Object.entries(page.slots).forEach(([slotIdx, cardId]: [string, any]) => {
+            const globalIdx = pageOffset + parseInt(slotIdx, 10)
+            if (globalIdx < totalSlots) {
+              const card = cardDetailsMap.get(cardId)
+              if (card) {
+                flatCards[globalIdx] = {
+                  id: card.id,
+                  name: card.name,
+                  image: card.images.small,
+                  number: card.number,
+                  set: card.set.name
+                }
+                ownedCards[globalIdx] = true
+              }
+            }
+          })
         })
+
+        const metadata = albumData.metadata || {}
+        
+        setPages(pagesData)
+        setBinder({
+          id: albumData.id,
+          name: albumData.name,
+          size: `${albumData.height}x${albumData.width}` as BinderSize,
+          spineColor: metadata.spineColor || "oklch(0.60 0.18 20)",
+          spineTextColor: metadata.spineTextColor || "#ffffff",
+          coverType: metadata.coverType || (albumData.coverUrl ? 'image' : 'color'),
+          coverValue: metadata.coverValue || albumData.coverUrl || "oklch(0.55 0.20 25)",
+          cards: flatCards,
+          ownedCards
+        })
+
+        setEditName(albumData.name)
+        setEditSpineColor(metadata.spineColor || "#000000")
+        setEditCoverType(metadata.coverType || (albumData.coverUrl ? 'image' : 'color'))
+        setEditCoverValue(metadata.coverValue || albumData.coverUrl || "#000000")
+        
+      } catch (e) {
+        console.error("Error fetching binder:", e)
+        router.push('/collection?tab=profile')
+      } finally {
+        setIsLoading(false)
       }
-      setIsLoading(false)
     }
 
-    fetchBinder()
+    if (binderId) {
+      fetchBinderData()
+    }
   }, [binderId])
 
-  // Save changes to localStorage
-  useEffect(() => {
-    if (binder) {
-      const savedBinders = JSON.parse(localStorage.getItem('tcg_temple_binders') || '[]')
-      const index = savedBinders.findIndex((b: any) => String(b.id) === String(binder.id))
-      if (index !== -1) {
-        savedBinders[index] = binder
-      } else {
-        savedBinders.push(binder)
-      }
-      localStorage.setItem('tcg_temple_binders', JSON.stringify(savedBinders))
-    }
-  }, [binder])
+  // Automatic saving removed in favor of explicit save for styles
+  // Cards are still updated in state locally, but we should update DB on changes
 
   const getGridConfig = (size: BinderSize) => {
     switch (size) {
@@ -165,24 +203,52 @@ export default function BinderDetailPage() {
     }
   }
 
-  const handleAddCard = (card: any) => {
+  const handleAddCard = async (card: any) => {
     if (selectedSlot === null || !binder) return
     
-    const newCards = [...binder.cards]
-    newCards[selectedSlot] = {
-      id: card.id,
-      name: card.name,
-      image: card.images.small,
-      number: card.number,
-      set: card.set.name
+    // 1. Find which page and slot this belongs to
+    const grid = getGridConfig(binder.size)
+    const cardsPerPage = grid.perPage
+    const pageIdx = Math.floor(selectedSlot / cardsPerPage)
+    const slotIdx = selectedSlot % cardsPerPage
+    const page = pages.find(p => p.pageNumber === pageIdx + 1)
+
+    if (!page) return
+
+    try {
+      const newSlots = { ...page.slots, [slotIdx]: card.id }
+      const response = await fetch(`http://127.0.0.1:3000/api/pages/${page.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slots: newSlots })
+      })
+
+      if (response.ok) {
+        const newCards = [...binder.cards]
+        newCards[selectedSlot] = {
+          id: card.id,
+          name: card.name,
+          image: card.images.small,
+          number: card.number,
+          set: card.set.name
+        }
+        
+        const newOwned = { ...(binder.ownedCards || {}), [selectedSlot]: true }
+        setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
+        
+        // Update local pages state
+        const newPages = [...pages]
+        const pIdx = newPages.findIndex(p => p.id === page.id)
+        newPages[pIdx] = { ...page, slots: newSlots }
+        setPages(newPages)
+        
+        setIsModalOpen(false)
+        setSearchResults([])
+        setSearchQuery("")
+      }
+    } catch (e) {
+      console.error("Error adding card:", e)
     }
-    
-    // Mark as owned by default
-    const newOwned = { ...(binder.ownedCards || {}), [selectedSlot]: true }
-    setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
-    setIsModalOpen(false)
-    setSearchResults([])
-    setSearchQuery("")
   }
 
   const handleDragStart = (index: number) => {
@@ -193,36 +259,84 @@ export default function BinderDetailPage() {
     e.preventDefault()
   }
 
-  const handleDrop = (targetIndex: number) => {
+  const handleDrop = async (targetIndex: number) => {
     if (draggedSlot === null || draggedSlot === targetIndex || !binder) return
     
-    const newCards = [...binder.cards]
-    const temp = newCards[draggedSlot]
-    newCards[draggedSlot] = newCards[targetIndex]
-    newCards[targetIndex] = temp
+    const grid = getGridConfig(binder.size)
+    const cardsPerPage = grid.perPage
     
-    // Also swap owned status
-    const newOwned = { ...(binder.ownedCards || {}) }
-    const tempOwned = !!newOwned[draggedSlot]
-    newOwned[draggedSlot] = !!newOwned[targetIndex]
-    newOwned[targetIndex] = tempOwned
+    const fromPageIdx = Math.floor(draggedSlot / cardsPerPage)
+    const fromSlotIdx = draggedSlot % cardsPerPage
+    const toPageIdx = Math.floor(targetIndex / cardsPerPage)
+    const toSlotIdx = targetIndex % cardsPerPage
     
-    setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
-    setDraggedSlot(null)
+    const fromPage = pages.find(p => p.pageNumber === fromPageIdx + 1)
+    const toPage = pages.find(p => p.pageNumber === toPageIdx + 1)
+    
+    if (!fromPage || !toPage) return
+
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/albums/move-card`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromPageId: fromPage.id,
+          fromSlot: fromSlotIdx,
+          toPageId: toPage.id,
+          toSlot: toSlotIdx
+        })
+      })
+
+      if (response.ok) {
+        const newCards = [...binder.cards]
+        const temp = newCards[draggedSlot]
+        newCards[draggedSlot] = newCards[targetIndex]
+        newCards[targetIndex] = temp
+        
+        // Also swap owned status
+        const newOwned = { ...(binder.ownedCards || {}) }
+        const tempOwned = !!newOwned[draggedSlot]
+        newOwned[draggedSlot] = !!newOwned[targetIndex]
+        newOwned[targetIndex] = tempOwned
+        
+        setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
+        
+        // Update local pages state
+        const newPages = [...pages]
+        const fIdx = newPages.findIndex(p => p.id === fromPage.id)
+        const tIdx = newPages.findIndex(p => p.id === toPage.id)
+        
+        const card1 = newPages[fIdx].slots[fromSlotIdx]
+        const card2 = newPages[tIdx].slots[toSlotIdx]
+        
+        newPages[fIdx].slots[fromSlotIdx] = card2
+        newPages[tIdx].slots[toSlotIdx] = card1
+        
+        setPages(newPages)
+        setDraggedSlot(null)
+      }
+    } catch (e) {
+      console.error("Error moving card:", e)
+    }
   }
 
-  const handleDeleteBinder = () => {
+  const handleDeleteBinder = async () => {
     if (!binder) return;
     if (!confirm('Are you sure you want to delete this album?')) return;
-    // Remove from localStorage
-    const savedBinders = JSON.parse(localStorage.getItem('tcg_temple_binders') || '[]');
-    const updatedBinders = savedBinders.filter((b: any) => String(b.id) !== String(binder.id));
-    localStorage.setItem('tcg_temple_binders', JSON.stringify(updatedBinders));
-    // Navigate back to collection page profile tab
-    router.push('/collection?tab=profile');
+    
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/albums/${binder.id}`, {
+        method: 'DELETE'
+      })
+      if (response.ok) {
+        router.push('/collection?tab=profile');
+      }
+    } catch (e) {
+      console.error("Error deleting album:", e)
+    }
   }
 
-  const handleUpdateStyle = () => {
+  const handleUpdateStyle = async () => {
     if (!binder) return
     
     const spineColor = editSpineType === "gradient" 
@@ -233,23 +347,76 @@ export default function BinderDetailPage() {
       ? `linear-gradient(to bottom right, ${editCoverValue}, ${editCoverValue2})`
       : editCoverType === "rainbow" ? "linear-gradient(135deg, #ff0000 0%, #ffff00 25%, #00ff00 50%, #0000ff 75%, #ff00ff 100%)" : editCoverValue
 
-    const updatedBinder = {
-      ...binder,
-      name: editName,
+    const updatedMetadata = {
       spineColor,
+      spineType: editSpineType,
+      spineColor2: editSpineColor2,
       coverType: editCoverType,
-      coverValue
+      coverValue,
+      coverValue2: editCoverValue2,
+      spineTextColor: binder.spineTextColor
     }
-    
-    setBinder(updatedBinder)
-    setIsEditModalOpen(false)
+
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/albums/${binder.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName,
+          metadata: updatedMetadata,
+          coverUrl: editCoverType === 'image' ? coverValue : null
+        })
+      })
+
+      if (response.ok) {
+        setBinder({
+          ...binder,
+          name: editName,
+          spineColor,
+          coverType: editCoverType,
+          coverValue
+        })
+        setIsEditModalOpen(false)
+      }
+    } catch (e) {
+      console.error("Error updating album style:", e)
+    }
   }
 
-  const handleRemoveCard = (slotIndex: number) => {
+  const handleRemoveCard = async (slotIndex: number) => {
     if (!binder) return
-    const newCards = [...binder.cards]
-    newCards[slotIndex] = null
-    setBinder({ ...binder, cards: newCards })
+    
+    const grid = getGridConfig(binder.size)
+    const cardsPerPage = grid.perPage
+    const pageIdx = Math.floor(slotIndex / cardsPerPage)
+    const slotIdx = slotIndex % cardsPerPage
+    const page = pages.find(p => p.pageNumber === pageIdx + 1)
+
+    if (!page) return
+
+    try {
+      const newSlots = { ...page.slots }
+      delete newSlots[slotIdx]
+      
+      const response = await fetch(`http://127.0.0.1:3000/api/pages/${page.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slots: newSlots })
+      })
+
+      if (response.ok) {
+        const newCards = [...binder.cards]
+        newCards[slotIndex] = null
+        setBinder({ ...binder, cards: newCards })
+        
+        const newPages = [...pages]
+        const pIdx = newPages.findIndex(p => p.id === page.id)
+        newPages[pIdx] = { ...page, slots: newSlots }
+        setPages(newPages)
+      }
+    } catch (e) {
+      console.error("Error removing card:", e)
+    }
   }
 
   const toggleOwned = (slotIndex: number) => {

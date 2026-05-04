@@ -8,6 +8,10 @@ interface User {
   email: string
   profilePicUrl?: string
   balance?: number
+  showcase?: string[]
+  albums?: string[]
+  ownedEnglishCards?: string[]
+  ownedPokemon?: string[]
 }
 
 interface AuthContextType {

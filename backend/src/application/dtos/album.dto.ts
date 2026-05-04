@@ -5,6 +5,7 @@ export interface CreateAlbumDto {
   cards?: string[]; // Automated placement for new albums
   height: number;   // Rows (integer)
   width: number;    // Columns (integer)
+  metadata?: any;
 }
 
 export interface UpdateAlbumDto {
@@ -12,6 +13,7 @@ export interface UpdateAlbumDto {
   coverCardId?: string;
   height?: number;
   width?: number;
+  metadata?: any;
 }
 
 export interface MoveCardDto {

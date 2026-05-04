@@ -15,7 +15,8 @@ export class AlbumMapper {
             row.width || 3,
             row.pages || [],
             row.created_at,
-            row.updated_at
+            row.updated_at,
+            row.metadata || {}
         );
     }
 
@@ -29,6 +30,7 @@ export class AlbumMapper {
         if (album.coverUrl !== undefined) dbFields.cover_url = album.coverUrl;
         if (album.height !== undefined) dbFields.height = album.height;
         if (album.width !== undefined) dbFields.width = album.width;
+        if (album.metadata !== undefined) dbFields.metadata = album.metadata;
         
         return dbFields;
     }
