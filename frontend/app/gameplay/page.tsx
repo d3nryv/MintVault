@@ -210,7 +210,6 @@ export default function GameplayPage() {
 
     } catch (error) {
       console.error("Error fetching deck details:", error)
-      alert("Failed to load deck details. Please try again.")
     } finally {
       setIsFetchingDetails(false)
     }
@@ -219,18 +218,8 @@ export default function GameplayPage() {
   const getSetCode = (card: any) => {
     if (card.set.ptcgoCode) return card.set.ptcgoCode
     const setName = card.set.name
-    const SET_ABBREVIATIONS: Record<string, string> = {
-      "Perfect Order": "POR", "Ascended Heroes": "ASC", "Mega Evolution": "MEG",
-      "Black Bolt": "BLK", "White Flare": "WHT", "Destined Rivals": "DRI",
-      "Prismatic Evolutions": "PRE", "Surging Sparks": "SSP", "Stellar Crown": "SCR",
-      "Twilight Masquerade": "TWM", "Temporal Forces": "TEF", "Paldean Fates": "PAF",
-      "Paradox Rift": "PAR", "151": "MEW", "Obsidian Flames": "OBF",
-      "Paldea Evolved": "PAL", "Scarlet & Violet": "SVI", "Scarlet & Violet Energies": "SVE",
-      "Pokémon TCG Classic": "MEE"
-    }
-    if (SET_ABBREVIATIONS[setName]) return SET_ABBREVIATIONS[setName]
     if (setName.includes("McDonald's")) return "MCD"
-    const parts = setName.split(/\s+/).filter(p => p.toLowerCase() !== '&' && p.toLowerCase() !== '—')
+    const parts = setName.split(/\s+/).filter((p: string) => p.toLowerCase() !== '&' && p.toLowerCase() !== '—')
     if (parts.length >= 2) return (parts[0][0] + parts[1].substring(0, 2)).toUpperCase()
     return setName.substring(0, 3).toUpperCase()
   }
@@ -262,6 +251,26 @@ export default function GameplayPage() {
       scrapeLimitless()
     }
   }, [])
+
+  const handleDeleteDeck = async (deckId: string) => {
+    if (!confirm("Are you sure you want to delete this deck?")) return
+
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/decks/${deckId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // Refresh the deck list
+        fetchUserDecks()
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`Failed to delete deck: ${response.status} ${errorData.error || ""}`)
+      }
+    } catch (error) {
+      console.error("Error deleting deck:", error)
+    }
+  }
 
   useEffect(() => {
     if (activeTab === "decks" && user) {
@@ -756,7 +765,17 @@ export default function GameplayPage() {
                                 navigator.clipboard.writeText(exportText)
                                 alert("Decklist copied to clipboard!")
                               }}><Download className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteDeck(deck.id)
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                             </div>
                           </div>
                         ))
