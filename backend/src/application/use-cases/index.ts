@@ -35,3 +35,7 @@ export * from './transaction/get-transaction.use-case';
 export * from './pokemon/get-pokemon.use-case';
 export * from './pokemon/list-pokemons.use-case';
 export * from './pokemon/get-all-pokemons.use-case';
+
+export * from './deck/create-deck.use-case';
+export * from './deck/update-deck.use-case';
+export * from './deck/get-decks-by-owner.use-case';

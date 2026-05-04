@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/auth-context"
 
 // --- Official Set Abbreviations & Order ---
 const SET_ABBREVIATIONS: Record<string, string> = {
@@ -196,6 +197,7 @@ export default function DeckBuilderPage() {
   const [isImporting, setIsImporting] = useState(false)
   
   const router = useRouter()
+  const { user } = useAuth()
 
   const totalCards = useMemo(() => deck.reduce((acc, item) => acc + item.count, 0), [deck])
   const pokemonCount = useMemo(() => deck.filter(i => i.card.supertype === 'Pokémon').reduce((acc, i) => acc + i.count, 0), [deck])
@@ -477,6 +479,42 @@ export default function DeckBuilderPage() {
     navigator.clipboard.writeText(format); showNotification("Copied to clipboard!")
   }
 
+  const handleSave = async () => {
+    if (!user) {
+      showNotification("Debes iniciar sesión para guardar un mazo", "error")
+      return
+    }
+
+    if (deck.length === 0) {
+      showNotification("El mazo está vacío", "error")
+      return
+    }
+
+    try {
+      const response = await fetch('http://127.0.0.1:3000/api/decks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ownerId: user.id,
+          name: deckName,
+          cards: deck,
+        }),
+      })
+
+      if (response.ok) {
+        showNotification("¡Mazo guardado correctamente!")
+      } else {
+        const errorData = await response.json()
+        showNotification(errorData.error || "Error al guardar el mazo", "error")
+      }
+    } catch (error) {
+      console.error("Save error:", error)
+      showNotification("Error de conexión con el servidor", "error")
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background relative">
       <Header />
@@ -620,7 +658,7 @@ export default function DeckBuilderPage() {
             <div className="flex gap-3">
               <Button variant="outline" size="icon" onClick={sortDeck} title="Sort Deck" className="h-14 w-14"><ArrowUpDown className="h-6 w-6" /></Button>
               <Button variant="outline" size="icon" onClick={() => setIsImportModalOpen(true)} title="Import Deck" className="h-14 w-14"><FileUp className="h-6 w-6" /></Button>
-              <Button onClick={() => showNotification("Deck saved!")} className="h-14 px-8 font-bold text-lg shadow-lg">Save</Button>
+              <Button onClick={handleSave} className="h-14 px-8 font-bold text-lg shadow-lg">Save</Button>
               <Button variant="outline" onClick={handleShare} className="h-14 px-8 font-bold text-lg">Share</Button>
             </div>
           </div>
