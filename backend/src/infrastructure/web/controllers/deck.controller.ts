@@ -4,7 +4,8 @@ import {
     CreateDeckUseCase, 
     UpdateDeckUseCase, 
     GetDecksByOwnerUseCase,
-    GetDeckByIdUseCase
+    GetDeckByIdUseCase,
+    DeleteDeckUseCase
 } from '../../../application/use-cases';
 
 export class DeckController {
@@ -54,6 +55,16 @@ export class DeckController {
             const id = req.params.id as string;
             const deck = await new UpdateDeckUseCase(this.deckRepository).execute(id, req.body);
             res.json(deck);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    delete = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const id = req.params.id as string;
+            await new DeleteDeckUseCase(this.deckRepository).execute(id);
+            res.status(204).send();
         } catch (error) {
             next(error);
         }

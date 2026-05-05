@@ -27,7 +27,8 @@ export class TcgSdkRepository implements TcgRepository {
                 set: {
                     id: card.set.id,
                     name: card.set.name,
-                    series: card.set.series
+                    series: card.set.series,
+                    ptcgoCode: card.set.ptcgoCode
                 }
             };
         } catch (error) {
@@ -62,7 +63,8 @@ export class TcgSdkRepository implements TcgRepository {
                 set: {
                     id: card.set.id,
                     name: card.set.name,
-                    series: card.set.series
+                    series: card.set.series,
+                    ptcgoCode: card.set.ptcgoCode
                 }
             }));
         } catch (error) {

@@ -21,6 +21,7 @@ export interface TcgPlayerInfo {
     id: string;
     name: string;
     series: string;
+    ptcgoCode?: string;
   };
 }
 
