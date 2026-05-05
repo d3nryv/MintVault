@@ -28,7 +28,8 @@ export class CreateUserUseCase {
         favouriteCards: dto.favouriteCards ?? [],
         favouriteSets: dto.favouriteSets ?? [],
         favouritePokemon: dto.favouritePokemon ?? [],
-        ownedDecks: []
+        ownedDecks: [],
+        wantList: dto.wantList ?? []
     };
     return this.userRepository.create(userData);
   }

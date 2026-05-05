@@ -26,7 +26,8 @@ export class UserMapper {
             row.favourite_cards || [],
             row.favourite_sets || [],
             row.favourite_pokemon || [],
-            row.owned_decks || []
+            row.owned_decks || [],
+            row.want_list || []
         );
     }
 
@@ -54,6 +55,7 @@ export class UserMapper {
         if (user.favouriteSets !== undefined) dbFields.favourite_sets = user.favouriteSets;
         if (user.favouritePokemon !== undefined) dbFields.favourite_pokemon = user.favouritePokemon;
         if (user.ownedDecks !== undefined) dbFields.owned_decks = user.ownedDecks;
+        if (user.wantList !== undefined) dbFields.want_list = user.wantList;
         
         return dbFields;
     }
