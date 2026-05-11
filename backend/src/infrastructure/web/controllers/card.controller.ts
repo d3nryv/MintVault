@@ -9,7 +9,8 @@ import {
   UpdateCardUseCase,
   DeleteCardUseCase,
   GetCardMarketValueUseCase,
-  GetCardsByNameUseCase
+  GetCardsByNameUseCase,
+  SearchCardsUseCase
 } from '../../../application/use-cases';
 
 export class CardController {
@@ -88,6 +89,20 @@ export class CardController {
       ).execute(String(req.params['id']));
       
       res.json(data);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  search = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const filters = {
+        name: req.query.name as string,
+        set: req.query.set as string,
+        number: req.query.number as string
+      };
+      const cards = await new SearchCardsUseCase(this.tcgRepository).execute(filters);
+      res.json(cards);
     } catch (err) {
       next(err);
     }

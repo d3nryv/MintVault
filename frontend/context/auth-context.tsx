@@ -12,6 +12,8 @@ interface User {
   albums?: string[]
   ownedEnglishCards?: string[]
   ownedPokemon?: string[]
+  wantList?: string[]
+  cart?: string[]
 }
 
 interface AuthContextType {

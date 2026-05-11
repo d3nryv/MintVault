@@ -13,4 +13,7 @@ export interface TransactionRepository {
     findAllBySeller(sellerId: string): Promise<TransactionEntity[]>;
     updateStatus(id: string, status: TransactionStatus, dbClient?: DbClient): Promise<TransactionEntity>;
     getMarketValue(cardId: string): Promise<MarketValueData | null>;
+    getMostPurchasedSets(limit: number, language?: string): Promise<any[]>;
+    getMostPurchasedCards(limit: number, language?: string): Promise<any[]>;
+    getMarketTrends(language?: string): Promise<{ rising: any[], falling: any[] }>;
 }

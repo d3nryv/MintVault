@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -48,6 +49,8 @@ import {
   CreditCard,
   History,
   Clock,
+  Camera,
+  Loader2,
 } from "lucide-react"
 import {
   Dialog,
@@ -66,206 +69,377 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/context/auth-context"
-
-const buyListings = [
-  { id: 1, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", condition: "Near Mint", language: "English", price: 45.99, seller: "CardMaster" },
-  { id: 2, name: "Pikachu VMAX", set: "Vivid Voltage", number: "044/185", condition: "Mint", language: "Japanese", price: 32.50, seller: "PKMNTrader" },
-  { id: 3, name: "Mewtwo V", set: "Pokemon GO", number: "030/078", condition: "Lightly Played", language: "English", price: 12.99, seller: "CollectorJoe" },
-  { id: 4, name: "Gardevoir ex", set: "Paldea Evolved", number: "086/193", condition: "Near Mint", language: "English", price: 28.00, seller: "CardMaster" },
-  { id: 5, name: "Umbreon VMAX", set: "Evolving Skies", number: "095/203", condition: "Mint", language: "English", price: 125.00, seller: "RareFinds" },
-]
-
-const userDecks = [
-  { id: 1, name: "Charizard Control", cards: [
-    { id: 101, name: "Charizard ex", set: "Obsidian Flames", number: "125/197" },
-    { id: 102, name: "Charmander", set: "Obsidian Flames", number: "026/197" },
-    { id: 103, name: "Charmeleon", set: "Obsidian Flames", number: "027/197" },
-    { id: 104, name: "Rare Candy", set: "Scarlet & Violet", number: "191/198" },
-    { id: 105, name: "Professor's Research", set: "Scarlet & Violet", number: "189/198" },
-  ]},
-  { id: 2, name: "Lugia VSTAR", cards: [
-    { id: 201, name: "Lugia VSTAR", set: "Silver Tempest", number: "139/195" },
-    { id: 202, name: "Lugia V", set: "Silver Tempest", number: "138/195" },
-    { id: 203, name: "Archeops", set: "Silver Tempest", number: "147/195" },
-  ]},
-  { id: 3, name: "Miraidon Aggro", cards: [
-    { id: 301, name: "Miraidon ex", set: "Scarlet & Violet", number: "081/198" },
-    { id: 302, name: "Raikou V", set: "Brilliant Stars", number: "048/172" },
-    { id: 303, name: "Electric Generator", set: "Scarlet & Violet", number: "170/198" },
-  ]},
-]
-
-const userCollections = [
-  { id: 1, name: "Obsidian Flames", total: 197, owned: 145, missing: [
-    { id: 1001, name: "Charizard ex SAR", number: "223/197" },
-    { id: 1002, name: "Tyranitar ex", number: "134/197" },
-    { id: 1003, name: "Dragonite ex", number: "131/197" },
-    { id: 1004, name: "Vespiquen ex", number: "088/197" },
-  ]},
-  { id: 2, name: "Paldea Evolved", total: 193, owned: 89, missing: [
-    { id: 2001, name: "Iono SAR", number: "269/193" },
-    { id: 2002, name: "Mew ex", number: "232/193" },
-    { id: 2003, name: "Armarouge ex", number: "041/193" },
-  ]},
-  { id: 3, name: "Evolving Skies", total: 203, owned: 178, missing: [
-    { id: 3001, name: "Umbreon VMAX Alt", number: "215/203" },
-    { id: 3002, name: "Rayquaza VMAX Alt", number: "218/203" },
-    { id: 3003, name: "Sylveon VMAX Alt", number: "212/203" },
-  ]},
-]
+import { useMarketplace } from "@/context/marketplace-context"
 
 type WantsListType = "empty" | "deck" | "collection"
 type WantsListItem = {
-  id: number
+  id: string | number
   name: string
   set: string
   number: string
+  count: number
   condition: string
   priority: "High" | "Medium" | "Low"
   owned: boolean
 }
 type WantsList = {
-  id: number
+  id: number | string
   name: string
   type: WantsListType
-  sourceId?: number
+  sourceId?: string
   sourceName?: string
   items: WantsListItem[]
   createdAt: string
 }
 
-const initialWantsLists: WantsList[] = [
-  {
-    id: 1,
-    name: "Priority Cards",
-    type: "empty",
-    items: [
-      { id: 1, name: "Mew VMAX", set: "Fusion Strike", number: "114/264", condition: "Near Mint+", priority: "High", owned: false },
-      { id: 2, name: "Rayquaza VMAX", set: "Evolving Skies", number: "111/203", condition: "Any", priority: "Medium", owned: false },
-    ],
-    createdAt: "2024-01-15",
-  },
-  {
-    id: 2,
-    name: "Charizard Control Deck",
-    type: "deck",
-    sourceId: 1,
-    sourceName: "Charizard Control",
-    items: [
-      { id: 101, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", condition: "Near Mint", priority: "High", owned: false },
-      { id: 102, name: "Charmander", set: "Obsidian Flames", number: "026/197", condition: "Any", priority: "Low", owned: true },
-      { id: 103, name: "Charmeleon", set: "Obsidian Flames", number: "027/197", condition: "Any", priority: "Low", owned: true },
-      { id: 104, name: "Rare Candy", set: "Scarlet & Violet", number: "191/198", condition: "Any", priority: "Medium", owned: false },
-      { id: 105, name: "Professor's Research", set: "Scarlet & Violet", number: "189/198", condition: "Any", priority: "Low", owned: true },
-    ],
-    createdAt: "2024-02-10",
-  },
-  {
-    id: 3,
-    name: "Complete Evolving Skies",
-    type: "collection",
-    sourceId: 3,
-    sourceName: "Evolving Skies",
-    items: [
-      { id: 3001, name: "Umbreon VMAX Alt", set: "Evolving Skies", number: "215/203", condition: "Near Mint", priority: "High", owned: false },
-      { id: 3002, name: "Rayquaza VMAX Alt", set: "Evolving Skies", number: "218/203", condition: "Near Mint", priority: "High", owned: false },
-      { id: 3003, name: "Sylveon VMAX Alt", set: "Evolving Skies", number: "212/203", condition: "Near Mint", priority: "Medium", owned: false },
-    ],
-    createdAt: "2024-03-01",
-  },
-]
-
-const cartItems = [
-  { id: 1, name: "Charizard ex", set: "Obsidian Flames", condition: "Near Mint", price: 45.99, quantity: 1, seller: "CardMaster" },
-  { id: 2, name: "Pikachu VMAX", set: "Vivid Voltage", condition: "Mint", price: 32.50, quantity: 2, seller: "PKMNTrader" },
-]
-
-const yourListings = [
-  { id: 1, name: "Blastoise ex", set: "Paldea Evolved", condition: "Near Mint", price: 18.50, views: 45, status: "Active" },
-  { id: 2, name: "Venusaur ex", set: "Paldea Evolved", condition: "Lightly Played", price: 12.00, views: 23, status: "Active" },
-  { id: 3, name: "Eevee VMAX", set: "Evolving Skies", condition: "Mint", price: 8.99, views: 67, status: "Sold" },
-]
-
-const mostPurchasedSets = [
-  { id: 1, name: "Surging Sparks", series: "Scarlet & Violet", sales: 12450, image: null },
-  { id: 2, name: "Prismatic Evolutions", series: "Scarlet & Violet", sales: 10230, image: null },
-  { id: 3, name: "Twilight Masquerade", series: "Scarlet & Violet", sales: 8920, image: null },
-  { id: 4, name: "Obsidian Flames", series: "Scarlet & Violet", sales: 7650, image: null },
-]
-
-const mostPurchasedCards = [
-  { id: 1, name: "Charizard ex", set: "Obsidian Flames", number: "125/197", sales: 3420, price: 89.99 },
-  { id: 2, name: "Pikachu ex", set: "Surging Sparks", number: "057/191", sales: 2890, price: 45.00 },
-  { id: 3, name: "Umbreon VMAX", set: "Evolving Skies", number: "215/203", sales: 2340, price: 285.00 },
-  { id: 4, name: "Mew ex", set: "Paldea Evolved", number: "232/193", sales: 2100, price: 52.00 },
-]
-
-const mostPurchasedProducts = [
-  { id: 1, name: "Surging Sparks Booster Box", type: "Booster Box", sales: 5600, price: 144.99 },
-  { id: 2, name: "Prismatic Evolutions ETB", type: "Elite Trainer Box", sales: 4320, price: 59.99 },
-  { id: 3, name: "UPC Charizard", type: "Premium Collection", sales: 2100, price: 399.99 },
-]
-
-const risingPriceCards = [
-  { id: 1, name: "Moonbreon", set: "Evolving Skies", number: "215/203", price: 325.00, change: 18.5 },
-  { id: 2, name: "Pikachu VMAX", set: "Vivid Voltage", number: "188/185", price: 420.00, change: 12.3 },
-  { id: 3, name: "Charizard VSTAR", set: "Brilliant Stars", number: "174/172", price: 185.00, change: 9.8 },
-]
-
-const fallingPriceCards = [
-  { id: 1, name: "Gardevoir ex", set: "Paldea Evolved", number: "086/193", price: 22.00, change: -15.2 },
-  { id: 2, name: "Miraidon ex", set: "Scarlet & Violet", number: "081/198", price: 18.50, change: -12.8 },
-  { id: 3, name: "Koraidon ex", set: "Scarlet & Violet", number: "125/198", price: 15.00, change: -10.5 },
-]
-
-const allTimeHighCards = [
-  { id: 1, name: "Illustrator Pikachu", set: "Promo", price: 5900000.00, note: "World Record" },
-  { id: 2, name: "1st Ed Charizard", set: "Base Set", price: 420000.00, note: "PSA 10" },
-  { id: 3, name: "Pikachu Trophy", set: "World Championship", price: 300000.00, note: "Gold" },
-]
-
-const allTimeLowCards = [
-  { id: 1, name: "Iono", set: "Paldea Evolved", number: "185/193", price: 8.50, prevHigh: 45.00 },
-  { id: 2, name: "Professor's Research", set: "Scarlet & Violet", number: "189/198", price: 2.00, prevHigh: 12.00 },
-  { id: 3, name: "Boss's Orders", set: "Rebel Clash", number: "154/192", price: 3.50, prevHigh: 18.00 },
-]
-
-const marketNews = [
-  { id: 1, title: "Prismatic Evolutions demand exceeds supply", time: "2 hours ago", category: "Hot" },
-  { id: 2, title: "Japanese 151 prices stabilizing after reprint", time: "5 hours ago", category: "Trend" },
-  { id: 3, title: "New set Journey Together officially announced", time: "1 day ago", category: "News" },
-  { id: 4, title: "Vintage market sees 15% increase in Q1", time: "2 days ago", category: "Analysis" },
-]
-
-const purchaseHistory = [
-  { id: 1, name: "Gengar VMAX", set: "Fusion Strike", price: 185.00, date: "2024-04-12", status: "Completed", image: null },
-  { id: 2, name: "Rayquaza VMAX", set: "Evolving Skies", price: 295.00, date: "2024-04-28", status: "In Transit", tracking: "UX123456789" },
-  { id: 3, name: "Pikachu ex", set: "Surging Sparks", price: 42.00, date: "2024-05-01", status: "Pending", image: null },
-]
-
-const salesHistory = [
-  { id: 1, name: "Charizard ex", set: "151", price: 120.00, date: "2024-03-15", status: "Completed", buyer: "PokeFan99" },
-  { id: 2, name: "Lugia V", set: "Silver Tempest", price: 18.00, date: "2024-04-05", status: "Completed", buyer: "CardCollector" },
-]
+const shippingPrices: Record<string, { name: string, min: number, max: number, flag: string }> = {
+  ES: { name: "España", min: 1.33, max: 8.00, flag: "🇪🇸" },
+  DE: { name: "Alemania", min: 1.55, max: 1.55, flag: "🇩🇪" },
+  LU: { name: "Luxemburgo", min: 2.00, max: 7.70, flag: "🇱🇺" },
+  CZ: { name: "Rep. Checa", min: 2.28, max: 5.49, flag: "🇨🇿" },
+  NL: { name: "Países Bajos", min: 2.30, max: 10.85, flag: "🇳🇱" },
+  FR: { name: "Francia", min: 2.40, max: 7.80, flag: "🇫🇷" },
+  BG: { name: "Bulgaria", min: 2.40, max: 6.23, flag: "🇧🇬" },
+  HR: { name: "Croacia", min: 2.50, max: 5.90, flag: "🇭🇷" },
+  MT: { name: "Malta", min: 2.51, max: 10.79, flag: "🇲🇹" },
+  PL: { name: "Polonia", min: 2.65, max: 5.66, flag: "🇵🇱" },
+  SK: { name: "Eslovaquia", min: 2.70, max: 8.20, flag: "🇸🇰" },
+  LV: { name: "Letonia", min: 2.84, max: 6.10, flag: "🇱🇻" },
+  PT: { name: "Portugal", min: 2.85, max: 7.27, flag: "🇵🇹" },
+  IE: { name: "Irlanda", min: 2.95, max: 11.70, flag: "🇮🇪" },
+  NO: { name: "Noruega", min: 3.13, max: 24.83, flag: "🇳🇴" },
+  BE: { name: "Bélgica", min: 3.20, max: 10.30, flag: "🇧🇪" },
+  GR: { name: "Grecia", min: 3.30, max: 7.50, flag: "🇬🇷" },
+  RO: { name: "Rumanía", min: 3.34, max: 5.77, flag: "🇷🇴" },
+  FI: { name: "Finlandia", min: 3.35, max: 21.95, flag: "🇫🇮" },
+  CY: { name: "Chipre", min: 3.38, max: 3.38, flag: "🇨🇾" },
+  SI: { name: "Eslovenia", min: 3.44, max: 7.57, flag: "🇸🇮" },
+  HU: { name: "Hungría", min: 3.57, max: 10.42, flag: "🇭🇺" },
+  EE: { name: "Estonia", min: 3.80, max: 15.05, flag: "🇪🇪" },
+  IT: { name: "Italia", min: 4.05, max: 10.70, flag: "🇮🇹" },
+  GB: { name: "Reino Unido", min: 4.10, max: 11.91, flag: "🇬🇧" },
+  SE: { name: "Suecia", min: 4.30, max: 13.58, flag: "🇸🇪" },
+  CH: { name: "Suiza", min: 4.79, max: 11.75, flag: "🇨🇭" },
+  DK: { name: "Dinamarca", min: 6.90, max: 6.90, flag: "🇩🇰" },
+  LT: { name: "Lituania", min: 5.50, max: 5.50, flag: "🇱🇹" },
+  AT: { name: "Austria", min: 6.75, max: 6.75, flag: "🇦🇹" },
+}
 
 export default function MarketplacePage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("buy")
   const [searchQuery, setSearchQuery] = useState("")
-  const [wantsLists, setWantsLists] = useState<WantsList[]>(initialWantsLists)
+  const [selectedSet, setSelectedSet] = useState("all")
+  const [wantsLists, setWantsLists] = useState<WantsList[]>([])
   const [selectedList, setSelectedList] = useState<WantsList | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newListName, setNewListName] = useState("")
   const [newListType, setNewListType] = useState<WantsListType>("empty")
-  const [selectedSourceId, setSelectedSourceId] = useState<number | null>(null)
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
+  const [userDecks, setUserDecks] = useState<any[]>([])
+  const [userCollections, setUserCollections] = useState<any[]>([])
+  const [userOrders, setUserOrders] = useState<any[]>([])
+  const [userSalesHistory, setUserSalesHistory] = useState<any[]>([])
+  const [cartItems, setCartItems] = useState<any[]>([])
+
+
+  const [isWizardOpen, setIsWizardOpen] = useState(false)
   const [isAddFundsOpen, setIsAddFundsOpen] = useState(false)
+  const [wizardResults, setWizardResults] = useState<any>(null)
+  const [isSeller, setIsSeller] = useState(false)
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false)
+  const [listingPrice, setListingPrice] = useState("")
   const [addAmount, setAddAmount] = useState("")
+  const [realSales, setRealSales] = useState<any[]>([])
+  const [featuredSets, setFeaturedSets] = useState<any[]>([])
+  const [featuredCards, setFeaturedCards] = useState<any[]>([])
+  const [risingCards, setRisingCards] = useState<any[]>([])
+  const [fallingCards, setFallingCards] = useState<any[]>([])
+  const [isLoadingSales, setIsLoadingSales] = useState(true)
+  const [isLoadingTrending, setIsLoadingTrending] = useState(true)
+  const [sellSearchQuery, setSellSearchQuery] = useState("")
+  const [sellSearchResults, setSellSearchResults] = useState<any[]>([])
+  const [selectedSellCard, setSelectedSellCard] = useState<any | null>(null)
+  const [isSearchingSellCards, setIsSearchingSellCards] = useState(false)
+  const [selectedCondition, setSelectedCondition] = useState("NM")
+  const [selectedLanguage, setSelectedLanguage] = useState("EN")
+  const [listingQuantity, setListingQuantity] = useState("1")
+  const [listingDescription, setListingDescription] = useState("")
+  const [isListing, setIsListing] = useState(false)
+  const [userSales, setUserSales] = useState<any[]>([])
+  const [allSets, setAllSets] = useState<any[]>([])
+  const [isLoadingUserSales, setIsLoadingUserSales] = useState(false)
   const { user, updateUser } = useAuth()
+  const { language } = useMarketplace()
+
+  useEffect(() => {
+    fetchTrending()
+  }, [language])
+
+  useEffect(() => {
+    fetchSales()
+    fetchAllSets()
+    if (user) {
+      fetchUserSales()
+      fetchUserDecks()
+      fetchUserCollections()
+      fetchUserOrders()
+      loadWantsLists()
+      loadCart()
+    }
+  }, [user])
+
+  const loadWantsLists = () => {
+    if (user?.wantList) {
+      try {
+        const decoded = user.wantList.map(item => JSON.parse(item))
+        setWantsLists(decoded)
+      } catch (e) {
+        console.error("Error decoding wants lists", e)
+      }
+    }
+  }
+
+  const loadCart = () => {
+    if (user?.cart) {
+      try {
+        const decoded = user.cart.map(item => JSON.parse(item))
+        setCartItems(decoded)
+      } catch (e) {
+        console.error("Error decoding cart", e)
+      }
+    }
+  }
+
+  const fetchUserDecks = async () => {
+    if (!user) return
+    try {
+      const res = await fetch(`http://localhost:3000/api/decks/owner/${user.id}`)
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+      const data = await res.json()
+      setUserDecks(data)
+    } catch (e) {
+      console.error("Error fetching decks", e)
+    }
+  }
+
+  const fetchUserCollections = async () => {
+    if (!user) return
+    try {
+      const res = await fetch(`http://localhost:3000/api/albums`)
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+      const data = await res.json()
+      // Filter by owner since backend doesn't have findByOwner route yet
+      setUserCollections(data.filter((a: any) => a.ownerId === user.id))
+    } catch (e) {
+      console.error("Error fetching albums", e)
+    }
+  }
+
+  const fetchUserOrders = async () => {
+    if (!user) return
+    try {
+      const pRes = await fetch(`http://localhost:3000/api/transactions/buyer/${user.id}`)
+      if (!pRes.ok) throw new Error(`HTTP error! status: ${pRes.status}`)
+      const pData = await pRes.json()
+      setUserOrders(pData)
+
+      const sRes = await fetch(`http://localhost:3000/api/transactions/seller/${user.id}`)
+      if (!sRes.ok) throw new Error(`HTTP error! status: ${sRes.status}`)
+      const sData = await sRes.json()
+      setUserSalesHistory(sData)
+    } catch (e) {
+      console.error("Error fetching orders", e)
+    }
+  }
+
+  const fetchAllSets = async () => {
+    try {
+      const res = await fetch("https://api.pokemontcg.io/v2/sets")
+      const data = await res.json()
+      setAllSets(data.data)
+    } catch (e) {
+      console.error("Error fetching sets", e)
+    }
+  }
+
+  const syncUserWithBackend = async (updates: { wantList?: string[], cart?: string[] }) => {
+    if (!user) return
+    try {
+      const response = await fetch(`http://localhost:3000/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+      updateUser(updates)
+    } catch (e) {
+      console.error("Error syncing with backend", e)
+    }
+  }
+
+  const fetchSales = async () => {
+    setIsLoadingSales(true)
+    try {
+      const response = await fetch('http://localhost:3000/api/sales')
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+      const data = await response.json()
+      setRealSales(data)
+    } catch (error) {
+      console.error("Error fetching sales:", error)
+    } finally {
+      setIsLoadingSales(false)
+    }
+  }
+
+  const fetchTrending = async () => {
+    setIsLoadingTrending(true)
+    try {
+      const langParam = language !== 'all' ? `?language=${language}` : ''
+      const statsRes = await fetch(`http://localhost:4000/api/statistics${langParam}`)
+      if (!statsRes.ok) {
+          const text = await statsRes.text()
+          console.error("Stats fetch failed:", statsRes.status, text.slice(0, 100))
+          throw new Error(`HTTP error! status: ${statsRes.status}`)
+      }
+      const stats = await statsRes.json()
+      
+      setFeaturedCards(stats.mostPurchasedCards || [])
+      setFeaturedSets(stats.mostPurchasedSets || [])
+      setRisingCards(stats.trends?.rising || [])
+      setFallingCards(stats.trends?.falling || [])
+      // Use recent listings from stats if available, or fetch separately
+      if (stats.recentListings) {
+        setRealSales(stats.recentListings)
+      }
+    } catch (error) {
+      console.error("Error fetching trending data:", error)
+    } finally {
+      setIsLoadingTrending(false)
+    }
+  }
+
+  const fetchUserSales = async () => {
+    if (!user) return
+    setIsLoadingUserSales(true)
+    try {
+      const response = await fetch(`http://localhost:3000/api/sales/user/${user.id}`)
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+      const data = await response.json()
+      setUserSales(data)
+    } catch (error) {
+      console.error("Error fetching user sales:", error)
+    } finally {
+      setIsLoadingUserSales(false)
+    }
+  }
+
+  const handleSellSearch = async (query: string) => {
+    setSellSearchQuery(query)
+    if (query.length < 3) {
+      setSellSearchResults([])
+      return
+    }
+    
+    setIsSearchingSellCards(true)
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(query)}`)
+      const data = await response.json()
+      setSellSearchResults(data.slice(0, 10)) // Show top 10
+    } catch (error) {
+      console.error("Error searching cards for sale:", error)
+    } finally {
+      setIsSearchingSellCards(false)
+    }
+  }
+
+  const handleListForSale = async () => {
+    if (!user || !selectedSellCard || !listingPrice) return
+    
+    setIsListing(true)
+    try {
+      // 1. Create Card Entity
+      const cardRes = await fetch('http://127.0.0.1:3000/api/cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: selectedSellCard.name,
+          type: selectedSellCard.supertype || 'Pokémon',
+          rarity: selectedSellCard.rarity || 'Common',
+          price: parseFloat(listingPrice),
+          stock: parseInt(listingQuantity),
+          source: selectedSellCard.set?.name || 'Unknown Set',
+          ownerId: user.id,
+          language: selectedLanguage,
+          isForSale: true,
+          metadata: {
+            tcgId: selectedSellCard.id,
+            images: selectedSellCard.images,
+            number: selectedSellCard.number,
+            set: selectedSellCard.set
+          }
+        })
+      })
+      const cardData = await cardRes.json()
+      
+      if (!cardRes.ok) throw new Error(cardData.message || "Error creating card")
+
+      // 2. Create Sale Entity
+      const saleRes = await fetch('http://127.0.0.1:3000/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardId: cardData.id,
+          sellerId: user.id,
+          amount: parseInt(listingQuantity),
+          price: parseFloat(listingPrice),
+          language: selectedLanguage,
+          condition: selectedCondition,
+          observations: listingDescription,
+          imageUrl: selectedSellCard.images?.small
+        })
+      })
+      
+      if (!saleRes.ok) throw new Error("Error creating sale")
+
+      // Success
+      setSelectedSellCard(null)
+      setListingPrice("")
+      setSellSearchQuery("")
+      fetchSales() // Refresh marketplace
+      alert("Card listed successfully!")
+    } catch (error: any) {
+      console.error("Error listing card:", error)
+      alert(error.message || "Error listing card")
+    } finally {
+      setIsListing(false)
+    }
+  }
 
   const getConditionColor = (condition: string) => {
     switch (condition) {
-      case "Mint": return "bg-emerald-500/20 text-emerald-700 border-emerald-500/30"
-      case "Near Mint": return "bg-sky-500/20 text-sky-700 border-sky-500/30"
-      case "Lightly Played": return "bg-amber-500/20 text-amber-700 border-amber-500/30"
+      case "Mint":
+      case "M":
+        return "bg-emerald-500/20 text-emerald-700 border-emerald-500/30"
+      case "Near Mint":
+      case "NM":
+        return "bg-blue-500/20 text-blue-700 border-blue-500/30"
+      case "Excellent":
+      case "EX":
+        return "bg-cyan-500/20 text-cyan-700 border-cyan-500/30"
+      case "Good":
+      case "GD":
+        return "bg-lime-500/20 text-lime-700 border-lime-500/30"
+      case "Lightly Played":
+      case "LP":
+      case "Light Played":
+        return "bg-amber-500/20 text-amber-700 border-amber-500/30"
+      case "Played":
+      case "PL":
+        return "bg-orange-500/20 text-orange-700 border-orange-500/30"
+      case "Poor":
+      case "PO":
+        return "bg-red-500/20 text-red-700 border-red-500/30"
       default: return "bg-muted text-muted-foreground"
     }
   }
@@ -291,41 +465,41 @@ export default function MarketplacePage() {
 
   const getListTypeLabel = (type: WantsListType) => {
     switch (type) {
-      case "deck": return "Deck"
-      case "collection": return "Collection"
-      default: return "Custom"
+      case "deck": return "From Deck"
+      case "collection": return "From Set"
+      default: return "Empty"
     }
   }
 
   const handleCreateList = () => {
-    if (!newListName.trim()) return
-
     let items: WantsListItem[] = []
-    let sourceName: string | undefined
+    let sourceName = ""
 
-    if (newListType === "deck" && selectedSourceId) {
-      const deck = userDecks.find(d => d.id === selectedSourceId)
+    if (newListType === "deck") {
+      const deck = userDecks.find(d => d.id.toString() === selectedSourceId)
       if (deck) {
         sourceName = deck.name
-        items = deck.cards.map(card => ({
-          id: card.id,
-          name: card.name,
-          set: card.set,
-          number: card.number,
+        items = deck.cards.map((item: any) => ({
+          id: item.card.id,
+          name: item.card.name,
+          set: item.card.set?.name || item.card.set,
+          number: item.card.number,
+          count: item.count || 1,
           condition: "Any",
           priority: "Medium" as const,
           owned: false,
         }))
       }
     } else if (newListType === "collection" && selectedSourceId) {
-      const collection = userCollections.find(c => c.id === selectedSourceId)
+      const collection = userCollections.find(c => c.id.toString() === selectedSourceId)
       if (collection) {
         sourceName = collection.name
-        items = collection.missing.map(card => ({
+        items = collection.missing.map((card: any) => ({
           id: card.id,
           name: card.name,
           set: collection.name,
           number: card.number,
+          count: 1,
           condition: "Near Mint",
           priority: "Medium" as const,
           owned: false,
@@ -334,7 +508,7 @@ export default function MarketplacePage() {
     }
 
     const newList: WantsList = {
-      id: Date.now(),
+      id: Date.now().toString(),
       name: newListName,
       type: newListType,
       sourceId: selectedSourceId || undefined,
@@ -343,63 +517,188 @@ export default function MarketplacePage() {
       createdAt: new Date().toISOString().split('T')[0],
     }
 
-    setWantsLists([...wantsLists, newList])
+    const updatedLists = [...wantsLists, newList]
+    setWantsLists(updatedLists)
+    syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) })
+    
     setNewListName("")
     setNewListType("empty")
     setSelectedSourceId(null)
     setIsCreateDialogOpen(false)
   }
 
-  const handleDeleteList = (listId: number) => {
-    setWantsLists(wantsLists.filter(list => list.id !== listId))
+  const handleDeleteList = (listId: string) => {
+    const updatedLists = wantsLists.filter(list => list.id !== listId)
+    setWantsLists(updatedLists)
+    syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) })
     if (selectedList?.id === listId) {
       setSelectedList(null)
     }
   }
 
-  const handleToggleOwned = (listId: number, itemId: number) => {
-    setWantsLists(wantsLists.map(list => {
+  const handleToggleOwned = (listId: string, itemId: string) => {
+    const updatedLists = wantsLists.map(list => {
       if (list.id === listId) {
         return {
           ...list,
           items: list.items.map(item =>
-            item.id === itemId ? { ...item, owned: !item.owned } : item
+            item.id.toString() === itemId ? { ...item, owned: !item.owned } : item
           ),
         }
       }
       return list
-    }))
+    })
+    setWantsLists(updatedLists)
+    syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) })
+    
     // Update selected list if it's the one being modified
     if (selectedList?.id === listId) {
       setSelectedList(prev => prev ? {
         ...prev,
         items: prev.items.map(item =>
-          item.id === itemId ? { ...item, owned: !item.owned } : item
+          item.id.toString() === itemId ? { ...item, owned: !item.owned } : item
         ),
       } : null)
     }
   }
 
-  const handleRemoveFromList = (listId: number, itemId: number) => {
-    setWantsLists(wantsLists.map(list => {
+  const handleRemoveFromList = (listId: string, itemId: string) => {
+    const updatedLists = wantsLists.map(list => {
       if (list.id === listId) {
         return {
           ...list,
-          items: list.items.filter(item => item.id !== itemId),
+          items: list.items.filter(item => item.id.toString() !== itemId.toString()),
         }
       }
       return list
-    }))
+    })
+    setWantsLists(updatedLists)
+    syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) })
+
     if (selectedList?.id === listId) {
       setSelectedList(prev => prev ? {
         ...prev,
-        items: prev.items.filter(item => item.id !== itemId),
+        items: prev.items.filter(item => item.id.toString() !== itemId.toString()),
       } : null)
     }
   }
 
+  const handleAddToCart = (listing: any) => {
+    if (!user) {
+      alert("Please login to add items to cart")
+      return
+    }
+    const newItem = {
+      id: Date.now().toString(),
+      saleId: listing.id,
+      name: listing.cardName,
+      set: listing.cardSet,
+      condition: listing.condition,
+      price: listing.price,
+      quantity: 1,
+      seller: listing.sellerName,
+      imageUrl: listing.imageUrl
+    }
+    const updatedCart = [...cartItems, newItem]
+    setCartItems(updatedCart)
+    syncUserWithBackend({ cart: updatedCart.map(i => JSON.stringify(i)) })
+    alert("Added to cart!")
+  }
+
+  const handleRemoveFromCart = (itemId: string) => {
+    const updatedCart = cartItems.filter(item => item.id !== itemId)
+    setCartItems(updatedCart)
+    syncUserWithBackend({ cart: updatedCart.map(i => JSON.stringify(i)) })
+  }
+
+  const handleUpdateCartQuantity = (itemId: string, delta: number) => {
+    const updatedCart = cartItems.map(item => {
+      if (item.id === itemId) {
+        const newQty = Math.max(1, item.quantity + delta)
+        return { ...item, quantity: newQty }
+      }
+      return item
+    })
+    setCartItems(updatedCart)
+    syncUserWithBackend({ cart: updatedCart.map(i => JSON.stringify(i)) })
+  }
+
+  const handleRunWizard = () => {
+    if (!selectedList || selectedList.items.length === 0) return
+    
+    setIsWizardOpen(true)
+    
+    const missingItems = selectedList.items.filter(item => !item.owned)
+    if (missingItems.length === 0) {
+      setWizardResults(null)
+      return
+    }
+
+    const matchingSales = realSales.filter(sale => 
+      missingItems.some(item => 
+        sale.cardName.toLowerCase().includes(item.name.toLowerCase()) ||
+        item.name.toLowerCase().includes(sale.cardName.toLowerCase())
+      )
+    )
+
+    const sellersMap = new Map<string, any[]>()
+    matchingSales.forEach(sale => {
+      const seller = sale.sellerName || 'Unknown Seller'
+      if (!sellersMap.has(seller)) sellersMap.set(seller, [])
+      sellersMap.get(seller)!.push(sale)
+    })
+
+    const sortedSellers = Array.from(sellersMap.entries()).sort((a, b) => b[1].length - a[1].length)
+    
+    let opt1Sellers: {name: string, cards: number}[] = []
+    let opt1Total = 0
+    let opt1CardsCount = 0
+
+    if (sortedSellers.length > 0) {
+      opt1Sellers.push({ name: sortedSellers[0][0], cards: sortedSellers[0][1].length })
+      opt1Total += sortedSellers[0][1].reduce((sum: number, sale: any) => sum + sale.price, 0)
+      opt1CardsCount += sortedSellers[0][1].length
+
+      if (sortedSellers.length > 1) {
+        opt1Sellers.push({ name: sortedSellers[1][0], cards: sortedSellers[1][1].length })
+        opt1Total += sortedSellers[1][1].reduce((sum: number, sale: any) => sum + sale.price, 0)
+        opt1CardsCount += sortedSellers[1][1].length
+      }
+    }
+
+    setWizardResults({
+      option1: {
+        total: opt1Total,
+        shipping: 5.40,
+        sellers: opt1Sellers,
+        cardsFound: opt1CardsCount,
+        totalMissing: missingItems.length
+      }
+    })
+  }
+
   const getMissingCount = (list: WantsList) => list.items.filter(item => !item.owned).length
   const getOwnedCount = (list: WantsList) => list.items.filter(item => item.owned).length
+
+  const allTimeHighCards = realSales?.length 
+    ? [...realSales].sort((a, b) => b.price - a.price).slice(0, 5).map(s => ({
+        id: s.id,
+        name: s.cardName,
+        set: s.cardSet,
+        price: s.price,
+        note: 'Market Peak'
+      }))
+    : [];
+
+  const allTimeLowCards = realSales?.length 
+    ? [...realSales].sort((a, b) => a.price - b.price).slice(0, 5).map(s => ({
+        id: s.id,
+        name: s.cardName,
+        set: s.cardSet,
+        price: s.price,
+        prevHigh: s.price * 1.2
+      }))
+    : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -447,29 +746,54 @@ export default function MarketplacePage() {
                         Add funds to your wallet to purchase cards instantly.
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <label className="text-sm font-medium">Amount ($)</label>
-                        <Input
-                          type="number"
-                          placeholder="0.00"
-                          value={addAmount}
-                          onChange={(e) => setAddAmount(e.target.value)}
-                          className="text-lg font-bold"
-                        />
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[10, 20, 50].map((amount) => (
-                          <Button
-                            key={amount}
-                            variant="outline"
-                            onClick={() => setAddAmount(amount.toString())}
-                          >
-                            +${amount}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
+                    <Tabs defaultValue="deposit">
+                      <TabsList className="grid w-full grid-cols-2 mb-4">
+                        <TabsTrigger value="deposit">Deposit</TabsTrigger>
+                        <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="deposit">
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium">Amount (€)</label>
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              value={addAmount}
+                              onChange={(e) => setAddAmount(e.target.value)}
+                              className="text-lg font-bold"
+                            />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[10, 20, 50].map((amount) => (
+                              <Button
+                                key={amount}
+                                variant="outline"
+                                onClick={() => setAddAmount(amount.toString())}
+                              >
+                                +{amount}€
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="withdraw">
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium">Amount to Withdraw (€)</label>
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              className="text-lg font-bold"
+                            />
+                            <p className="text-xs text-muted-foreground">Available balance: {(user.balance || 0).toFixed(2)}€</p>
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium">PayPal Email / IBAN</label>
+                            <Input placeholder="your@email.com" />
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsAddFundsOpen(false)}>Cancel</Button>
                       <Button 
@@ -484,7 +808,7 @@ export default function MarketplacePage() {
                         }}
                         disabled={!addAmount || parseFloat(addAmount) <= 0}
                       >
-                        Confirm Deposit
+                        Confirm Transaction
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -492,6 +816,79 @@ export default function MarketplacePage() {
               </div>
             )}
           </div>
+
+          <Dialog open={isWizardOpen} onOpenChange={setIsWizardOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-2xl">
+                  <Sparkles className="h-6 w-6 text-amber-500" />
+                  Shopping Wizard
+                </DialogTitle>
+                <DialogDescription>
+                  We found the best ways to get all the cards in your list. Choose the option that fits you best.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                {wizardResults ? (
+                  <>
+                    {/* Option 1: Max Efficiency */}
+                    <div className="rounded-xl border-2 border-primary bg-primary/5 p-4 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-bl-lg">
+                        BEST VALUE
+                      </div>
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h4 className="font-bold text-lg">Option 1: Max Efficiency</h4>
+                          <p className="text-sm text-muted-foreground">Found {wizardResults.option1.cardsFound} of {wizardResults.option1.totalMissing} cards</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">{wizardResults.option1.total.toFixed(2)}€</p>
+                          <p className="text-xs text-muted-foreground">+{wizardResults.option1.shipping.toFixed(2)}€ shipping</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {wizardResults.option1.sellers.map((s: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <Check className="h-4 w-4 text-emerald-500" />
+                            <span>{s.name}: {s.cards} cards</span>
+                          </div>
+                        ))}
+                      </div>
+                      <Button className="w-full mt-4 bg-primary hover:bg-primary/90" onClick={() => {
+                        setIsWizardOpen(false);
+                        alert("Added matching items to cart!");
+                        // Add real logic to push items to cart
+                      }}>
+                        Select Option & Add to Cart
+                      </Button>
+                    </div>
+
+                    {/* Option 2: Budget Saver (Mock) */}
+                    <div className="rounded-xl border border-border p-4 hover:border-primary/50 transition-colors opacity-70">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h4 className="font-bold text-lg">Option 2: Budget Saver</h4>
+                          <p className="text-sm text-muted-foreground">Cheapest individual cards</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">{(wizardResults.option1.total * 0.85).toFixed(2)}€</p>
+                          <p className="text-xs text-muted-foreground">+14.20€ shipping (multiple sellers)</p>
+                        </div>
+                      </div>
+                      <Button variant="outline" className="w-full mt-4" onClick={() => setIsWizardOpen(false)}>
+                        Select Option
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-10 text-center text-muted-foreground">
+                    <p>No cards needed or unable to find matches in the current marketplace.</p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className={`mb-8 grid w-full max-w-2xl ${user ? 'grid-cols-5' : 'grid-cols-1'}`}>
@@ -537,55 +934,42 @@ export default function MarketplacePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col gap-4 sm:flex-row">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search cards, sets, products..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
+                    <div className="flex flex-col gap-4 sm:flex-row">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder="Search cards (e.g. charizard, charizard PAF, charizard 51...)"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              router.push(`/marketplace/search?q=${encodeURIComponent(searchQuery)}&set=${selectedSet}`)
+                            }
+                          }}
+                          className="pl-10"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Select value={selectedSet} onValueChange={setSelectedSet}>
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Filter by Set" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Sets</SelectItem>
+                            <SelectItem value="PAF">Paldean Fates (PAF)</SelectItem>
+                            <SelectItem value="OBF">Obsidian Flames (OBF)</SelectItem>
+                            <SelectItem value="PAL">Paldea Evolved (PAL)</SelectItem>
+                            <SelectItem value="EVS">Evolving Skies (EVS)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button className="gap-2" onClick={() => {
+                          router.push(`/marketplace/search?q=${encodeURIComponent(searchQuery)}&set=${selectedSet}`)
+                        }}>
+                          <Search className="h-4 w-4" />
+                          Search
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Select>
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue placeholder="Set" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Sets</SelectItem>
-                          <SelectItem value="obsidian">Obsidian Flames</SelectItem>
-                          <SelectItem value="paldea">Paldea Evolved</SelectItem>
-                          <SelectItem value="evolving">Evolving Skies</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select>
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue placeholder="Condition" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Conditions</SelectItem>
-                          <SelectItem value="mint">Mint</SelectItem>
-                          <SelectItem value="nm">Near Mint</SelectItem>
-                          <SelectItem value="lp">Lightly Played</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select>
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue placeholder="Language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Languages</SelectItem>
-                          <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="jp">Japanese</SelectItem>
-                          <SelectItem value="es">Spanish</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button variant="outline" size="icon">
-                        <Filter className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
 
@@ -599,25 +983,42 @@ export default function MarketplacePage() {
                   <Button variant="ghost" size="sm">View All</Button>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {mostPurchasedSets.map((set, index) => (
-                    <Card key={set.id} className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1">
-                      <CardContent className="p-4">
-                        <div className="mb-3 flex h-24 items-center justify-center rounded-lg bg-gradient-to-br from-muted to-secondary">
-                          <Package className="h-10 w-10 text-muted-foreground" />
-                        </div>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-medium group-hover:text-accent">{set.name}</h3>
-                            <p className="text-sm text-muted-foreground">{set.series}</p>
+                  {isLoadingTrending ? (
+                    [1, 2, 3, 4].map(i => (
+                      <Card key={i} className="animate-pulse">
+                        <CardContent className="p-4">
+                          <div className="mb-3 h-24 rounded-lg bg-muted" />
+                          <div className="h-4 w-3/4 bg-muted mb-2" />
+                          <div className="h-3 w-1/2 bg-muted" />
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : featuredSets.map((set, index) => {
+                    const setInfo = allSets.find(s => s.name === set.name);
+                    return (
+                      <Card key={set.name} className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1">
+                        <CardContent className="p-4">
+                          <div className="mb-3 flex h-24 items-center justify-center rounded-lg bg-gradient-to-br from-muted to-secondary p-4">
+                            {setInfo?.images?.logo ? (
+                              <img src={setInfo.images.logo} alt={set.name} className="max-h-full max-w-full object-contain filter drop-shadow-md" />
+                            ) : (
+                              <Package className="h-10 w-10 text-muted-foreground" />
+                            )}
                           </div>
-                          <Badge variant="secondary" className="text-xs">#{index + 1}</Badge>
-                        </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {set.sales.toLocaleString()} sold
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-medium group-hover:text-accent line-clamp-1">{set.name}</h3>
+                              <p className="text-sm text-muted-foreground">{setInfo?.series || set.series}</p>
+                            </div>
+                            <Badge variant="secondary" className="text-xs">#{index + 1}</Badge>
+                          </div>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {parseInt(set.sales).toLocaleString()} sold
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </section>
 
@@ -631,23 +1032,39 @@ export default function MarketplacePage() {
                   <Button variant="ghost" size="sm">View All</Button>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {mostPurchasedCards.map((card, index) => (
+                  {isLoadingTrending ? (
+                    [1, 2, 3, 4].map(i => (
+                      <Card key={i} className="animate-pulse">
+                        <CardContent className="p-4">
+                          <div className="mb-3 aspect-[3/4] rounded-lg bg-muted" />
+                          <div className="h-4 w-3/4 bg-muted mb-2" />
+                          <div className="h-3 w-1/2 bg-muted" />
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : featuredCards.map((card, index) => (
                     <Link key={card.id} href={`/marketplace/card/${card.id}`}>
                       <Card className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1">
                         <CardContent className="p-4">
-                          <div className="mb-3 flex h-32 items-center justify-center rounded-lg bg-gradient-to-br from-muted to-secondary">
-                            <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                          <div className="mb-3 aspect-[3/4] flex items-center justify-center rounded-lg bg-muted overflow-hidden">
+                            {card.image ? (
+                              <img src={card.image} alt={card.name} className="h-full w-full object-contain transition-transform group-hover:scale-105" />
+                            ) : (
+                              <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                            )}
                           </div>
                           <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-medium group-hover:text-accent">{card.name}</h3>
-                              <p className="text-sm text-muted-foreground">{card.set}</p>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium group-hover:text-accent truncate">{card.name}</h3>
+                              <p className="text-sm text-muted-foreground truncate">{card.cardSet || 'Set'}</p>
                             </div>
-                            <Badge variant="secondary" className="text-xs">#{index + 1}</Badge>
+                            <Badge variant="secondary" className="ml-2 text-xs shrink-0">#{index + 1}</Badge>
                           </div>
                           <div className="mt-2 flex items-center justify-between">
-                            <span className="font-semibold">${card.price.toFixed(2)}</span>
-                            <span className="text-sm text-muted-foreground">{card.sales.toLocaleString()} sold</span>
+                            <span className="font-bold text-lg">
+                              {card.minPrice ? `${parseFloat(card.minPrice).toFixed(2)}€` : '--€'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">Min. Price</span>
                           </div>
                         </CardContent>
                       </Card>
@@ -656,43 +1073,11 @@ export default function MarketplacePage() {
                 </div>
               </section>
 
-              {/* Most Purchased Products */}
-              <section>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-                    <Package className="h-6 w-6 text-blue-500" />
-                    Most Purchased Products
-                  </h2>
-                  <Button variant="ghost" size="sm">View All</Button>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {mostPurchasedProducts.map((product, index) => (
-                    <Card key={product.id} className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1">
-                      <CardContent className="p-4">
-                        <div className="mb-3 flex h-28 items-center justify-center rounded-lg bg-gradient-to-br from-muted to-secondary">
-                          <Package className="h-12 w-12 text-muted-foreground" />
-                        </div>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-medium group-hover:text-accent">{product.name}</h3>
-                            <p className="text-sm text-muted-foreground">{product.type}</p>
-                          </div>
-                          <Badge variant="secondary" className="text-xs">#{index + 1}</Badge>
-                        </div>
-                        <div className="mt-2 flex items-center justify-between">
-                          <span className="font-semibold">${product.price.toFixed(2)}</span>
-                          <span className="text-sm text-muted-foreground">{product.sales.toLocaleString()} sold</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </section>
 
               {/* Price Movement Section */}
               <div className="grid gap-6 lg:grid-cols-2">
                 {/* Rising Prices */}
-                <section>
+                <section className={risingCards.length === 0 ? "hidden" : ""}>
                   <div className="mb-4 flex items-center gap-2">
                     <TrendingUp className="h-6 w-6 text-emerald-500" />
                     <h2 className="font-serif text-2xl font-semibold">Rising Prices</h2>
@@ -700,21 +1085,25 @@ export default function MarketplacePage() {
                   <Card>
                     <CardContent className="p-0">
                       <div className="divide-y divide-border">
-                        {risingPriceCards.map((card) => (
+                        {isLoadingTrending ? (
+                          [1, 2, 3].map(i => <div key={i} className="h-20 animate-pulse bg-muted m-4 rounded" />)
+                        ) : risingCards.map((card) => (
                           <Link key={card.id} href={`/marketplace/card/${card.id}`}>
                             <div className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50 cursor-pointer">
-                              <div className="flex h-14 w-10 items-center justify-center rounded bg-muted">
-                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden">
+                                {card.card_image && <img src={card.card_image} alt="" className="h-full w-full object-contain" />}
                               </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium">{card.name}</h4>
-                                <p className="text-sm text-muted-foreground">{card.set}</p>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{card.card_name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{card.card_set}</p>
                               </div>
                               <div className="text-right">
-                                <p className="font-semibold">${card.price.toFixed(2)}</p>
-                                <p className="flex items-center justify-end gap-1 text-sm text-emerald-600">
-                                  <TrendingUp className="h-3 w-3" />
-                                  +{card.change}%
+                                <p className="font-bold text-sm">
+                                  {card.minPrice ? `${parseFloat(card.minPrice).toFixed(2)}€` : '--€'}
+                                </p>
+                                <p className="text-[10px] text-emerald-600 font-bold flex items-center justify-end">
+                                  <Plus className="h-2 w-2 mr-0.5" />
+                                  {parseFloat(card.change_percent).toFixed(1)}%
                                 </p>
                               </div>
                             </div>
@@ -725,8 +1114,7 @@ export default function MarketplacePage() {
                   </Card>
                 </section>
 
-                {/* Falling Prices */}
-                <section>
+                <section className={fallingCards.length === 0 ? "hidden" : ""}>
                   <div className="mb-4 flex items-center gap-2">
                     <TrendingDown className="h-6 w-6 text-red-500" />
                     <h2 className="font-serif text-2xl font-semibold">Falling Prices</h2>
@@ -734,21 +1122,25 @@ export default function MarketplacePage() {
                   <Card>
                     <CardContent className="p-0">
                       <div className="divide-y divide-border">
-                        {fallingPriceCards.map((card) => (
+                        {isLoadingTrending ? (
+                          [1, 2, 3].map(i => <div key={i} className="h-20 animate-pulse bg-muted m-4 rounded" />)
+                        ) : fallingCards.map((card) => (
                           <Link key={card.id} href={`/marketplace/card/${card.id}`}>
                             <div className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50 cursor-pointer">
-                              <div className="flex h-14 w-10 items-center justify-center rounded bg-muted">
-                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden">
+                                {card.card_image && <img src={card.card_image} alt="" className="h-full w-full object-contain" />}
                               </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium">{card.name}</h4>
-                                <p className="text-sm text-muted-foreground">{card.set}</p>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{card.card_name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{card.card_set}</p>
                               </div>
                               <div className="text-right">
-                                <p className="font-semibold">${card.price.toFixed(2)}</p>
-                                <p className="flex items-center justify-end gap-1 text-sm text-red-600">
-                                  <TrendingDown className="h-3 w-3" />
-                                  {card.change}%
+                                <p className="font-bold text-sm">
+                                  {card.minPrice ? `${parseFloat(card.minPrice).toFixed(2)}€` : '--€'}
+                                </p>
+                                <p className="text-[10px] text-red-600 font-bold flex items-center justify-end">
+                                  <Minus className="h-2 w-2 mr-0.5" />
+                                  {Math.abs(parseFloat(card.change_percent)).toFixed(1)}%
                                 </p>
                               </div>
                             </div>
@@ -821,89 +1213,70 @@ export default function MarketplacePage() {
                 </section>
               </div>
 
-              {/* Market News & Trends */}
-              <section>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-                    <BarChart3 className="h-6 w-6 text-foreground" />
-                    Market News & Trends
-                  </h2>
-                  <Button variant="ghost" size="sm">View All News</Button>
-                </div>
-                <Card>
-                  <CardContent className="p-0">
-                    <div className="divide-y divide-border">
-                      {marketNews.map((news) => (
-                        <div key={news.id} className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50 cursor-pointer">
-                          <Badge 
-                            variant="outline" 
-                            className={
-                              news.category === "Hot" ? "border-orange-500 text-orange-600" :
-                              news.category === "Trend" ? "border-blue-500 text-blue-600" :
-                              news.category === "News" ? "border-emerald-500 text-emerald-600" :
-                              "border-muted-foreground text-muted-foreground"
-                            }
-                          >
-                            {news.category}
-                          </Badge>
-                          <div className="flex-1">
-                            <h4 className="font-medium">{news.title}</h4>
-                          </div>
-                          <span className="text-sm text-muted-foreground">{news.time}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </section>
 
-              {/* Recent Listings */}
               <section>
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
-                    <ShoppingBag className="h-6 w-6" />
+                    <Clock className="h-6 w-6 text-primary" />
                     Recent Listings
                   </h2>
-                  <Button variant="ghost" size="sm">View All</Button>
+                  <Button variant="ghost" size="sm" onClick={fetchSales}>Refresh</Button>
                 </div>
                 <Card>
                   <CardContent className="p-4">
                     <div className="space-y-3">
-                      {buyListings.map((listing) => (
-                        <div
-                          key={listing.id}
-                          className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50"
-                        >
-                          <div className="flex h-16 w-12 items-center justify-center rounded bg-muted">
-                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium">{listing.name}</h4>
-                              <Badge variant="outline" className="text-xs">
-                                {listing.number}
-                              </Badge>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                              <span>{listing.set}</span>
-                              <Badge className={getConditionColor(listing.condition)}>
-                                {listing.condition}
-                              </Badge>
-                              <span>{listing.language}</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              Seller: {listing.seller}
-                            </p>
-                          </div>
-                          <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                            <span className="text-lg font-bold">${listing.price.toFixed(2)}</span>
-                            <Button size="sm" className="gap-2">
-                              <ShoppingCart className="h-4 w-4" />
-                              <span className="hidden sm:inline">Add to Cart</span>
-                            </Button>
-                          </div>
+                      {isLoadingSales ? (
+                        <div className="py-10 text-center">
+                          <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">Loading recent listings...</p>
                         </div>
-                      ))}
+                      ) : realSales.length > 0 ? (
+                        realSales.map((listing) => (
+                          <div
+                            key={listing.id}
+                            className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50"
+                          >
+                            <div className="flex h-16 w-12 items-center justify-center rounded bg-muted overflow-hidden">
+                              {listing.cardImage ? (
+                                <img src={listing.cardImage} alt={listing.cardName} className="h-full w-full object-contain" />
+                              ) : (
+                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium">{listing.cardName}</h4>
+                                <Badge variant="outline" className="text-xs">
+                                  {listing.cardSet}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  {new Date(listing.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                <Badge className={getConditionColor(listing.condition)}>
+                                  {listing.condition}
+                                </Badge>
+                                <span>{listing.language}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Seller: {listing.sellerName}
+                              </p>
+                            </div>
+                             <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                              <span className="text-lg font-bold">{listing.price.toFixed(2)}€</span>
+                              <Button size="sm" className="gap-2" onClick={() => handleAddToCart(listing)}>
+                                <ShoppingCart className="h-4 w-4" />
+                                <span className="hidden sm:inline">Add to Cart</span>
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="py-10 text-center text-muted-foreground">
+                          No active listings found.
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -914,155 +1287,462 @@ export default function MarketplacePage() {
               <>
                 {/* Sell Tab */}
                 <TabsContent value="sell">
-                  <div className="space-y-6">
-                    {/* Create Listing */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Plus className="h-5 w-5" />
-                          Create New Listing
-                        </CardTitle>
+                  {!isSeller ? (
+                    <Card className="max-w-2xl mx-auto border-2 border-dashed border-primary/20 bg-primary/5">
+                      <CardHeader className="text-center">
+                        <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                          <Tag className="h-8 w-8 text-primary" />
+                        </div>
+                        <CardTitle className="text-3xl font-serif">Start Selling on TCG Temple</CardTitle>
+                        <CardDescription className="text-base mt-2">
+                          Join our marketplace and turn your collection into balance.
+                        </CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Card Name</label>
-                            <Input placeholder="e.g., Charizard ex" />
+                      <CardContent className="space-y-6">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="flex gap-3 items-start">
+                            <div className="bg-emerald-100 p-1 rounded-full"><Check className="h-4 w-4 text-emerald-600" /></div>
+                            <div>
+                              <p className="font-semibold text-sm">Low Fees</p>
+                              <p className="text-xs text-muted-foreground">Only 2% commission on each sale.</p>
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Set</label>
-                            <Select>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select set" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="obsidian">Obsidian Flames</SelectItem>
-                                <SelectItem value="paldea">Paldea Evolved</SelectItem>
-                                <SelectItem value="evolving">Evolving Skies</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <div className="flex gap-3 items-start">
+                            <div className="bg-emerald-100 p-1 rounded-full"><Check className="h-4 w-4 text-emerald-600" /></div>
+                            <div>
+                              <p className="font-semibold text-sm">Fast Payments</p>
+                              <p className="text-xs text-muted-foreground">Withdraw your balance anytime to PayPal or Bank.</p>
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Condition</label>
-                            <Select>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select condition" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="mint">Mint</SelectItem>
-                                <SelectItem value="nm">Near Mint</SelectItem>
-                                <SelectItem value="lp">Lightly Played</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <div className="flex gap-3 items-start">
+                            <div className="bg-emerald-100 p-1 rounded-full"><Check className="h-4 w-4 text-emerald-600" /></div>
+                            <div>
+                              <p className="font-semibold text-sm">Huge Audience</p>
+                              <p className="text-xs text-muted-foreground">Reach thousands of collectors instantly.</p>
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Price ($)</label>
-                            <Input type="number" placeholder="0.00" />
+                          <div className="flex gap-3 items-start">
+                            <div className="bg-emerald-100 p-1 rounded-full"><Check className="h-4 w-4 text-emerald-600" /></div>
+                            <div>
+                              <p className="font-semibold text-sm">Secure Shipping</p>
+                              <p className="text-xs text-muted-foreground">Integrated tracking and shipping labels.</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="mt-4 flex justify-end">
-                          <Button className="gap-2">
-                            <Tag className="h-4 w-4" />
-                            Create Listing
-                          </Button>
+
+                        <div className="p-4 bg-background rounded-lg border border-border space-y-4">
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="checkbox" 
+                              id="terms" 
+                              checked={hasAcceptedTerms}
+                              onChange={(e) => setHasAcceptedTerms(e.target.checked)}
+                              className="h-4 w-4 rounded border-border" 
+                            />
+                            <label htmlFor="terms" className="text-sm cursor-pointer">
+                              I accept the <Button variant="link" className="p-0 h-auto text-sm">Seller Terms & Conditions</Button>
+                            </label>
+                          </div>
                         </div>
+
+                        <Button 
+                          className="w-full h-12 text-lg shadow-lg shadow-primary/20" 
+                          disabled={!hasAcceptedTerms}
+                          onClick={() => setIsSeller(true)}
+                        >
+                          Activate Seller Account
+                        </Button>
                       </CardContent>
                     </Card>
+                  ) : (
+                    <div className="space-y-6">
+                      <Tabs defaultValue="active" className="w-full">
+                        <TabsList className="mb-6 grid w-full max-w-2xl grid-cols-4">
+                          <TabsTrigger value="active" className="gap-2">
+                            <Library className="h-4 w-4" />
+                            My Inventory
+                          </TabsTrigger>
+                          <TabsTrigger value="new" className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Sell New
+                          </TabsTrigger>
+                          <TabsTrigger value="to-ship" className="gap-2">
+                            <Package className="h-4 w-4" />
+                            To Ship
+                          </TabsTrigger>
+                          <TabsTrigger value="history" className="gap-2">
+                            <History className="h-4 w-4" />
+                            History
+                          </TabsTrigger>
+                        </TabsList>
 
-                    <Tabs defaultValue="active" className="w-full">
-                      <TabsList className="mb-4 grid w-full max-w-md grid-cols-2">
-                        <TabsTrigger value="active" className="gap-2">
-                          <Tag className="h-4 w-4" />
-                          Active Listings
-                        </TabsTrigger>
-                        <TabsTrigger value="history" className="gap-2">
-                          <History className="h-4 w-4" />
-                          Sales History
-                        </TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value="active">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-lg">Your Active Listings</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {yourListings.filter(l => l.status === "Active").map((listing) => (
-                                <div
-                                  key={listing.id}
-                                  className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/20"
-                                >
-                                  <div className="flex h-16 w-12 items-center justify-center rounded bg-muted">
-                                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                        <TabsContent value="active">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Your Active Listings</CardTitle>
+                              <CardDescription>Manage your cards currently for sale in the marketplace.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-4">
+                                {isLoadingUserSales ? (
+                                  <div className="py-20 text-center">
+                                    <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+                                    <p className="text-muted-foreground">Loading your listings...</p>
                                   </div>
-                                  <div className="flex-1 space-y-1">
-                                    <h4 className="font-medium">{listing.name}</h4>
-                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                      <span>{listing.set}</span>
-                                      <Badge className={getConditionColor(listing.condition)}>
-                                        {listing.condition}
-                                      </Badge>
+                                ) : userSales.length > 0 ? (
+                                  userSales.map((listing) => (
+                                    <div key={listing.id} className="group flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/30 transition-all shadow-sm hover:shadow-md">
+                                      <div className="aspect-[3/4] h-16 bg-muted rounded overflow-hidden">
+                                        {listing.cardImage && <img src={listing.cardImage} alt="" className="h-full w-full object-contain group-hover:scale-110 transition-transform" />}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <p className="font-bold text-sm truncate">{listing.cardName}</p>
+                                          <Badge variant="outline" className="text-[10px] h-4">{listing.condition}</Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground truncate">{listing.cardSet}</p>
+                                        <div className="flex items-center gap-3 mt-1">
+                                          <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded text-secondary-foreground font-medium">{listing.language}</span>
+                                          <span className="text-[10px] text-muted-foreground">{listing.isReverse ? 'Reverse Holo' : 'Standard'}</span>
+                                        </div>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="font-black text-lg">{listing.price.toFixed(2)}€</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium">Qty: {listing.amount}</p>
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <Edit3 className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
-                                      {listing.views} views
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-4">
-                                    <span className="text-lg font-bold">${listing.price.toFixed(2)}</span>
-                                    <Button variant="ghost" size="icon" className="text-destructive">
-                                      <Trash2 className="h-4 w-4" />
+                                  ))
+                                ) : (
+                                  <div className="py-20 text-center text-muted-foreground border-2 border-dashed border-border rounded-xl">
+                                    <Tag className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                                    <h3 className="font-bold text-lg">Your inventory is empty</h3>
+                                    <p className="text-sm mt-2">Start selling cards to see them here.</p>
+                                    <Button variant="outline" className="mt-4 gap-2" onClick={() => {/* Set active sub-tab to 'new' */}}>
+                                      <Plus className="h-4 w-4" />
+                                      List your first card
                                     </Button>
                                   </div>
-                                </div>
-                              ))}
-                              {yourListings.filter(l => l.status === "Active").length === 0 && (
-                                <div className="py-8 text-center text-muted-foreground">
-                                  No active listings.
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </TabsContent>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
 
-                      <TabsContent value="history">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-lg">Sales History</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {salesHistory.map((sale) => (
-                                <div
-                                  key={sale.id}
-                                  className="flex items-center gap-4 rounded-lg border border-border bg-card p-4"
-                                >
-                                  <div className="flex h-16 w-12 items-center justify-center rounded bg-emerald-500/10">
-                                    <Check className="h-6 w-6 text-emerald-600" />
-                                  </div>
-                                  <div className="flex-1 space-y-1">
-                                    <h4 className="font-medium">{sale.name}</h4>
-                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                      <span>{sale.set}</span>
-                                      <span>Sold to: {sale.buyer}</span>
+                        <TabsContent value="new">
+                          <Card className="border-primary/20 shadow-lg shadow-primary/5">
+                            <CardHeader>
+                              <CardTitle className="flex items-center gap-2">
+                                <Plus className="h-5 w-5 text-primary" />
+                                Create New Listing
+                              </CardTitle>
+                              <CardDescription>Fill in the details to list your card for sale worldwide.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="grid gap-8 lg:grid-cols-2">
+                                <div className="space-y-6">
+                                  <div className="space-y-2 relative">
+                                    <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Step 1: Search Card</label>
+                                    <div className="relative">
+                                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                      <Input 
+                                        placeholder="Search by name (e.g. Charizard)..." 
+                                        value={sellSearchQuery}
+                                        onChange={(e) => handleSellSearch(e.target.value)}
+                                        className="pl-10 h-11"
+                                      />
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
-                                      Sold on {new Date(sale.date).toLocaleDateString()}
-                                    </p>
+                                    
+                                    {sellSearchResults.length > 0 && (
+                                      <Card className="absolute z-50 w-full mt-1 shadow-2xl max-h-[300px] overflow-y-auto border-primary/20">
+                                        <CardContent className="p-0">
+                                          {sellSearchResults.map((card) => (
+                                            <div 
+                                              key={card.id}
+                                              className="flex items-center gap-3 p-3 hover:bg-primary/5 cursor-pointer transition-colors border-b border-border last:border-0"
+                                              onClick={() => {
+                                                setSelectedSellCard(card);
+                                                setSellSearchQuery(card.name);
+                                                setSellSearchResults([]);
+                                              }}
+                                            >
+                                              <div className="aspect-[3/4] h-12 bg-muted rounded flex items-center justify-center overflow-hidden">
+                                                {card.images?.small ? (
+                                                  <img src={card.images.small} alt={card.name} className="h-full w-full object-contain" />
+                                                ) : (
+                                                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                                )}
+                                              </div>
+                                              <div>
+                                                <p className="font-bold text-sm">{card.name}</p>
+                                                <p className="text-xs text-muted-foreground">{card.set?.name} - {card.number}</p>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </CardContent>
+                                      </Card>
+                                    )}
+
+                                    {selectedSellCard && (
+                                      <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <div className="aspect-[3/4] h-24 bg-white rounded shadow-sm overflow-hidden p-1">
+                                          <img src={selectedSellCard.images?.small} alt="" className="h-full w-full object-contain" />
+                                        </div>
+                                        <div className="flex-1">
+                                          <div className="flex items-center justify-between">
+                                            <p className="font-black text-primary">{selectedSellCard.name}</p>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setSelectedSellCard(null)}>
+                                              <X className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                          <p className="text-xs text-muted-foreground font-medium">{selectedSellCard.set?.name}</p>
+                                          <Badge variant="outline" className="mt-2 text-[10px]">{selectedSellCard.number}</Badge>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="text-right">
-                                    <p className="text-lg font-bold text-emerald-600">+${sale.price.toFixed(2)}</p>
-                                    <Badge variant="outline" className="text-emerald-600 border-emerald-200">Completed</Badge>
+
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Condition</label>
+                                      <Select value={selectedCondition} onValueChange={setSelectedCondition}>
+                                        <SelectTrigger className="h-11">
+                                          <SelectValue placeholder="Select condition" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="M">Mint (M)</SelectItem>
+                                          <SelectItem value="NM">Near Mint (NM)</SelectItem>
+                                          <SelectItem value="LP">Light Played (LP)</SelectItem>
+                                          <SelectItem value="MP">Moderately Played (MP)</SelectItem>
+                                          <SelectItem value="HP">Heavily Played (HP)</SelectItem>
+                                          <SelectItem value="PO">Poor (PO)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Language</label>
+                                      <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                                        <SelectTrigger className="h-11">
+                                          <SelectValue placeholder="Language" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="EN">🇺🇸 English</SelectItem>
+                                          <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
+                                          <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
+                                          <SelectItem value="DE">🇩🇪 German</SelectItem>
+                                          <SelectItem value="FR">🇫🇷 French</SelectItem>
+                                          <SelectItem value="IT">🇮🇹 Italian</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
                                   </div>
+
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Price (€)</label>
+                                      <div className="relative">
+                                        <Input 
+                                          type="number" 
+                                          placeholder="0.00" 
+                                          step="0.01" 
+                                          value={listingPrice}
+                                          onChange={(e) => setListingPrice(e.target.value)}
+                                          className="h-11 pr-8"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">€</span>
+                                      </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Quantity</label>
+                                      <Input 
+                                        type="number" 
+                                        value={listingQuantity} 
+                                        onChange={(e) => setListingQuantity(e.target.value)} 
+                                        min="1" 
+                                        className="h-11"
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  {listingPrice && parseFloat(listingPrice) > 0 && (
+                                    <div className="p-3 bg-secondary/50 rounded-lg flex items-center justify-between text-xs font-bold uppercase tracking-tighter">
+                                      <span className="text-muted-foreground">Market Fee (2%): -{(parseFloat(listingPrice) * 0.02).toFixed(2)}€</span>
+                                      <span className="text-primary">Net Profit: {(parseFloat(listingPrice) * 0.98).toFixed(2)}€</span>
+                                    </div>
+                                  )}
                                 </div>
-                              ))}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </TabsContent>
-                    </Tabs>
-                  </div>
+
+                                <div className="space-y-6">
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Card Photo (Required)</label>
+                                    <div className="relative group aspect-video">
+                                      <label className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-border rounded-2xl cursor-pointer hover:bg-primary/5 hover:border-primary/50 transition-all duration-300">
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                          <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                            <Camera className="w-6 h-6 text-primary" />
+                                          </div>
+                                          <p className="mb-1 text-sm font-bold">Click to upload photo</p>
+                                          <p className="text-[10px] text-muted-foreground uppercase">Real photos increase trust by 400%</p>
+                                        </div>
+                                        <input type="file" className="hidden" accept="image/*" />
+                                      </label>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Additional Info</label>
+                                    <textarea 
+                                      className="w-full h-32 rounded-xl border border-border bg-background p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                                      placeholder="Centering, holo bleed, specific wear details..."
+                                      value={listingDescription}
+                                      onChange={(e) => setListingDescription(e.target.value)}
+                                    />
+                                  </div>
+
+                                  <Button 
+                                    className="w-full h-12 text-lg font-black uppercase tracking-widest shadow-xl shadow-primary/20" 
+                                    onClick={handleListForSale}
+                                    disabled={isListing || !selectedSellCard || !listingPrice}
+                                  >
+                                    {isListing ? (
+                                      <Loader2 className="h-5 w-5 animate-spin" />
+                                    ) : (
+                                      <>
+                                        <Sparkles className="h-5 w-5 mr-2" />
+                                        Confirm Listing
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
+
+                        <TabsContent value="to-ship">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Orders to Ship</CardTitle>
+                              <CardDescription>Track and manage your outgoing orders.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-4">
+                                {userSalesHistory.filter(s => s.status === "pending" || s.status === "shipped").map((sale) => (
+                                  <div key={sale.id} className="rounded-xl border border-border bg-card p-5 space-y-4 shadow-sm">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                          <Package className="h-5 w-5 text-primary" />
+                                        </div>
+                                        <div>
+                                          <p className="font-bold">Order #{sale.id.slice(0, 8)}</p>
+                                          <p className="text-xs text-muted-foreground font-medium">Buyer: {sale.buyerName || "User"}</p>
+                                        </div>
+                                      </div>
+                                      <Badge className={sale.status === "pending" ? "bg-amber-500/10 text-amber-600 border-amber-500/20" : "bg-blue-500/10 text-blue-600 border-blue-500/20"}>
+                                        {sale.status === "pending" ? "Pending Shipment" : "Shipped"}
+                                      </Badge>
+                                    </div>
+                                    
+                                    <div className="grid gap-4 md:grid-cols-2 p-3 bg-secondary/30 rounded-lg">
+                                      <div className="space-y-1">
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Item Details</p>
+                                        <p className="text-sm font-bold truncate">1x {sale.cardName} ({sale.cardSet})</p>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Revenue</p>
+                                        <p className="text-sm font-bold">{(sale.price * 0.98).toFixed(2)}€ <span className="text-[10px] font-normal text-muted-foreground">(Net)</span></p>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex gap-2 pt-2">
+                                      {sale.status === "pending" && (
+                                        <Button size="sm" className="flex-1 gap-2 font-bold uppercase text-[10px] tracking-widest h-10">
+                                          <Check className="h-4 w-4" />
+                                          Mark as Shipped
+                                        </Button>
+                                      )}
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button size="sm" variant="outline" className="flex-1 gap-2 font-bold uppercase text-[10px] tracking-widest h-10">
+                                            <Plus className="h-4 w-4" />
+                                            {sale.trackingNumber ? "Edit Tracking" : "Add Tracking"}
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle>Tracking Information</DialogTitle>
+                                          </DialogHeader>
+                                          <div className="space-y-4 py-4">
+                                            <div className="space-y-2">
+                                              <label className="text-sm font-medium">Tracking Code</label>
+                                              <Input placeholder="e.g., RR123456789ES" defaultValue={sale.trackingNumber || ""} />
+                                            </div>
+                                          </div>
+                                          <DialogFooter>
+                                            <Button>Save Tracking</Button>
+                                          </DialogFooter>
+                                        </DialogContent>
+                                      </Dialog>
+                                    </div>
+                                  </div>
+                                ))}
+                                {userSalesHistory.filter(s => s.status === "pending" || s.status === "shipped").length === 0 && (
+                                  <div className="py-20 text-center text-muted-foreground border-2 border-dashed border-border rounded-xl">
+                                    <Package className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                                    <h3 className="font-bold text-lg">No orders to ship</h3>
+                                    <p className="text-sm mt-2">When someone buys your cards, they'll appear here.</p>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
+
+                        <TabsContent value="history">
+                          <Card>
+                            <CardHeader>
+                              <CardTitle className="text-lg">Sales History</CardTitle>
+                              <CardDescription>View your completed sales and earnings.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-4">
+                                {userSalesHistory.filter(s => s.status === "delivered" || s.status === "completed").map((sale) => (
+                                  <div key={sale.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm opacity-80 hover:opacity-100 transition-opacity">
+                                    <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                      <Check className="h-6 w-6 text-emerald-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-bold text-sm truncate">{sale.cardName}</p>
+                                      <p className="text-xs text-muted-foreground font-medium">{new Date(sale.createdAt).toLocaleDateString()} • {sale.buyerName || "User"}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="font-black text-emerald-600">{sale.price.toFixed(2)}€</p>
+                                      <Badge variant="secondary" className="text-[10px] h-4 bg-emerald-50 text-emerald-700">Delivered</Badge>
+                                    </div>
+                                  </div>
+                                ))}
+                                {userSalesHistory.filter(s => s.status === "delivered" || s.status === "completed").length === 0 && (
+                                  <div className="py-20 text-center text-muted-foreground border-2 border-dashed border-border rounded-xl">
+                                    <History className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                                    <h3 className="font-bold text-lg">No sales history yet</h3>
+                                    <p className="text-sm mt-2">Completed orders will be archived here.</p>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* Orders Tab */}
@@ -1087,7 +1767,7 @@ export default function MarketplacePage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
-                              {purchaseHistory.filter(p => p.status !== "Completed").map((order) => (
+                              {userOrders.filter(p => p.status !== "completed").map((order) => (
                                 <div
                                   key={order.id}
                                   className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/20"
@@ -1096,26 +1776,35 @@ export default function MarketplacePage() {
                                     <Package className="h-6 w-6 text-blue-600" />
                                   </div>
                                   <div className="flex-1 space-y-1">
-                                    <h4 className="font-medium">{order.name}</h4>
-                                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                      <span>{order.set}</span>
-                                      <Badge variant="outline" className={order.status === "Pending" ? "text-amber-600 border-amber-200" : "text-blue-600 border-blue-200"}>
+                                    <h4 className="font-medium">{order.cardName || "Pokemon Card"}</h4>
+                                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                      <span>{order.cardSet}</span>
+                                      <Badge variant="outline" className={order.status === "pending" ? "text-amber-600 border-amber-200" : "text-blue-600 border-blue-200"}>
                                         {order.status}
                                       </Badge>
+                                      {order.trackingNumber && (
+                                        <div className="flex items-center gap-1 font-mono text-[10px]">
+                                          <ExternalLink className="h-3 w-3" />
+                                          {order.trackingNumber}
+                                        </div>
+                                      )}
                                     </div>
-                                    {order.tracking && (
-                                      <p className="text-xs font-mono text-muted-foreground">
-                                        Tracking: {order.tracking}
-                                      </p>
-                                    )}
                                   </div>
-                                  <div className="text-right">
-                                    <p className="text-lg font-bold">${order.price.toFixed(2)}</p>
-                                    <p className="text-xs text-muted-foreground">Ordered {new Date(order.date).toLocaleDateString()}</p>
+                                  <div className="flex flex-col items-end gap-2">
+                                    <div className="text-right">
+                                      <p className="text-lg font-bold">{order.totalPrice.toFixed(2)}€</p>
+                                      <p className="text-xs text-muted-foreground">Ordered {new Date(order.createdAt).toLocaleDateString()}</p>
+                                    </div>
+                                    {order.status === "shipped" && (
+                                      <Button size="sm" className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                                        <Check className="h-4 w-4" />
+                                        Confirm Receipt
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               ))}
-                              {purchaseHistory.filter(p => p.status !== "Completed").length === 0 && (
+                              {userOrders.filter(p => p.status !== "completed").length === 0 && (
                                 <div className="py-8 text-center text-muted-foreground">
                                   No orders in transit.
                                 </div>
@@ -1132,7 +1821,7 @@ export default function MarketplacePage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
-                              {purchaseHistory.filter(p => p.status === "Completed").map((order) => (
+                              {userOrders.filter(p => p.status === "completed").map((order) => (
                                 <div
                                   key={order.id}
                                   className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 opacity-80"
@@ -1141,14 +1830,14 @@ export default function MarketplacePage() {
                                     <Check className="h-6 w-6 text-emerald-600" />
                                   </div>
                                   <div className="flex-1 space-y-1">
-                                    <h4 className="font-medium">{order.name}</h4>
-                                    <p className="text-sm text-muted-foreground">{order.set}</p>
+                                    <h4 className="font-medium">{order.cardName}</h4>
+                                    <p className="text-sm text-muted-foreground">{order.cardSet}</p>
                                     <p className="text-xs text-muted-foreground">
-                                      Received on {new Date(order.date).toLocaleDateString()}
+                                      Received on {new Date(order.updatedAt).toLocaleDateString()}
                                     </p>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-lg font-bold">${order.price.toFixed(2)}</p>
+                                    <p className="text-lg font-bold">{order.totalPrice.toFixed(2)}€</p>
                                     <Button variant="link" size="sm" className="h-auto p-0">View Details</Button>
                                   </div>
                                 </div>
@@ -1209,8 +1898,8 @@ export default function MarketplacePage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="empty">Empty List</SelectItem>
-                                      <SelectItem value="deck">To Deck</SelectItem>
-                                      <SelectItem value="collection">A Collection Set</SelectItem>
+                                      <SelectItem value="deck">From Deck (Synced)</SelectItem>
+                                      <SelectItem value="collection">From Set (Missing Cards)</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -1218,7 +1907,7 @@ export default function MarketplacePage() {
                                   <div className="space-y-2">
                                     <label className="text-sm font-medium">Select Deck</label>
                                     <Select
-                                      onValueChange={(value) => setSelectedSourceId(parseInt(value))}
+                                      onValueChange={(value) => setSelectedSourceId(value)}
                                     >
                                       <SelectTrigger>
                                         <SelectValue placeholder="Select a deck..." />
@@ -1237,7 +1926,7 @@ export default function MarketplacePage() {
                                   <div className="space-y-2">
                                     <label className="text-sm font-medium">Select Collection</label>
                                     <Select
-                                      onValueChange={(value) => setSelectedSourceId(parseInt(value))}
+                                      onValueChange={(value) => setSelectedSourceId(value)}
                                     >
                                       <SelectTrigger>
                                         <SelectValue placeholder="Select a set..." />
@@ -1314,31 +2003,50 @@ export default function MarketplacePage() {
                                   <Edit3 className="h-4 w-4" />
                                   Rename List
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="gap-2">
-                                  <ShoppingCart className="h-4 w-4" />
-                                  Buy All Missing
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="gap-2 text-destructive"
-                                  onClick={() => handleDeleteList(selectedList.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Delete List
-                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button size="sm" variant="outline" className="gap-2">
+                                  <Plus className="h-4 w-4" />
+                                  Add Card
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-xl">
+                                <DialogHeader>
+                                  <DialogTitle>Add Card to {selectedList.name}</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                  <div className="flex gap-2">
+                                    <Input 
+                                      placeholder="Search card by name..." 
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          // Implement card search for wants list
+                                        }
+                                      }}
+                                    />
+                                    <Button size="icon">
+                                      <Search className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="min-h-[200px] rounded-lg border border-dashed flex items-center justify-center text-muted-foreground text-sm">
+                                    Search for a card to add it to your list.
+                                  </div>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
                               {selectedList.items.length > 0 ? (
-                                selectedList.items.map((item) => (
+                                selectedList.items.map((item: any) => (
                                   <div
                                     key={item.id}
                                     className={`flex items-center gap-4 rounded-lg border p-4 transition-all ${item.owned ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
                                   >
                                     <button
-                                      onClick={() => handleToggleOwned(selectedList.id, item.id)}
+                                      onClick={() => handleToggleOwned(selectedList.id.toString(), item.id.toString())}
                                       className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${item.owned ? 'border-accent bg-accent text-accent-foreground' : 'border-muted-foreground/30 hover:border-accent'}`}
                                     >
                                       {item.owned && <Check className="h-3 w-3" />}
@@ -1350,9 +2058,11 @@ export default function MarketplacePage() {
                                       <div className="flex items-center gap-2">
                                         <h4 className={`font-medium ${item.owned ? 'line-through' : ''}`}>{item.name}</h4>
                                         <Badge variant="outline" className="text-[10px]">{item.number}</Badge>
+                                        <span className="text-xs font-bold text-primary">x{item.count}</span>
                                       </div>
                                       <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                                         <span>{item.set}</span>
+                                        <span className="bg-secondary/50 px-1 rounded text-[10px]">{item.condition}</span>
                                         <Badge className={`text-[10px] h-4 ${getPriorityColor(item.priority)}`}>
                                           {item.priority}
                                         </Badge>
@@ -1366,7 +2076,7 @@ export default function MarketplacePage() {
                                         variant="ghost"
                                         size="icon"
                                         className="h-8 w-8 text-destructive"
-                                        onClick={() => handleRemoveFromList(selectedList.id, item.id)}
+                                        onClick={() => handleRemoveFromList(selectedList.id.toString(), item.id.toString())}
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
@@ -1377,10 +2087,25 @@ export default function MarketplacePage() {
                                 <div className="py-12 text-center text-muted-foreground">
                                   <Heart className="h-12 w-12 mx-auto mb-4 opacity-20" />
                                   <p>No cards in this list yet.</p>
-                                  <Button variant="link">Search for cards to add</Button>
+                                  <Button variant="link" className="gap-2" onClick={handleRunWizard}>
+                                    <Sparkles className="h-4 w-4 text-amber-500" />
+                                    Run Shopping Wizard
+                                  </Button>
                                 </div>
                               )}
                             </div>
+
+                            {selectedList.items.length > 0 && (
+                              <div className="mt-8 pt-6 border-t border-border">
+                                <Button size="lg" className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-lg shadow-orange-500/20" onClick={handleRunWizard}>
+                                  <Sparkles className="h-5 w-5" />
+                                  Run Shopping Wizard
+                                </Button>
+                                <p className="text-center text-xs text-muted-foreground mt-3">
+                                  Find the best combination of sellers to get all your cards at the best price.
+                                </p>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       ) : (
@@ -1409,10 +2134,14 @@ export default function MarketplacePage() {
                         </CardHeader>
                         <CardContent>
                           <div className="divide-y divide-border">
-                            {cartItems.map((item) => (
+                             {cartItems.map((item) => (
                               <div key={item.id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
-                                <div className="flex h-24 w-16 items-center justify-center rounded bg-muted">
-                                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                <div className="h-24 w-16 bg-muted rounded overflow-hidden flex items-center justify-center">
+                                  {item.imageUrl ? (
+                                    <img src={item.imageUrl} alt={item.name} className="h-full w-full object-contain" />
+                                  ) : (
+                                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                  )}
                                 </div>
                                 <div className="flex flex-1 flex-col justify-between">
                                   <div className="flex justify-between">
@@ -1426,19 +2155,30 @@ export default function MarketplacePage() {
                                         <span className="text-xs text-muted-foreground">Seller: {item.seller}</span>
                                       </div>
                                     </div>
-                                    <span className="font-bold">${item.price.toFixed(2)}</span>
+                                    <span className="font-bold">{item.price.toFixed(2)}€</span>
                                   </div>
                                   <div className="flex items-center justify-between mt-4">
                                     <div className="flex items-center gap-2 rounded-md border border-border px-2 py-1">
-                                      <button className="text-muted-foreground hover:text-foreground">
+                                      <button 
+                                        className="text-muted-foreground hover:text-foreground"
+                                        onClick={() => handleUpdateCartQuantity(item.id, -1)}
+                                      >
                                         <Minus className="h-4 w-4" />
                                       </button>
                                       <span className="w-8 text-center text-sm">{item.quantity}</span>
-                                      <button className="text-muted-foreground hover:text-foreground">
+                                      <button 
+                                        className="text-muted-foreground hover:text-foreground"
+                                        onClick={() => handleUpdateCartQuantity(item.id, 1)}
+                                      >
                                         <Plus className="h-4 w-4" />
                                       </button>
                                     </div>
-                                    <Button variant="ghost" size="sm" className="text-destructive gap-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-destructive gap-2"
+                                      onClick={() => handleRemoveFromCart(item.id)}
+                                    >
                                       <Trash2 className="h-4 w-4" />
                                       Remove
                                     </Button>
@@ -1456,21 +2196,21 @@ export default function MarketplacePage() {
                           <CardTitle>Order Summary</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <div className="flex justify-between text-sm">
+                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Subtotal</span>
-                            <span>${cartTotal.toFixed(2)}</span>
+                            <span>{cartTotal.toFixed(2)}€</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Shipping</span>
-                            <span>$4.99</span>
+                            <span>{cartItems.length > 0 ? "4.99€" : "0.00€"}</span>
                           </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Tax</span>
-                            <span>${(cartTotal * 0.08).toFixed(2)}</span>
+                            <span>{(cartTotal * 0.08).toFixed(2)}€</span>
                           </div>
                           <div className="border-t border-border pt-4 flex justify-between font-bold text-lg">
                             <span>Total</span>
-                            <span>${(cartTotal + 4.99 + cartTotal * 0.08).toFixed(2)}</span>
+                            <span>{(cartTotal + (cartItems.length > 0 ? 4.99 : 0) + cartTotal * 0.08).toFixed(2)}€</span>
                           </div>
                           <Button className="w-full mt-4" size="lg">
                             Checkout

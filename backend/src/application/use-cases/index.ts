@@ -5,6 +5,7 @@ export * from './card/update-card.use-case';
 export * from './card/delete-card.use-case';
 export * from './card/get-card-market-value.use-case';
 export * from './card/get-cards-by-name.use-case';
+export * from './card/search-cards.use-case';
 
 export * from './user/get-all-users.use-case';
 export * from './user/get-user-by-id.use-case';
@@ -28,6 +29,9 @@ export * from './page/get-all-pages-from-album.use-case';
 export * from './sale/create-sale.use-case';
 export * from './sale/get-sale.use-case';
 export * from './sale/update-sale.use-case';
+export * from './sale/get-all-sales.use-case';
+export * from './sale/list-sales-by-seller.use-case';
+export * from './sale/delete-sale.use-case';
 
 export * from './transaction/create-transaction.use-case';
 export * from './transaction/get-transaction.use-case';

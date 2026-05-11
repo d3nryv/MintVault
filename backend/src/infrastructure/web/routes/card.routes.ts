@@ -10,6 +10,7 @@ const tcgRepository = new TcgSdkRepository();
 const controller = new CardController(cardRepository, tcgRepository, transactionRepository);
 
 router.get('/', controller.getAll);
+router.get('/advanced-search', controller.search);
 router.get('/search', controller.getByName);
 router.get('/search/:name', controller.getByName);
 router.get('/:id', controller.getById);

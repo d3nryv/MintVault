@@ -72,4 +72,46 @@ export class TcgSdkRepository implements TcgRepository {
             return [];
         }
     }
+
+    async searchCards(filters: { name?: string; set?: string; number?: string }): Promise<TcgPlayerInfo[]> {
+        try {
+            const queries: string[] = [];
+            if (filters.name) queries.push(`name:${filters.name.trim()}`);
+            if (filters.set) queries.push(`set.id:${filters.set.trim()}`);
+            if (filters.number) queries.push(`number:${filters.number.trim()}`);
+
+            const q = queries.join(' ');
+            console.log(`[DEBUG] Advanced search with query: ${q}`);
+            
+            const cards = await PokemonTCG.findCardsByQueries({ q });
+            if (!cards) return [];
+
+            return cards.map(card => ({
+                id: card.id,
+                name: card.name,
+                supertype: card.supertype,
+                subtypes: card.subtypes,
+                hp: card.hp,
+                types: card.types,
+                evolvesFrom: card.evolvesFrom,
+                abilities: card.abilities,
+                attacks: card.attacks,
+                weaknesses: card.weaknesses,
+                resistances: card.resistances,
+                retreatCost: card.retreatCost,
+                flavorText: card.flavorText,
+                rarity: card.rarity,
+                images: card.images,
+                set: {
+                    id: card.set.id,
+                    name: card.set.name,
+                    series: card.set.series,
+                    ptcgoCode: card.set.ptcgoCode
+                }
+            }));
+        } catch (error) {
+            console.error(`Error in advanced search:`, filters, error);
+            return [];
+        }
+    }
 }

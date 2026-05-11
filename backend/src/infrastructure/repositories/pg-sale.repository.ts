@@ -67,4 +67,10 @@ export class PostgresSaleRepository implements SaleRepository {
         const query = 'DELETE FROM sales WHERE id = $1';
         await connection.query(query, [id]);
     }
+
+    async findRecent(limit: number): Promise<SaleEntity[]> {
+        const query = 'SELECT * FROM sales ORDER BY created_at DESC LIMIT $1';
+        const { rows } = await db.query(query, [limit]);
+        return rows.map(row => SaleMapper.toEntity(row));
+    }
 }

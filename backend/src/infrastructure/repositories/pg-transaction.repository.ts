@@ -92,4 +92,84 @@ export class PostgresTransactionRepository implements TransactionRepository {
             byCondition
         };
     }
+
+    async getMostPurchasedSets(limit: number, language?: string): Promise<any[]> {
+        const query = `
+            SELECT 
+                s.card_set as name,
+                COUNT(*) as sales,
+                'Scarlet & Violet' as series
+            FROM transactions t
+            JOIN sales s ON t.sale_id = s.id
+            WHERE t.status = 'completed'
+            ${language ? 'AND s.language = $2' : ''}
+            GROUP BY s.card_set
+            ORDER BY sales DESC
+            LIMIT $1
+        `;
+        const params = language ? [limit, language] : [limit];
+        const { rows } = await db.query(query, params);
+        return rows;
+    }
+
+    async getMostPurchasedCards(limit: number, language?: string): Promise<any[]> {
+        const query = `
+            SELECT 
+                s.card_id as id,
+                s.card_name as name,
+                s.card_set as "cardSet",
+                s.card_image as image,
+                COUNT(*) as sales,
+                (SELECT MIN(price) FROM sales WHERE card_id = s.card_id AND stock > 0 ${language ? 'AND language = $2' : ''}) as "minPrice"
+            FROM transactions t
+            JOIN sales s ON t.sale_id = s.id
+            WHERE t.status = 'completed'
+            ${language ? 'AND s.language = $2' : ''}
+            GROUP BY s.card_id, s.card_name, s.card_set, s.card_image
+            ORDER BY sales DESC
+            LIMIT $1
+        `;
+        const params = language ? [limit, language] : [limit];
+        const { rows } = await db.query(query, params);
+        return rows;
+    }
+
+    async getMarketTrends(language?: string): Promise<{ rising: any[], falling: any[] }> {
+        const trendsQuery = `
+            WITH recent_stats AS (
+                SELECT 
+                    s.card_id,
+                    s.card_name,
+                    s.card_image,
+                    s.card_set,
+                    AVG(CASE WHEN t.created_at >= NOW() - INTERVAL '7 days' THEN t.total_price / t.quantity END) as current_avg,
+                    AVG(CASE WHEN t.created_at < NOW() - INTERVAL '7 days' AND t.created_at >= NOW() - INTERVAL '14 days' THEN t.total_price / t.quantity END) as previous_avg
+                FROM transactions t
+                JOIN sales s ON t.sale_id = s.id
+                WHERE t.status = 'completed'
+                ${language ? 'AND s.language = $1' : ''}
+                GROUP BY s.card_id, s.card_name, s.card_image, s.card_set
+            )
+            SELECT *, 
+                   ((current_avg - previous_avg) / NULLIF(previous_avg, 0) * 100) as change_percent,
+                   (SELECT MIN(price) FROM sales WHERE card_id = recent_stats.card_id AND stock > 0 ${language ? 'AND language = $1' : ''}) as "minPrice"
+            FROM recent_stats
+            WHERE previous_avg IS NOT NULL AND current_avg IS NOT NULL
+        `;
+
+        const params = language ? [language] : [];
+        const { rows } = await db.query(trendsQuery, params);
+        
+        const rising = rows
+            .filter(r => parseFloat(r.change_percent) > 0)
+            .sort((a, b) => b.change_percent - a.change_percent)
+            .slice(0, 5);
+            
+        const falling = rows
+            .filter(r => parseFloat(r.change_percent) < 0)
+            .sort((a, b) => a.change_percent - b.change_percent)
+            .slice(0, 5);
+
+        return { rising, falling };
+    }
 }

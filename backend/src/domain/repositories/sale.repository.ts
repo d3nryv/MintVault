@@ -8,4 +8,5 @@ export interface SaleRepository {
     findAllBySeller(sellerId: string): Promise<SaleEntity[]>;
     update(id: string, sale: Partial<SaleEntity>, dbClient?: DbClient): Promise<SaleEntity>;
     delete(id: string, dbClient?: DbClient): Promise<void>;
+    findRecent(limit: number): Promise<SaleEntity[]>;
 }

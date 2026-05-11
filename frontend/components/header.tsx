@@ -15,6 +15,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useMarketplace } from "@/context/marketplace-context"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Globe } from "lucide-react"
 
 const navigation = [
   { name: "Collection", href: "/collection" },
@@ -27,6 +36,7 @@ export function Header() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const { user, logout } = useAuth()
+  const { language, setLanguage } = useMarketplace()
   const router = useRouter()
 
   // Avoid hydration mismatch
@@ -73,6 +83,24 @@ export function Header() {
         </div>
         
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 items-center">
+          <div className="flex items-center gap-2 mr-2 border-r border-border pr-4">
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-[130px] h-8 text-xs bg-transparent border-none hover:bg-secondary transition-colors">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Languages</SelectItem>
+                <SelectItem value="EN">🇺🇸 English</SelectItem>
+                <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
+                <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
+                <SelectItem value="DE">🇩🇪 German</SelectItem>
+                <SelectItem value="FR">🇫🇷 French</SelectItem>
+                <SelectItem value="IT">🇮🇹 Italian</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <Button 
             variant="ghost" 
             size="icon" 

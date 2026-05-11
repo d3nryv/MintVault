@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,7 +13,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import {
   Tooltip,
   TooltipContent,
@@ -32,7 +35,27 @@ import {
   Sparkles,
   Pencil,
   ImageIcon,
+  Plus,
+  Layers,
+  ShoppingBag,
+  Heart,
+  Globe,
+  Filter as FilterIcon,
+  Tag,
 } from "lucide-react"
+import { useMarketplace } from "@/context/marketplace-context"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   LineChart,
   Line,
@@ -253,8 +276,64 @@ const sellers = [
 ]
 
 export default function CardDetailPage() {
+  const { id } = useParams()
+  const router = useRouter()
+  const [card, setCard] = useState<any>(null)
+  const [listings, setListings] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState("3m")
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
+  const { language: globalLanguage } = useMarketplace()
+  
+  // Filtering states
+  const [filterCondition, setFilterCondition] = useState("all")
+  const [filterLanguage, setFilterLanguage] = useState("all")
+  const [filterRegion, setFilterRegion] = useState("all")
+  const [isReprintsOpen, setIsReprintsOpen] = useState(false)
+  const [reprints, setReprints] = useState<any[]>([])
+  const [isLoadingReprints, setIsLoadingReprints] = useState(false)
+
+  useEffect(() => {
+    if (id) {
+      fetchData()
+    }
+  }, [id])
+
+  const fetchData = async () => {
+    setIsLoading(true)
+    try {
+      const cardRes = await fetch(`http://localhost:3000/api/cards/${id}`)
+      if (!cardRes.ok) throw new Error(`HTTP error! status: ${cardRes.status}`)
+      const cardData = await cardRes.json()
+      setCard(cardData)
+
+      const salesRes = await fetch(`http://localhost:3000/api/sales`)
+      if (!salesRes.ok) throw new Error(`HTTP error! status: ${salesRes.status}`)
+      const allSales = await salesRes.json()
+      const cardSales = allSales.filter((s: any) => s.cardId === id || (s.metadata && s.metadata.tcg_id === id))
+      setListings(cardSales)
+    } catch (error) {
+      console.error("Error fetching card details:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchReprints = async () => {
+    if (!card) return
+    setIsLoadingReprints(true)
+    setIsReprintsOpen(true)
+    try {
+      const res = await fetch(`http://localhost:3000/api/cards/advanced-search?name=${encodeURIComponent(card.name)}`)
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+      const data = await res.json()
+      setReprints(data.filter((c: any) => c.id !== card.id))
+    } catch (e) {
+      console.error("Error fetching reprints", e)
+    } finally {
+      setIsLoadingReprints(false)
+    }
+  }
 
   const timeRanges: Record<string, { label: string; days: number }> = {
     "1d": { label: "1 Day", days: 1 },
@@ -266,8 +345,33 @@ export default function CardDetailPage() {
 
   const priceHistory = generatePriceHistory(timeRanges[timeRange].days)
 
-  // Sort sellers by price ascending
-  const sortedSellers = [...sellers].sort((a, b) => a.price - b.price)
+  const filteredSellers = listings.filter(l => {
+    if (filterCondition !== "all" && l.condition !== filterCondition) return false
+    if (filterLanguage !== "all" && l.language !== filterLanguage) return false
+    // region filter logic would go here if backend supported it or metadata included it
+    return true
+  })
+
+  const sortedSellers = [...filteredSellers].sort((a, b) => a.price - b.price)
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+
+  if (!card) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <h2 className="text-2xl font-bold">Card not found</h2>
+        <Link href="/marketplace">
+          <Button>Back to Marketplace</Button>
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <TooltipProvider>
@@ -286,19 +390,109 @@ export default function CardDetailPage() {
             {/* Card Image */}
             <Card className="lg:col-span-1">
               <CardContent className="p-6">
-                <div className="aspect-[2.5/3.5] rounded-lg bg-gradient-to-br from-muted to-secondary flex items-center justify-center">
-                  <ImageIcon className="h-20 w-20 text-muted-foreground" />
+                <div className="aspect-[2.5/3.5] rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                  {card.images?.large ? (
+                    <img src={card.images.large} alt={card.name} className="h-full w-full object-contain" />
+                  ) : (
+                    <ImageIcon className="h-20 w-20 text-muted-foreground" />
+                  )}
                 </div>
                 <div className="mt-4 space-y-2 text-center">
-                  <h1 className="font-serif text-2xl font-bold">{cardData.name}</h1>
+                  <h1 className="font-serif text-2xl font-bold">{card.name}</h1>
                   <div className="flex items-center justify-center gap-2">
-                    <Badge variant="outline">{cardData.set}</Badge>
-                    <Badge variant="outline">{cardData.number}</Badge>
+                    <Badge variant="outline">{card.set?.name}</Badge>
+                    <Badge variant="outline">{card.number}</Badge>
                   </div>
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <span>{cardData.rarity}</span>
+                    <span>{card.rarity || 'Common'}</span>
                     <span>•</span>
-                    <span>{cardData.type} Type</span>
+                    <span>{card.supertype} Type</span>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-2 gap-3">
+                    <Button variant="outline" className="gap-2" onClick={() => router.push(`/marketplace?tab=sell&cardId=${card.id}`)}>
+                      <Tag className="h-4 w-4" />
+                      Sell this card
+                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="gap-2">
+                          <Heart className="h-4 w-4" />
+                          Add to Wants
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Add to Want List</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Language</label>
+                              <Select defaultValue="EN">
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Language" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="EN">English</SelectItem>
+                                  <SelectItem value="ES">Spanish</SelectItem>
+                                  <SelectItem value="JP">Japanese</SelectItem>
+                                  <SelectItem value="all">Any Language</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Condition (Min)</label>
+                              <Select defaultValue="NM">
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Condition" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="NM">Near Mint+</SelectItem>
+                                  <SelectItem value="EX">Excellent+</SelectItem>
+                                  <SelectItem value="LP">Light Played+</SelectItem>
+                                  <SelectItem value="all">Any Condition</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Quantity</label>
+                              <Input type="number" defaultValue="1" min="1" />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Seller Location</label>
+                              <Select defaultValue="all">
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Location" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="EU">Europe</SelectItem>
+                                  <SelectItem value="ES">Spain Only</SelectItem>
+                                  <SelectItem value="all">Worldwide</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-3 text-xs text-primary border border-primary/10">
+                            <Globe className="h-4 w-4 shrink-0" />
+                            <p>The Shopping Wizard will prioritize the cheapest options matching these criteria.</p>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button className="w-full font-bold uppercase tracking-widest h-12">
+                            Add to Want List
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    <Button variant="outline" className="col-span-2 gap-2" onClick={fetchReprints}>
+                      <Layers className="h-4 w-4" />
+                      Show Reprints
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -309,13 +503,13 @@ export default function CardDetailPage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>Price Statistics</span>
-                  <div className={`flex items-center gap-1 text-lg ${cardData.priceStats.trend >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                    {cardData.priceStats.trend >= 0 ? (
+                  <div className={`flex items-center gap-1 text-lg ${(card.priceStats?.trend || 0) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    {(card.priceStats?.trend || 0) >= 0 ? (
                       <TrendingUp className="h-5 w-5" />
                     ) : (
                       <TrendingDown className="h-5 w-5" />
                     )}
-                    {cardData.priceStats.trend >= 0 ? "+" : ""}{cardData.priceStats.trend}%
+                    {(card.priceStats?.trend || 0) >= 0 ? "+" : ""}{(card.priceStats?.trend || 0)}%
                   </div>
                 </CardTitle>
               </CardHeader>
@@ -323,20 +517,20 @@ export default function CardDetailPage() {
                 {/* Price stats grid */}
                 <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="rounded-lg bg-secondary/50 p-3 text-center">
-                    <p className="text-sm text-muted-foreground">Current</p>
-                    <p className="text-xl font-bold">${cardData.priceStats.current.toFixed(2)}</p>
+                    <p className="text-sm text-muted-foreground">Current Market</p>
+                    <p className="text-xl font-bold">{card.tcgplayer?.updatedAt ? `${card.tcgplayer.prices?.holofoil?.market?.toFixed(2) || card.tcgplayer.prices?.normal?.market?.toFixed(2) || '0.00'}€` : 'N/A'}</p>
                   </div>
                   <div className="rounded-lg bg-secondary/50 p-3 text-center">
-                    <p className="text-sm text-muted-foreground">Median</p>
-                    <p className="text-xl font-bold">${cardData.priceStats.median.toFixed(2)}</p>
+                    <p className="text-sm text-muted-foreground">Listings</p>
+                    <p className="text-xl font-bold">{listings.length}</p>
                   </div>
                   <div className="rounded-lg bg-emerald-500/10 p-3 text-center">
-                    <p className="text-sm text-emerald-600">All-Time Low</p>
-                    <p className="text-xl font-bold text-emerald-600">${cardData.priceStats.min.toFixed(2)}</p>
+                    <p className="text-sm text-emerald-600">Low Price</p>
+                    <p className="text-xl font-bold text-emerald-600">{listings.length > 0 ? `${Math.min(...listings.map(l => l.price)).toFixed(2)}€` : 'N/A'}</p>
                   </div>
                   <div className="rounded-lg bg-amber-500/10 p-3 text-center">
-                    <p className="text-sm text-amber-600">All-Time High</p>
-                    <p className="text-xl font-bold text-amber-600">${cardData.priceStats.max.toFixed(2)}</p>
+                    <p className="text-sm text-amber-600">High Price</p>
+                    <p className="text-xl font-bold text-amber-600">{listings.length > 0 ? `${Math.max(...listings.map(l => l.price)).toFixed(2)}€` : 'N/A'}</p>
                   </div>
                 </div>
 
@@ -395,142 +589,108 @@ export default function CardDetailPage() {
           {/* Sellers Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+              <CardTitle className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <span>Available Sellers ({sortedSellers.length})</span>
-                <span className="text-sm font-normal text-muted-foreground">
-                  Sorted by price: lowest first
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                   <Popover>
+                     <PopoverTrigger asChild>
+                       <Button variant="outline" size="sm" className="gap-2">
+                         <FilterIcon className="h-4 w-4" />
+                         Filters
+                         {(filterCondition !== 'all' || filterLanguage !== 'all') && (
+                           <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                             {(filterCondition !== 'all' ? 1 : 0) + (filterLanguage !== 'all' ? 1 : 0)}
+                           </Badge>
+                         )}
+                       </Button>
+                     </PopoverTrigger>
+                     <PopoverContent className="w-80 p-4">
+                       <div className="space-y-4">
+                         <div className="space-y-2">
+                           <label className="text-xs font-bold uppercase text-muted-foreground">Condition</label>
+                           <Select value={filterCondition} onValueChange={setFilterCondition}>
+                             <SelectTrigger>
+                               <SelectValue placeholder="Any Condition" />
+                             </SelectTrigger>
+                             <SelectContent>
+                               <SelectItem value="all">Any Condition</SelectItem>
+                               <SelectItem value="M">Mint (M)</SelectItem>
+                               <SelectItem value="NM">Near Mint (NM)</SelectItem>
+                               <SelectItem value="LP">Lightly Played (LP)</SelectItem>
+                               <SelectItem value="MP">Moderately Played (MP)</SelectItem>
+                               <SelectItem value="HP">Heavily Played (HP)</SelectItem>
+                               <SelectItem value="PO">Poor (PO)</SelectItem>
+                             </SelectContent>
+                           </Select>
+                         </div>
+                         <div className="space-y-2">
+                           <label className="text-xs font-bold uppercase text-muted-foreground">Language</label>
+                           <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+                             <SelectTrigger>
+                               <SelectValue placeholder="Any Language" />
+                             </SelectTrigger>
+                             <SelectContent>
+                               <SelectItem value="all">Any Language</SelectItem>
+                               <SelectItem value="EN">🇺🇸 English</SelectItem>
+                               <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
+                               <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
+                               <SelectItem value="DE">🇩🇪 German</SelectItem>
+                               <SelectItem value="FR">🇫🇷 French</SelectItem>
+                               <SelectItem value="IT">🇮🇹 Italian</SelectItem>
+                             </SelectContent>
+                           </Select>
+                         </div>
+                         <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => {setFilterCondition("all"); setFilterLanguage("all")}}>
+                           Reset Filters
+                         </Button>
+                       </div>
+                     </PopoverContent>
+                   </Popover>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    Sorted by price: lowest first
+                  </span>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-                {sortedSellers.map((seller) => {
-                  const reputation = getReputationTier(
-                    seller.deliveredOrders / seller.totalSales,
-                    seller.totalSales
-                  )
-                  const ReputationIcon = reputation.icon
-                  const conditionInfo = getConditionInfo(seller.condition)
-
-                  return (
-                    <div
-                      key={seller.id}
-                      className="flex flex-col gap-4 p-4 transition-colors hover:bg-secondary/30 sm:flex-row sm:items-center"
-                    >
-                      {/* Reputation */}
-                      <div className="flex items-center gap-3 sm:w-48">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className={`flex items-center gap-1 ${reputation.color}`}>
-                              <ReputationIcon className="h-5 w-5" />
-                              <span className="w-10 text-sm font-medium tabular-nums">{formatSalesCount(seller.totalSales)}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="font-medium">{reputation.label} Seller</p>
-                            <p className="text-xs text-muted-foreground">
-                              {seller.deliveredOrders.toLocaleString()}/{seller.totalSales.toLocaleString()} orders delivered ({((seller.deliveredOrders / seller.totalSales) * 100).toFixed(1)}%)
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-
-                        {/* Flag */}
-                        <span className="text-lg">{countryFlags[seller.country] || "🏳️"}</span>
-
-                        {/* Username */}
-                        <span className="font-medium">{seller.username}</span>
+                {sortedSellers.map((listing) => (
+                  <div key={listing.id} className="flex flex-col gap-4 p-4 transition-colors hover:bg-secondary/20 sm:flex-row sm:items-center">
+                    <div className="flex flex-1 items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                        {listing.sellerName?.charAt(0).toUpperCase()}
                       </div>
-
-                      {/* Card attributes */}
-                      <div className="flex items-center gap-2">
-                        {seller.isFirstEdition && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge className="bg-amber-500 text-white hover:bg-amber-600">1st</Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>First Edition</TooltipContent>
-                          </Tooltip>
-                        )}
-                        {seller.isReverse && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="border-purple-500 text-purple-600">R</Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>Reverse Holo</TooltipContent>
-                          </Tooltip>
-                        )}
-                        {seller.isSigned && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="border-blue-500 text-blue-600">
-                                <Pencil className="mr-1 h-3 w-3" />
-                                Signed
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>Autographed Card</TooltipContent>
-                          </Tooltip>
-                        )}
-
-                        {/* Condition */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge className={`${conditionInfo.color} min-w-8 justify-center`}>{conditionInfo.abbr}</Badge>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="font-medium">{conditionInfo.label}</p>
-                            <p className="text-xs text-muted-foreground">{conditionInfo.description}</p>
-                          </TooltipContent>
-                        </Tooltip>
-
-                        {/* Photo button */}
-                        {seller.hasPhoto && (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <Camera className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-lg">
-                              <DialogHeader>
-                                <DialogTitle>Seller&apos;s Photo - {seller.username}</DialogTitle>
-                              </DialogHeader>
-                              <div className="aspect-[3/4] rounded-lg bg-gradient-to-br from-muted to-secondary flex items-center justify-center">
-                                <div className="text-center">
-                                  <Camera className="mx-auto h-16 w-16 text-muted-foreground" />
-                                  <p className="mt-2 text-sm text-muted-foreground">
-                                    Seller&apos;s actual photo of the card
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                Condition: {conditionInfo.label}
-                              </p>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                      </div>
-
-                      {/* Description */}
-                      <p className="flex-1 text-sm text-muted-foreground">
-                        {seller.description}
-                      </p>
-
-                      {/* Price & Cart */}
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-xl font-bold">${seller.price.toFixed(2)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {seller.quantity} available
-                          </p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{listing.sellerName}</span>
+                          <Badge variant="outline" className={getConditionInfo(listing.condition).color}>
+                            {listing.condition}
+                          </Badge>
                         </div>
-                        <Button className="gap-2">
-                          <ShoppingCart className="h-4 w-4" />
-                          <span className="hidden sm:inline">Add to Cart</span>
-                        </Button>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{listing.language}</span>
+                          <span>•</span>
+                          <span>Professional Seller</span>
+                        </div>
                       </div>
                     </div>
-                  )
-                })}
+                    <div className="flex items-center gap-4 text-right">
+                      <div>
+                        <p className="text-xl font-bold">{listing.price.toFixed(2)}€</p>
+                        <p className="text-xs text-muted-foreground">x{listing.amount} available</p>
+                      </div>
+                      <Button className="gap-2">
+                        <ShoppingCart className="h-4 w-4" />
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {sortedSellers.length === 0 && (
+                  <div className="py-20 text-center text-muted-foreground">
+                    No listings found for this card.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
