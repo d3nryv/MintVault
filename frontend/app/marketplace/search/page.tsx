@@ -59,24 +59,42 @@ function SearchContent() {
     
     setIsLoading(true)
     try {
-      // Parse query: Name [SET] [Number]
-      // Regex explanation:
-      // ^(.+?) - Name (non-greedy)
-      // (?:\s+([a-zA-Z0-9]{2,5}))? - Optional Set Code (2-5 alphanumeric)
-      // (?:\s+(\d+))?$ - Optional Number
-      const match = searchQuery.match(/^(.+?)(?:\s+([a-zA-Z0-9]{2,5}))?(?:\s+(\d+))?$/)
       let name = searchQuery
       let set = selectedSet !== 'all' ? selectedSet : ''
       let number = ''
 
-      if (match) {
-        name = match[1].trim()
-        if (match[2] && !match[3] && !isNaN(match[2] as any)) {
-            // Case where number was matched as set because set was missing
+      // Handle quoted strings for exact name matching
+      if (searchQuery.startsWith('"') && searchQuery.includes('"', 1)) {
+        const lastQuoteIndex = searchQuery.lastIndexOf('"')
+        name = searchQuery.substring(1, lastQuoteIndex)
+        const rest = searchQuery.substring(lastQuoteIndex + 1).trim()
+        
+        if (rest) {
+          const parts = rest.split(/\s+/)
+          if (parts.length > 0) {
+            if (/^[a-zA-Z0-9]{2,5}$/.test(parts[0]) && !/^\d+$/.test(parts[0])) {
+              set = parts[0]
+              if (parts[1] && /^\d+$/.test(parts[1])) number = parts[1]
+            } else if (/^\d+$/.test(parts[0])) {
+              number = parts[0]
+            }
+          }
+        }
+        name = `"${name}"`
+      } else {
+        const match = searchQuery.match(/^(.+?)(?:\s+([a-zA-Z0-9]{2,5}))?(?:\s+(\d+))?$/)
+        if (match) {
+          name = match[1].trim()
+          if (match[2] && !match[3] && !isNaN(match[2] as any)) {
             number = match[2]
-        } else {
+          } else {
             if (match[2]) set = match[2].trim()
             if (match[3]) number = match[3].trim()
+          }
+        }
+        
+        if (name.includes(' ') && !name.startsWith('"')) {
+          name = `"${name}"`
         }
       }
 

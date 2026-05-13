@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
@@ -44,6 +45,7 @@ import {
   Tag,
 } from "lucide-react"
 import { useMarketplace } from "@/context/marketplace-context"
+import { useAuth } from "@/context/auth-context"
 import {
   Select,
   SelectContent,
@@ -282,8 +284,12 @@ export default function CardDetailPage() {
   const [listings, setListings] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState("3m")
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
+  const { user } = useAuth()
   const { language: globalLanguage } = useMarketplace()
+  const [isWantsDialogOpen, setIsWantsDialogOpen] = useState(false)
+  const [selectedListId, setSelectedListId] = useState<string>("")
+  const [wantsLists, setWantsLists] = useState<any[]>([])
+  const [isAddingToWants, setIsAddingToWants] = useState(false)
   
   // Filtering states
   const [filterCondition, setFilterCondition] = useState("all")
@@ -298,6 +304,62 @@ export default function CardDetailPage() {
       fetchData()
     }
   }, [id])
+
+  useEffect(() => {
+    if (user?.wantList) {
+      setWantsLists(user.wantList.map((l: any) => typeof l === 'string' ? JSON.parse(l) : l))
+    }
+  }, [user])
+
+  const handleAddToWantsList = async () => {
+    if (!selectedListId || !user || !card) return
+    
+    setIsAddingToWants(true)
+    try {
+      const updatedLists = wantsLists.map(list => {
+        if (list.id === selectedListId) {
+          const cardId = card.id || card.metadata?.tcg_id;
+          if (list.items.some((item: any) => item.id === cardId)) {
+            return list
+          }
+          return {
+            ...list,
+            items: [
+              ...list.items,
+              {
+                id: cardId,
+                name: card.name,
+                set: card.metadata?.set?.name || card.set?.name || card.set,
+                number: card.metadata?.number || card.number,
+                count: 1,
+                condition: "Near Mint",
+                priority: "Medium",
+                owned: false
+              }
+            ]
+          }
+        }
+        return list
+      })
+
+      const res = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wantList: updatedLists.map(l => JSON.stringify(l)) })
+      })
+      
+      if (!res.ok) throw new Error("Failed to sync wants list")
+      
+      setWantsLists(updatedLists)
+      alert("Added to Wants List!")
+      setIsWantsDialogOpen(false)
+    } catch (e) {
+      console.error("Error adding to wants list", e)
+      alert("Error adding to list. Please try again.")
+    } finally {
+      setIsAddingToWants(false)
+    }
+  }
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -391,7 +453,9 @@ export default function CardDetailPage() {
             <Card className="lg:col-span-1">
               <CardContent className="p-6">
                 <div className="aspect-[2.5/3.5] rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-                  {card.images?.large ? (
+                  {card.metadata?.images?.large ? (
+                    <img src={card.metadata.images.large} alt={card.name} className="h-full w-full object-contain" />
+                  ) : card.images?.large ? (
                     <img src={card.images.large} alt={card.name} className="h-full w-full object-contain" />
                   ) : (
                     <ImageIcon className="h-20 w-20 text-muted-foreground" />
@@ -410,11 +474,11 @@ export default function CardDetailPage() {
                   </div>
 
                   <div className="mt-6 grid grid-cols-2 gap-3">
-                    <Button variant="outline" className="gap-2" onClick={() => router.push(`/marketplace?tab=sell&cardId=${card.id}`)}>
+                    <Button variant="outline" className="gap-2" onClick={() => router.push(`/marketplace?tab=sell&cardId=${card.id || card.metadata?.tcg_id}`)}>
                       <Tag className="h-4 w-4" />
                       Sell this card
                     </Button>
-                    <Dialog>
+                    <Dialog open={isWantsDialogOpen} onOpenChange={setIsWantsDialogOpen}>
                       <DialogTrigger asChild>
                         <Button variant="outline" className="gap-2">
                           <Heart className="h-4 w-4" />
@@ -424,67 +488,31 @@ export default function CardDetailPage() {
                       <DialogContent className="max-w-md">
                         <DialogHeader>
                           <DialogTitle>Add to Want List</DialogTitle>
+                          <DialogDescription>Select which list you want to add {card.name} to.</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold uppercase text-muted-foreground">Language</label>
-                              <Select defaultValue="EN">
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Language" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="EN">English</SelectItem>
-                                  <SelectItem value="ES">Spanish</SelectItem>
-                                  <SelectItem value="JP">Japanese</SelectItem>
-                                  <SelectItem value="all">Any Language</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold uppercase text-muted-foreground">Condition (Min)</label>
-                              <Select defaultValue="NM">
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Condition" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="NM">Near Mint+</SelectItem>
-                                  <SelectItem value="EX">Excellent+</SelectItem>
-                                  <SelectItem value="LP">Light Played+</SelectItem>
-                                  <SelectItem value="all">Any Condition</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold uppercase text-muted-foreground">Quantity</label>
-                              <Input type="number" defaultValue="1" min="1" />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold uppercase text-muted-foreground">Seller Location</label>
-                              <Select defaultValue="all">
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Location" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="EU">Europe</SelectItem>
-                                  <SelectItem value="ES">Spain Only</SelectItem>
-                                  <SelectItem value="all">Worldwide</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-3 text-xs text-primary border border-primary/10">
-                            <Globe className="h-4 w-4 shrink-0" />
-                            <p>The Shopping Wizard will prioritize the cheapest options matching these criteria.</p>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-muted-foreground">Target List</label>
+                            <Select value={selectedListId} onValueChange={setSelectedListId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a list..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {wantsLists.map(list => (
+                                  <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                         <DialogFooter>
-                          <Button className="w-full font-bold uppercase tracking-widest h-12">
-                            Add to Want List
+                          <Button variant="outline" onClick={() => setIsWantsDialogOpen(false)}>Cancel</Button>
+                          <Button 
+                            className="font-bold uppercase tracking-widest" 
+                            onClick={handleAddToWantsList}
+                            disabled={!selectedListId || isAddingToWants}
+                          >
+                            {isAddingToWants ? "Adding..." : "Add to Want List"}
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -695,6 +723,44 @@ export default function CardDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Reprints Dialog */}
+        <Dialog open={isReprintsOpen} onOpenChange={setIsReprintsOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Other versions of {card.name}</DialogTitle>
+              <DialogDescription>Find the same card in different sets and rarities.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 py-4">
+              {isLoadingReprints ? (
+                <div className="col-span-full py-10 text-center">
+                  <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent rounded-full mx-auto" />
+                </div>
+              ) : reprints.map((reprint) => (
+                <Link key={reprint.id} href={`/marketplace/card/${reprint.id}`} onClick={() => setIsReprintsOpen(false)}>
+                  <Card className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1">
+                    <CardContent className="p-3">
+                      <div className="aspect-[3/4] mb-3 bg-muted rounded flex items-center justify-center overflow-hidden">
+                        {reprint.images?.small ? (
+                          <img src={reprint.images.small} alt={reprint.name} className="h-full w-full object-contain transition-transform group-hover:scale-105" />
+                        ) : (
+                          <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                        )}
+                      </div>
+                      <p className="font-medium text-sm truncate">{reprint.set?.name || reprint.set}</p>
+                      <p className="text-xs text-muted-foreground">{reprint.number} • {reprint.rarity || 'Common'}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+              {!isLoadingReprints && reprints.length === 0 && (
+                <div className="col-span-full py-10 text-center text-muted-foreground">
+                  No other versions found.
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   )
