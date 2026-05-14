@@ -1,14 +1,13 @@
 import { Router } from 'express';
 import { SaleController } from '../controllers/sale.controller';
-import { PostgresSaleRepository } from '../../repositories/pg-sale.repository';
-import { PostgresCardRepository } from '../../repositories/pg-card.repository';
-import { PostgresUserRepository } from '../../repositories/pg-user.repository';
+import { PostgresSaleRepository, PostgresCardRepository, PostgresUserRepository, PostgresTransactionRepository } from '../../repositories';
 
 const router = Router();
 const saleRepository = new PostgresSaleRepository();
 const cardRepository = new PostgresCardRepository();
 const userRepository = new PostgresUserRepository();
-const controller = new SaleController(saleRepository, cardRepository, userRepository);
+const transactionRepository = new PostgresTransactionRepository();
+const controller = new SaleController(saleRepository, cardRepository, userRepository, transactionRepository);
 
 router.get('/', controller.getAll);
 router.post('/', controller.create);

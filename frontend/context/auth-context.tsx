@@ -14,6 +14,7 @@ interface User {
   ownedPokemon?: string[]
   wantList?: string[]
   cart?: string[]
+  country?: string
 }
 
 interface AuthContextType {

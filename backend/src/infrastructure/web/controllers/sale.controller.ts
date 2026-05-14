@@ -12,16 +12,24 @@ import {
 
 import { UserRepository } from '../../../domain/repositories/user.repository';
 
+import { TransactionRepository } from '../../../domain/repositories/transaction.repository';
+
 export class SaleController {
   constructor(
     private readonly saleRepository: SaleRepository,
     private readonly cardRepository: CardRepository,
-    private readonly userRepository: UserRepository
+    private readonly userRepository: UserRepository,
+    private readonly transactionRepository: TransactionRepository
   ) {}
 
   getAll = async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const sales = await new GetAllSalesUseCase(this.saleRepository, this.cardRepository, this.userRepository).execute();
+      const sales = await new GetAllSalesUseCase(
+        this.saleRepository, 
+        this.cardRepository, 
+        this.userRepository,
+        this.transactionRepository
+      ).execute();
       res.json(sales);
     } catch (err) {
       next(err);

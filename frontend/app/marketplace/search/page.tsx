@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select"
 import { Search, ImageIcon, ShoppingCart, Filter, ArrowLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import { useMarketplace } from "@/context/marketplace-context"
 
 const mockCards = [
   { id: 1, name: "Charizard ex", set: "Obsidian Flames", setCode: "OBF", number: "125/197", price: 45.99, image: null },
@@ -48,11 +49,29 @@ function SearchContent() {
   const [selectedSet, setSelectedSet] = useState(initialSet)
   const [results, setResults] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [sortBy, setSortBy] = useState("price_asc")
+  const [allSets, setAllSets] = useState<any[]>([])
+  const [setSearchTerm, setSetSearchTerm] = useState("")
   const router = useRouter()
+  const { language: globalLanguage } = useMarketplace()
+
+  useEffect(() => {
+    fetchAllSets()
+  }, [])
+
+  const fetchAllSets = async () => {
+    try {
+      const res = await fetch("https://api.pokemontcg.io/v2/sets")
+      const data = await res.json()
+      setAllSets(data.data)
+    } catch (e) {
+      console.error("Error fetching sets", e)
+    }
+  }
 
   useEffect(() => {
     handleSearch()
-  }, [initialQuery, initialSet])
+  }, [initialQuery, initialSet, globalLanguage])
 
   const handleSearch = async () => {
     if (!searchQuery && selectedSet === "all") return;
@@ -102,6 +121,7 @@ function SearchContent() {
       if (name) params.append('name', name)
       if (set) params.append('set', set)
       if (number) params.append('number', number)
+      if (globalLanguage && globalLanguage !== 'all') params.append('language', globalLanguage)
 
       let url = `http://localhost:3000/api/cards/advanced-search?${params.toString()}`
       const response = await fetch(url)
@@ -124,6 +144,25 @@ function SearchContent() {
       setIsLoading(false)
     }
   }
+
+  const sortedResults = [...results].sort((a, b) => {
+    if (sortBy === "price_asc") {
+      if (!a.price) return 1
+      if (!b.price) return -1
+      return a.price - b.price
+    }
+    if (sortBy === "price_desc") {
+      if (!a.price) return 1
+      if (!b.price) return -1
+      return b.price - a.price
+    }
+    if (sortBy === "newest") {
+      const dateA = new Date(a.createdAt || a.metadata?.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || b.metadata?.createdAt || 0).getTime();
+      return dateB - dateA;
+    }
+    return 0
+  })
 
   const getConditionColor = (condition: string) => {
     switch (condition) {
@@ -163,17 +202,36 @@ function SearchContent() {
                       />
                     </div>
                     <div className="flex gap-2">
-                      <Select value={selectedSet} onValueChange={setSelectedSet}>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="All Sets" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Sets</SelectItem>
-                          <SelectItem value="PAF">Paldean Fates (PAF)</SelectItem>
-                          <SelectItem value="OBF">Obsidian Flames (OBF)</SelectItem>
-                          <SelectItem value="PAL">Paldea Evolved (PAL)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <Select value={selectedSet} onValueChange={setSelectedSet}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="All Sets" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <div className="p-2 border-b">
+                              <div className="relative">
+                                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input 
+                                  placeholder="Search sets..." 
+                                  value={setSearchTerm}
+                                  onChange={(e) => setSetSearchTerm(e.target.value)}
+                                  className="pl-8 h-8 text-xs"
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto">
+                              <SelectItem value="all">All Sets</SelectItem>
+                              {allSets
+                                .filter(set => set.name.toLowerCase().includes(setSearchTerm.toLowerCase()) || set.id.toLowerCase().includes(setSearchTerm.toLowerCase()))
+                                .map(set => (
+                                  <SelectItem key={set.id} value={set.id}>
+                                    {set.name} ({set.id})
+                                  </SelectItem>
+                                ))
+                              }
+                            </div>
+                          </SelectContent>
+                        </Select>
                       <Button onClick={handleSearch}>Search</Button>
                     </div>
                   </div>
@@ -187,7 +245,7 @@ function SearchContent() {
                     <Filter className="h-4 w-4" />
                     <span className="font-medium">Sort by</span>
                   </div>
-                  <Select defaultValue="price_asc">
+                  <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-[140px]">
                       <SelectValue />
                     </SelectTrigger>
@@ -208,27 +266,23 @@ function SearchContent() {
                  <div className="h-8 w-8 animate-spin border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
                  <p className="text-muted-foreground">Searching real cards...</p>
               </div>
-            ) : results.map((card) => (
+            ) : sortedResults.map((card) => (
               <Card key={card.id} className="group overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1 border-border/50">
-                <div className="aspect-[3/4] relative bg-muted flex items-center justify-center p-6 overflow-hidden">
+                <div className="aspect-[3/4] relative bg-muted flex items-center justify-center overflow-hidden">
                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                    {card.images?.small ? (
-                     <img src={card.images.small} alt={card.name} className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-110" />
+                     <img src={card.images.small} alt={card.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
                    ) : (
                      <ImageIcon className="h-20 w-20 text-muted-foreground/30" />
                    )}
-                   <Badge className="absolute top-3 right-3 bg-white/90 text-black backdrop-blur-sm border-none shadow-sm">
-                     {card.set?.ptcgoCode || card.set?.id}
-                   </Badge>
                 </div>
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-1">
                     <h3 className="font-bold text-lg group-hover:text-primary transition-colors truncate flex-1">
                       {card.name}
                     </h3>
-                    <span className="text-sm font-mono text-muted-foreground">{card.number}/{card.set?.printedTotal || '?'}</span>
+                    <span className="text-sm font-mono text-muted-foreground">{card.set?.name || 'Unknown Set'}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-4">{card.set?.name}</p>
                   
                   <div className="flex items-center justify-between border-t border-border pt-4">
                     <div className="flex flex-col">

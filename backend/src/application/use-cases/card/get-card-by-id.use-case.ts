@@ -30,7 +30,7 @@ export class GetCardByIdUseCase {
         `Set: ${tcgCard.set.name} (${tcgCard.set.series})`,
         0,          // Sin precio (0 es el valor por defecto)
         0,          // Sin stock (0 es el valor por defecto)
-        'TCG_SDK',
+        tcgCard.set.name,
         'English',
         false,      // No está a la venta por defecto
         null,
@@ -50,7 +50,8 @@ export class GetCardByIdUseCase {
           flavorText: tcgCard.flavorText,
           images: tcgCard.images,
           set: tcgCard.set
-        }
+        },
+        tcgCard.id
     );
   }
 }

@@ -35,6 +35,9 @@ export * from './sale/delete-sale.use-case';
 
 export * from './transaction/create-transaction.use-case';
 export * from './transaction/get-transaction.use-case';
+export * from './transaction/list-transactions.use-case';
+export * from './transaction/update-transaction-status.use-case';
+export * from './transaction/get-price-history.use-case';
 
 export * from './pokemon/get-pokemon.use-case';
 export * from './pokemon/list-pokemons.use-case';

@@ -28,7 +28,9 @@ export class UserMapper {
             row.favourite_pokemon || [],
             row.owned_decks || [],
             row.want_list || [],
-            row.cart || []
+            row.cart || [],
+            row.country || 'ES',
+            row.balance !== undefined ? parseFloat(row.balance) : 0
         );
     }
 
@@ -58,6 +60,8 @@ export class UserMapper {
         if (user.ownedDecks !== undefined) dbFields.owned_decks = user.ownedDecks;
         if (user.wantList !== undefined) dbFields.want_list = user.wantList;
         if (user.cart !== undefined) dbFields.cart = user.cart;
+        if (user.country !== undefined) dbFields.country = user.country;
+        if (user.balance !== undefined) dbFields.balance = user.balance;
         
         return dbFields;
     }

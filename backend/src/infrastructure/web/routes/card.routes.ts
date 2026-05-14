@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { CardController } from '../controllers/card.controller';
-import { PostgresCardRepository, PostgresTransactionRepository } from '../../repositories';
+import { PostgresCardRepository, PostgresTransactionRepository, PostgresSaleRepository } from '../../repositories';
 import { TcgSdkRepository } from '../../repositories/tcg-sdk.repository';
 
 const router = Router();
 const cardRepository = new PostgresCardRepository();
 const transactionRepository = new PostgresTransactionRepository();
+const saleRepository = new PostgresSaleRepository();
 const tcgRepository = new TcgSdkRepository();
-const controller = new CardController(cardRepository, tcgRepository, transactionRepository);
+const controller = new CardController(cardRepository, tcgRepository, transactionRepository, saleRepository);
 
 router.get('/', controller.getAll);
 router.get('/advanced-search', controller.search);

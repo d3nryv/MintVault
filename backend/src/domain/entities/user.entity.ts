@@ -25,6 +25,8 @@ export class UserEntity {
         public  favouritePokemon: string[],
         public  ownedDecks: string[],
         public  wantList: string[],
-        public  cart: string[]
+        public  cart: string[],
+        public  country: string = 'ES',
+        public  balance: number = 0
     ) {}
 }

@@ -13,5 +13,6 @@ router.get('/:id', controller.getById);
 router.get('/buyer/:userId', controller.getByBuyer);
 router.get('/seller/:userId', controller.getBySeller);
 router.patch('/:id/status', controller.updateStatus);
+router.get('/card/:cardId/history', controller.getPriceHistory);
 
 export { router as transactionRouter };

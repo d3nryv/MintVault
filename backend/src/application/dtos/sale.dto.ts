@@ -5,4 +5,7 @@ export interface SaleResponseDto extends SaleEntity {
   cardSet: string;
   cardImage: string;
   sellerName: string;
+  sellerSalesCount?: number;
+  sellerSuccessRate?: number;
+  tcgId?: string;
 }

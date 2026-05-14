@@ -53,7 +53,8 @@ export class CreateTransactionUseCase {
         totalPrice: totalPrice,
         status: 'pending',
         paymentMethod: dto.paymentMethod || 'other',
-        shippingAddress: dto.shippingAddress || null
+        shippingAddress: dto.shippingAddress || null,
+        reportedUndelivered: false
       }, dbClient);
 
       // 7. Actualizar el stock de la venta

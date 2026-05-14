@@ -23,7 +23,8 @@ export class GetSaleUseCase {
       cardName: card?.name || 'Unknown Card',
       cardSet: card?.source || 'Unknown Set',
       cardImage: card?.metadata?.['images']?.['small'] || '',
-      sellerName: seller?.username || 'Unknown Seller'
+      sellerName: seller?.username || 'Unknown Seller',
+      tcgId: card?.tcgId
     } as SaleResponseDto;
   }
 }

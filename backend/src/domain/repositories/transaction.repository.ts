@@ -16,4 +16,6 @@ export interface TransactionRepository {
     getMostPurchasedSets(limit: number, language?: string): Promise<any[]>;
     getMostPurchasedCards(limit: number, language?: string): Promise<any[]>;
     getMarketTrends(language?: string): Promise<{ rising: any[], falling: any[] }>;
+    getPriceHistory(cardId: string): Promise<any[]>;
+    getSellerStats(sellerId: string): Promise<{ salesCount: number, successRate: number }>;
 }

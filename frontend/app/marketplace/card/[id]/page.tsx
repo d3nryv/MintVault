@@ -43,6 +43,7 @@ import {
   Globe,
   Filter as FilterIcon,
   Tag,
+  X,
 } from "lucide-react"
 import { useMarketplace } from "@/context/marketplace-context"
 import { useAuth } from "@/context/auth-context"
@@ -59,14 +60,20 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
-  LineChart,
-  Line,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
-  ResponsiveContainer,
 } from "recharts"
+import { getShippingPrice } from "@/lib/shipping-rates"
+import { getLanguageFlag } from "@/lib/language-flags"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { ChevronDown, ChevronUp, History, Info, MapPin } from "lucide-react"
 
 // Reputation tiers based on delivery ratio
 const getReputationTier = (deliveredRatio: number, totalSales: number) => {
@@ -109,173 +116,19 @@ const countryFlags: Record<string, string> = {
   BR: "🇧🇷",
   MX: "🇲🇽",
   CA: "🇨🇦",
+  PL: "🇵🇱",
+  DO: "🇩🇴",
 }
 
-// Sample card data
-const cardData = {
-  id: "125-197",
-  name: "Charizard ex",
-  set: "Obsidian Flames",
-  number: "125/197",
-  rarity: "Double Rare",
-  type: "Fire",
-  image: null,
-  priceStats: {
-    current: 89.99,
-    median: 85.50,
-    min: 45.00,
-    max: 185.00,
-    trend: 5.2,
-  },
-}
-
-// Sample price history data
-const generatePriceHistory = (days: number) => {
-  const data = []
-  const basePrice = 85
-  for (let i = days; i >= 0; i--) {
-    const date = new Date()
-    date.setDate(date.getDate() - i)
-    data.push({
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      price: basePrice + Math.random() * 20 - 5 + (days - i) * 0.1,
-      sales: Math.floor(Math.random() * 50) + 10,
-    })
-  }
-  return data
-}
-
-// Sample sellers data
-const sellers = [
-  {
-    id: 1,
-    username: "PokeMaster2024",
-    country: "US",
-    deliveredOrders: 487,
-    totalSales: 492,
-    condition: "NM",
-    isFirstEdition: false,
-    isReverse: false,
-    isSigned: false,
-    price: 82.50,
-    quantity: 2,
-    description: "Pack fresh, sleeved immediately after opening",
-    hasPhoto: true,
-    photoUrl: null,
-  },
-  {
-    id: 2,
-    username: "CardCollectorES",
-    country: "ES",
-    deliveredOrders: 1245,
-    totalSales: 1250,
-    condition: "M",
-    isFirstEdition: false,
-    isReverse: false,
-    isSigned: false,
-    price: 95.00,
-    quantity: 1,
-    description: "Mint condition, perfect centering, shipped in toploader",
-    hasPhoto: true,
-    photoUrl: null,
-  },
-  {
-    id: 3,
-    username: "TokyoCards",
-    country: "JP",
-    deliveredOrders: 3420,
-    totalSales: 3450,
-    condition: "NM",
-    isFirstEdition: true,
-    isReverse: false,
-    isSigned: false,
-    price: 145.00,
-    quantity: 1,
-    description: "First Edition! Excellent condition with slight whitening on back",
-    hasPhoto: true,
-    photoUrl: null,
-  },
-  {
-    id: 4,
-    username: "RetroGamer",
-    country: "DE",
-    deliveredOrders: 89,
-    totalSales: 95,
-    condition: "LP",
-    isFirstEdition: false,
-    isReverse: true,
-    isSigned: false,
-    price: 65.00,
-    quantity: 3,
-    description: "Reverse holo version, light play wear on edges",
-    hasPhoto: true,
-    photoUrl: null,
-  },
-  {
-    id: 5,
-    username: "SignedCards",
-    country: "US",
-    deliveredOrders: 156,
-    totalSales: 160,
-    condition: "NM",
-    isFirstEdition: false,
-    isReverse: false,
-    isSigned: true,
-    price: 250.00,
-    quantity: 1,
-    description: "Signed by Ken Sugimori at 2023 Worlds! COA included",
-    hasPhoto: true,
-    photoUrl: null,
-  },
-  {
-    id: 6,
-    username: "BudgetCards",
-    country: "MX",
-    deliveredOrders: 45,
-    totalSales: 48,
-    condition: "MP",
-    isFirstEdition: false,
-    isReverse: false,
-    isSigned: false,
-    price: 42.00,
-    quantity: 5,
-    description: "Played condition, good for binder or casual play",
-    hasPhoto: true,
-    photoUrl: null,
-  },
-  {
-    id: 7,
-    username: "NewSeller123",
-    country: "FR",
-    deliveredOrders: 5,
-    totalSales: 5,
-    condition: "NM",
-    isFirstEdition: false,
-    isReverse: false,
-    isSigned: false,
-    price: 88.00,
-    quantity: 1,
-    description: "Great card, fast shipping",
-    hasPhoto: true,
-    photoUrl: null,
-  },
-  {
-    id: 8,
-    username: "DamagedDeals",
-    country: "UK",
-    deliveredOrders: 234,
-    totalSales: 240,
-    condition: "HP",
-    isFirstEdition: false,
-    isReverse: false,
-    isSigned: false,
-    price: 28.00,
-    quantity: 2,
-    description: "Heavy play, creases on front, still displayable",
-    hasPhoto: true,
-    photoUrl: null,
-  },
-]
+const CONDITION_VALUES: Record<string, number> = {
+  "PO": 0,
+  "HP": 1,
+  "MP": 2,
+  "LP": 3,
+  "EX": 4,
+  "NM": 5,
+  "M": 6
+};
 
 export default function CardDetailPage() {
   const { id } = useParams()
@@ -290,11 +143,32 @@ export default function CardDetailPage() {
   const [selectedListId, setSelectedListId] = useState<string>("")
   const [wantsLists, setWantsLists] = useState<any[]>([])
   const [isAddingToWants, setIsAddingToWants] = useState(false)
-  
-  // Filtering states
+  const [realPriceHistory, setRealPriceHistory] = useState<any[]>([])
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({})
+
+  // Advanced Filtering states
   const [filterCondition, setFilterCondition] = useState("all")
   const [filterLanguage, setFilterLanguage] = useState("all")
-  const [filterRegion, setFilterRegion] = useState("all")
+  const [filterLocations, setFilterLocations] = useState<string[]>([])
+  const [filterSellerType, setFilterSellerType] = useState<string[]>([])
+  const [filterMaxPrice, setFilterMaxPrice] = useState(100)
+  const [filterMinQty, setFilterMinQty] = useState(1)
+  const [filterExtras, setFilterExtras] = useState({
+    reverse: "all",
+    signed: "all",
+    firstEdition: "all",
+    altered: "all"
+  })
+
+  const [expandedFilters, setExpandedFilters] = useState<Record<string, boolean>>({
+    location: true,
+    sellerType: true,
+    language: true,
+    condition: true,
+    extra: true,
+    price: true,
+    qty: true
+  })
   const [isReprintsOpen, setIsReprintsOpen] = useState(false)
   const [reprints, setReprints] = useState<any[]>([])
   const [isLoadingReprints, setIsLoadingReprints] = useState(false)
@@ -313,12 +187,12 @@ export default function CardDetailPage() {
 
   const handleAddToWantsList = async () => {
     if (!selectedListId || !user || !card) return
-    
+
     setIsAddingToWants(true)
     try {
+      const cardId = card.id || card.metadata?.tcg_id || id;
       const updatedLists = wantsLists.map(list => {
         if (list.id === selectedListId) {
-          const cardId = card.id || card.metadata?.tcg_id;
           if (list.items.some((item: any) => item.id === cardId)) {
             return list
           }
@@ -329,8 +203,8 @@ export default function CardDetailPage() {
               {
                 id: cardId,
                 name: card.name,
-                set: card.metadata?.set?.name || card.set?.name || card.set,
-                number: card.metadata?.number || card.number,
+                set: card.metadata?.set?.name || card.set?.name || card.set || 'Unknown Set',
+                number: card.metadata?.number || card.number || 'N/A',
                 count: 1,
                 condition: "Near Mint",
                 priority: "Medium",
@@ -343,14 +217,15 @@ export default function CardDetailPage() {
       })
 
       const res = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wantList: updatedLists.map(l => JSON.stringify(l)) })
       })
-      
+
       if (!res.ok) throw new Error("Failed to sync wants list")
-      
+
       setWantsLists(updatedLists)
+      updateUser({ wantList: updatedLists.map(l => JSON.stringify(l)) })
       alert("Added to Wants List!")
       setIsWantsDialogOpen(false)
     } catch (e) {
@@ -361,19 +236,69 @@ export default function CardDetailPage() {
     }
   }
 
+  const { updateUser } = useAuth()
+
+  const handleAddToCart = (listing: any) => {
+    if (!user) {
+      alert("Please login to add items to your cart")
+      return
+    }
+
+    const qty = selectedQuantities[listing.id] || 1
+    const cartItem = {
+      id: listing.id,
+      tcgId: listing.tcgId || card.id,
+      name: card.name,
+      image: card.metadata?.images?.small || card.images?.small,
+      price: listing.price,
+      quantity: qty,
+      sellerName: listing.sellerName,
+      sellerId: listing.sellerId,
+      sellerCountry: listing.country || "ES",
+      condition: listing.condition,
+      language: listing.language
+    }
+
+    const currentCart = user.cart ? user.cart.map(item => typeof item === 'string' ? JSON.parse(item) : item) : []
+    
+    // Check if item from same listing already in cart
+    const existingItemIndex = currentCart.findIndex((item: any) => item.id === listing.id)
+    
+    let updatedCart
+    if (existingItemIndex > -1) {
+      updatedCart = [...currentCart]
+      updatedCart[existingItemIndex].quantity += qty
+    } else {
+      updatedCart = [...currentCart, cartItem]
+    }
+
+    updateUser({ cart: updatedCart.map(item => JSON.stringify(item)) })
+    alert(`Added ${qty} copies to your cart!`)
+  }
+
   const fetchData = async () => {
     setIsLoading(true)
     try {
-      const cardRes = await fetch(`http://localhost:3000/api/cards/${id}`)
+      const [cardRes, salesRes, historyRes] = await Promise.all([
+        fetch(`http://localhost:3000/api/cards/${id}`),
+        fetch(`http://localhost:3000/api/sales`),
+        fetch(`http://localhost:3000/api/transactions/card/${id}/history`)
+      ]);
+
       if (!cardRes.ok) throw new Error(`HTTP error! status: ${cardRes.status}`)
       const cardData = await cardRes.json()
       setCard(cardData)
 
-      const salesRes = await fetch(`http://localhost:3000/api/sales`)
-      if (!salesRes.ok) throw new Error(`HTTP error! status: ${salesRes.status}`)
-      const allSales = await salesRes.json()
-      const cardSales = allSales.filter((s: any) => s.cardId === id || (s.metadata && s.metadata.tcg_id === id))
-      setListings(cardSales)
+      if (salesRes.ok) {
+        const allSales = await salesRes.json()
+        const cardSales = allSales.filter((s: any) => s.tcgId === id || s.cardId === id || (s.metadata && s.metadata.tcg_id === id))
+        setListings(cardSales)
+      }
+
+      if (historyRes.ok) {
+        const historyData = await historyRes.json()
+        setRealPriceHistory(historyData)
+      }
     } catch (error) {
       console.error("Error fetching card details:", error)
     } finally {
@@ -405,12 +330,47 @@ export default function CardDetailPage() {
     "1y": { label: "1 Year", days: 365 },
   }
 
-  const priceHistory = generatePriceHistory(timeRanges[timeRange].days)
+  const filteredPriceHistory = realPriceHistory.filter(h => {
+    const date = new Date(h.date);
+    const now = new Date();
+    const diffDays = (now.getTime() - date.getTime()) / (1000 * 3600 * 24);
+    return diffDays <= timeRanges[timeRange].days;
+  });
 
   const filteredSellers = listings.filter(l => {
-    if (filterCondition !== "all" && l.condition !== filterCondition) return false
+    // Condition
+    if (filterCondition !== "all" && CONDITION_VALUES[l.condition] < CONDITION_VALUES[filterCondition]) return false
+    
+    // Language
     if (filterLanguage !== "all" && l.language !== filterLanguage) return false
-    // region filter logic would go here if backend supported it or metadata included it
+    
+    // Location
+    if (filterLocations.length > 0 && !filterLocations.includes(l.country || "ES")) return false
+    
+    // Price
+    if (l.price > filterMaxPrice) return false
+    
+    // Qty
+    if (l.amount < filterMinQty) return false
+    
+    // Extras
+    if (filterExtras.reverse !== "all") {
+      const wants = filterExtras.reverse === "Yes"
+      if (l.isReverse !== wants) return false
+    }
+    if (filterExtras.signed !== "all") {
+      const wants = filterExtras.signed === "Yes"
+      if (l.isSigned !== wants) return false
+    }
+    if (filterExtras.firstEdition !== "all") {
+      const wants = filterExtras.firstEdition === "Yes"
+      if (l.isFirstEdition !== wants) return false
+    }
+    if (filterExtras.altered !== "all") {
+      const wants = filterExtras.altered === "Yes"
+      if (l.isAltered !== wants) return false
+    }
+
     return true
   })
 
@@ -507,8 +467,8 @@ export default function CardDetailPage() {
                         </div>
                         <DialogFooter>
                           <Button variant="outline" onClick={() => setIsWantsDialogOpen(false)}>Cancel</Button>
-                          <Button 
-                            className="font-bold uppercase tracking-widest" 
+                          <Button
+                            className="font-bold uppercase tracking-widest"
                             onClick={handleAddToWantsList}
                             disabled={!selectedListId || isAddingToWants}
                           >
@@ -572,153 +532,401 @@ export default function CardDetailPage() {
                 </Tabs>
 
                 {/* Chart */}
-                <div className="h-64">
+                <div className="relative h-72 mt-4 bg-secondary/20 rounded-xl p-4 border border-border/50">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={priceHistory}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 12 }}
-                        tickLine={false}
+                    <AreaChart data={filteredPriceHistory.length > 0 ? filteredPriceHistory : [{date: 'N/A', price: 0}]}>
+                      <defs>
+                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis 
+                        dataKey="date" 
                         axisLine={false}
-                        className="text-muted-foreground"
-                      />
-                      <YAxis
-                        tick={{ fontSize: 12 }}
                         tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => `$${value}`}
-                        className="text-muted-foreground"
+                        tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 10}}
+                        minTickGap={30}
                       />
-                      <RechartsTooltip
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 10}}
+                        tickFormatter={(val) => `${val}€`}
+                      />
+                      <RechartsTooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          borderColor: 'hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px'
                         }}
-                        labelStyle={{ color: "hsl(var(--foreground))" }}
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, "Price"]}
+                        itemStyle={{ color: 'hsl(var(--accent))' }}
                       />
-                      <Line
-                        type="monotone"
-                        dataKey="price"
-                        stroke="hsl(var(--accent))"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 6 }}
+                      <Area 
+                        type="monotone" 
+                        dataKey="price" 
+                        stroke="hsl(var(--accent))" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorPrice)" 
+                        animationDuration={1500}
                       />
-                    </LineChart>
+                    </AreaChart>
                   </ResponsiveContainer>
+                  {realPriceHistory.length === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-[2px] rounded-xl">
+                      <div className="text-center">
+                        <History className="h-10 w-10 mx-auto mb-2 text-muted-foreground opacity-20" />
+                        <p className="text-sm font-medium text-muted-foreground">No sales data available yet</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Sellers Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <span>Available Sellers ({sortedSellers.length})</span>
-                <div className="flex flex-wrap items-center gap-2">
-                   <Popover>
-                     <PopoverTrigger asChild>
-                       <Button variant="outline" size="sm" className="gap-2">
-                         <FilterIcon className="h-4 w-4" />
-                         Filters
-                         {(filterCondition !== 'all' || filterLanguage !== 'all') && (
-                           <Badge variant="secondary" className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                             {(filterCondition !== 'all' ? 1 : 0) + (filterLanguage !== 'all' ? 1 : 0)}
-                           </Badge>
-                         )}
-                       </Button>
-                     </PopoverTrigger>
-                     <PopoverContent className="w-80 p-4">
-                       <div className="space-y-4">
-                         <div className="space-y-2">
-                           <label className="text-xs font-bold uppercase text-muted-foreground">Condition</label>
-                           <Select value={filterCondition} onValueChange={setFilterCondition}>
-                             <SelectTrigger>
-                               <SelectValue placeholder="Any Condition" />
-                             </SelectTrigger>
-                             <SelectContent>
-                               <SelectItem value="all">Any Condition</SelectItem>
-                               <SelectItem value="M">Mint (M)</SelectItem>
-                               <SelectItem value="NM">Near Mint (NM)</SelectItem>
-                               <SelectItem value="LP">Lightly Played (LP)</SelectItem>
-                               <SelectItem value="MP">Moderately Played (MP)</SelectItem>
-                               <SelectItem value="HP">Heavily Played (HP)</SelectItem>
-                               <SelectItem value="PO">Poor (PO)</SelectItem>
-                             </SelectContent>
-                           </Select>
-                         </div>
-                         <div className="space-y-2">
-                           <label className="text-xs font-bold uppercase text-muted-foreground">Language</label>
-                           <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-                             <SelectTrigger>
-                               <SelectValue placeholder="Any Language" />
-                             </SelectTrigger>
-                             <SelectContent>
-                               <SelectItem value="all">Any Language</SelectItem>
-                               <SelectItem value="EN">🇺🇸 English</SelectItem>
-                               <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
-                               <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
-                               <SelectItem value="DE">🇩🇪 German</SelectItem>
-                               <SelectItem value="FR">🇫🇷 French</SelectItem>
-                               <SelectItem value="IT">🇮🇹 Italian</SelectItem>
-                             </SelectContent>
-                           </Select>
-                         </div>
-                         <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => {setFilterCondition("all"); setFilterLanguage("all")}}>
-                           Reset Filters
-                         </Button>
-                       </div>
-                     </PopoverContent>
-                   </Popover>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    Sorted by price: lowest first
-                  </span>
-                </div>
+          <Card className="overflow-hidden border-none shadow-none bg-transparent">
+            <CardHeader className="px-0 pb-4">
+              <CardTitle className="flex items-center gap-2 text-xl font-serif">
+                <ShoppingBag className="h-6 w-6 text-accent" />
+                Marketplace Listings
+                <Badge variant="secondary" className="ml-2 bg-accent/10 text-accent border-none">
+                  {sortedSellers.length} available
+                </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y divide-border">
-                {sortedSellers.map((listing) => (
-                  <div key={listing.id} className="flex flex-col gap-4 p-4 transition-colors hover:bg-secondary/20 sm:flex-row sm:items-center">
-                    <div className="flex flex-1 items-center gap-4">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                        {listing.sellerName?.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold">{listing.sellerName}</span>
-                          <Badge variant="outline" className={getConditionInfo(listing.condition).color}>
-                            {listing.condition}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{listing.language}</span>
-                          <span>•</span>
-                          <span>Professional Seller</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-right">
-                      <div>
-                        <p className="text-xl font-bold">{listing.price.toFixed(2)}€</p>
-                        <p className="text-xs text-muted-foreground">x{listing.amount} available</p>
-                      </div>
-                      <Button className="gap-2">
-                        <ShoppingCart className="h-4 w-4" />
-                        Add
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Left Sidebar Filters */}
+                <div className="lg:col-span-1 space-y-4">
+                  <div className="rounded-xl border border-border bg-card p-4 sticky top-24">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+                        <FilterIcon className="h-4 w-4" />
+                        Filters
+                      </h3>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 text-xs text-muted-foreground hover:text-accent"
+                        onClick={() => {
+                          setFilterCondition("all");
+                          setFilterLanguage("all");
+                          setFilterLocations([]);
+                          setFilterSellerType([]);
+                          setFilterMaxPrice(100);
+                          setFilterMinQty(1);
+                        }}
+                      >
+                        Reset
                       </Button>
                     </div>
+
+                    <div className="space-y-6">
+                      {/* Location Filter */}
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => setExpandedFilters(prev => ({...prev, location: !prev.location}))}
+                          className="flex items-center justify-between w-full text-sm font-semibold group"
+                        >
+                          <span className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            Location
+                          </span>
+                          {expandedFilters.location ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        {expandedFilters.location && (
+                          <div className="grid grid-cols-2 gap-2 pl-6">
+                            {["ES", "US", "JP", "DE", "FR", "UK", "IT", "CA"].map(loc => (
+                              <div key={loc} className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id={`loc-${loc}`} 
+                                  checked={filterLocations.includes(loc)}
+                                  onCheckedChange={(checked) => {
+                                    setFilterLocations(prev => checked ? [...prev, loc] : prev.filter(l => l !== loc))
+                                  }}
+                                />
+                                <label htmlFor={`loc-${loc}`} className="text-sm cursor-pointer flex items-center gap-1">
+                                  {countryFlags[loc]} {loc}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator className="opacity-50" />
+
+                      {/* Condition Filter */}
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => setExpandedFilters(prev => ({...prev, condition: !prev.condition}))}
+                          className="flex items-center justify-between w-full text-sm font-semibold"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Star className="h-4 w-4 text-muted-foreground" />
+                            Min. Condition
+                          </span>
+                          {expandedFilters.condition ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        {expandedFilters.condition && (
+                          <div className="pl-6">
+                            <Select value={filterCondition} onValueChange={setFilterCondition}>
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Select condition" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">Any Condition</SelectItem>
+                                <SelectItem value="M">Mint (M)</SelectItem>
+                                <SelectItem value="NM">Near Mint (NM)+</SelectItem>
+                                <SelectItem value="LP">Lightly Played (LP)+</SelectItem>
+                                <SelectItem value="MP">Moderately Played (MP)+</SelectItem>
+                                <SelectItem value="HP">Heavily Played (HP)+</SelectItem>
+                                <SelectItem value="PO">Poor (PO)+</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator className="opacity-50" />
+
+                      {/* Language Filter */}
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => setExpandedFilters(prev => ({...prev, language: !prev.language}))}
+                          className="flex items-center justify-between w-full text-sm font-semibold"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Globe className="h-4 w-4 text-muted-foreground" />
+                            Language
+                          </span>
+                          {expandedFilters.language ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        {expandedFilters.language && (
+                          <div className="pl-6">
+                            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Select language" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">Any Language</SelectItem>
+                                <SelectItem value="EN">🇺🇸 English</SelectItem>
+                                <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
+                                <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
+                                <SelectItem value="DE">🇩🇪 German</SelectItem>
+                                <SelectItem value="FR">🇫🇷 French</SelectItem>
+                                <SelectItem value="IT">🇮🇹 Italian</SelectItem>
+                                <SelectItem value="DO">🇩🇴 Spanish (Latam)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator className="opacity-50" />
+
+                      {/* Extra Options */}
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => setExpandedFilters(prev => ({...prev, extra: !prev.extra}))}
+                          className="flex items-center justify-between w-full text-sm font-semibold"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-muted-foreground" />
+                            Extras
+                          </span>
+                          {expandedFilters.extra ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        {expandedFilters.extra && (
+                          <div className="space-y-3 pl-6">
+                            {["Reverse", "Signed", "First Edition", "Altered"].map(extra => (
+                              <div key={extra} className="space-y-1">
+                                <label className="text-[10px] uppercase font-bold text-muted-foreground">{extra}</label>
+                                <Select 
+                                  value={filterExtras[extra.toLowerCase().replace(" ", "") as keyof typeof filterExtras]} 
+                                  onValueChange={(val) => setFilterExtras(prev => ({...prev, [extra.toLowerCase().replace(" ", "")]: val}))}
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">Any</SelectItem>
+                                    <SelectItem value="Yes">Yes</SelectItem>
+                                    <SelectItem value="No">No</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator className="opacity-50" />
+
+                      {/* Price Filter */}
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => setExpandedFilters(prev => ({...prev, price: !prev.price}))}
+                          className="flex items-center justify-between w-full text-sm font-semibold"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Tag className="h-4 w-4 text-muted-foreground" />
+                            Max Price
+                          </span>
+                        </button>
+                        <div className="pl-6 space-y-2">
+                          <Input 
+                            type="number" 
+                            value={filterMaxPrice} 
+                            onChange={(e) => setFilterMaxPrice(Number(e.target.value))}
+                            className="h-9 text-sm"
+                          />
+                          <p className="text-[10px] text-muted-foreground italic">Showing listings up to {filterMaxPrice}€</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ))}
-                {sortedSellers.length === 0 && (
-                  <div className="py-20 text-center text-muted-foreground">
-                    No listings found for this card.
+                </div>
+
+                {/* Right Content: Listings */}
+                <div className="lg:col-span-3">
+                  <div className="rounded-xl border border-border bg-card overflow-hidden">
+                    {/* Table Header */}
+                    <div className="hidden md:grid grid-cols-12 gap-4 p-5 border-b border-border bg-secondary/30 text-[10px] font-black uppercase tracking-wider text-muted-foreground items-center">
+                      <div className="col-span-2">Seller</div>
+                      <div className="col-span-1 text-center">Lang</div>
+                      <div className="col-span-1 text-center">Adds</div>
+                      <div className="col-span-1 text-center">Cond</div>
+                      <div className="col-span-3">Description</div>
+                      <div className="col-span-2 text-right">Price / Shipping</div>
+                      <div className="col-span-1 text-center">Qty</div>
+                      <div className="col-span-1"></div>
+                    </div>
+
+                    <div className="divide-y divide-border">
+                      {sortedSellers.map((listing) => {
+                        const cond = getConditionInfo(listing.condition);
+                        const cartItemForListing = user?.cart?.map((item: any) => typeof item === 'string' ? JSON.parse(item) : item).find((item: any) => item.id === listing.id);
+                        const inCartQty = cartItemForListing ? cartItemForListing.quantity : 0;
+                        const availableStock = listing.amount - inCartQty;
+                        const isOutOfStock = availableStock <= 0;
+                        const selectedQty = selectedQuantities[listing.id] || 1;
+
+                        return (
+                          <div key={listing.id} className={`grid grid-cols-1 md:grid-cols-12 gap-4 p-3 hover:bg-secondary/10 transition-colors items-center text-xs ${isOutOfStock ? 'opacity-50 grayscale-[0.5]' : ''}`}>
+                            {/* Seller Info */}
+                            <div className="col-span-2 flex flex-col min-w-0">
+                              <div className="flex items-center gap-1.5 overflow-hidden">
+                                <span className="font-mono text-[10px] bg-secondary px-1 rounded shrink-0">{listing.country || "ES"}</span>
+                                <Link href={`/profile/${listing.sellerId}`} className="font-bold hover:text-accent truncate">
+                                  {listing.sellerName}
+                                </Link>
+                              </div>
+                              <p className="text-[10px] text-accent font-medium mt-0.5">
+                                {listing.sellerSuccessRate || 100}% success
+                              </p>
+                            </div>
+
+                            {/* Language Flag */}
+                            <div className="col-span-1 flex justify-center text-lg">
+                              {getLanguageFlag(listing.language)}
+                            </div>
+
+                            {/* Extras */}
+                            <div className="col-span-1 flex flex-wrap justify-center gap-1">
+                                {(listing.isReverse || listing.extras?.reverseHolo) && <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-500/30 text-[8px] px-1 py-0">REV</Badge>}
+                                {(listing.isFirstEdition || listing.extras?.firstEdition) && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[8px] px-1 py-0">1ST</Badge>}
+                                {(listing.isSigned || listing.extras?.signed) && <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30 text-[8px] px-1 py-0">SIG</Badge>}
+                                {(listing.isAltered || listing.extras?.altered) && <Badge variant="outline" className="bg-red-500/10 text-red-700 border-red-500/30 text-[8px] px-1 py-0">ALT</Badge>}
+                            </div>
+
+                            {/* Condition */}
+                            <div className="col-span-1 flex justify-center">
+                                <Badge className={`${cond.color} border-none font-bold text-[10px] px-1.5 py-0 rounded-full`}>
+                                  {cond.abbr}
+                                </Badge>
+                            </div>
+
+                            {/* Description (Center) */}
+                            <div className="col-span-3 min-w-0">
+                              <p className="text-[11px] text-muted-foreground line-clamp-2 leading-tight italic">
+                                {listing.observations || "---"}
+                              </p>
+                            </div>
+
+                            {/* Price & Shipping */}
+                            <div className="col-span-2 flex flex-col items-end">
+                                <p className="text-sm font-black tracking-tight">{listing.price.toFixed(2)}€</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  +{getShippingPrice(listing.country || "ES").regular.toFixed(2)}€ shipping
+                                </p>
+                            </div>
+                            
+                            {/* Quantity & Stock */}
+                            <div className="col-span-1 flex flex-col items-center">
+                                <Select 
+                                  value={selectedQty.toString()} 
+                                  onValueChange={(val) => setSelectedQuantities(prev => ({...prev, [listing.id]: Number(val)}))}
+                                  disabled={isOutOfStock}
+                                >
+                                  <SelectTrigger className="w-12 h-7 text-[10px] p-1">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {[...Array(Math.min(availableStock, 10))].map((_, i) => (
+                                      <SelectItem key={i+1} value={(i+1).toString()}>{i+1}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className={`text-[9px] font-bold mt-0.5 ${isOutOfStock ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                  {isOutOfStock ? 'Out of Stock' : `${availableStock} left`}
+                                </p>
+                            </div>
+
+                            {/* Cart Action */}
+                            <div className="col-span-1 flex justify-end">
+                                <Button 
+                                  size="icon" 
+                                  className={`h-8 w-8 rounded-full shadow-sm ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-accent hover:bg-accent/90 text-accent-foreground'}`}
+                                  onClick={() => !isOutOfStock && handleAddToCart(listing)}
+                                  disabled={isOutOfStock}
+                                >
+                                  {isOutOfStock ? <X className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+                                </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {sortedSellers.length === 0 && (
+                        <div className="py-24 text-center bg-secondary/5">
+                          <div className="max-w-xs mx-auto">
+                            <ShoppingBag className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                            <h3 className="font-bold text-lg mb-1">No listings found</h3>
+                            <p className="text-sm text-muted-foreground">Try adjusting your filters to find what you're looking for.</p>
+                            <Button 
+                              variant="link" 
+                              className="mt-2 text-accent font-bold"
+                              onClick={() => {
+                                setFilterCondition("all");
+                                setFilterLanguage("all");
+                                setFilterLocations([]);
+                                setFilterSellerType([]);
+                                setFilterMaxPrice(100);
+                              }}
+                            >
+                              Clear all filters
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             </CardContent>
           </Card>

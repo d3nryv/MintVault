@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -68,6 +69,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/context/auth-context"
 import { useMarketplace } from "@/context/marketplace-context"
 
@@ -167,11 +169,18 @@ export default function MarketplacePage() {
   const [selectedLanguage, setSelectedLanguage] = useState("EN")
   const [listingQuantity, setListingQuantity] = useState("1")
   const [listingDescription, setListingDescription] = useState("")
+  const [isReverse, setIsReverse] = useState(false)
+  const [isSigned, setIsSigned] = useState(false)
+  const [isAltered, setIsAltered] = useState(false)
+  const [isFirstEdition, setIsFirstEdition] = useState(false)
   const [isListing, setIsListing] = useState(false)
   const [sellImagePreview, setSellImagePreview] = useState<string | null>(null)
   const [userSales, setUserSales] = useState<any[]>([])
   const [allSets, setAllSets] = useState<any[]>([])
   const [isLoadingUserSales, setIsLoadingUserSales] = useState(false)
+  const [wantsSearchQuery, setWantsSearchQuery] = useState("")
+  const [wantsSearchResults, setWantsSearchResults] = useState<any[]>([])
+  const [isSearchingWantsCards, setIsSearchingWantsCards] = useState(false)
   const { user, updateUser } = useAuth()
   const { language } = useMarketplace()
 
@@ -191,6 +200,34 @@ export default function MarketplacePage() {
       loadCart()
     }
   }, [user])
+
+  // Sync wants lists with decks
+  useEffect(() => {
+    if (userDecks.length > 0 && wantsLists.length > 0) {
+      let changed = false;
+      const updatedLists = wantsLists.map(list => {
+        if (list.type === 'deck' && list.sourceId) {
+          const deck = userDecks.find(d => d.id.toString() === list.sourceId);
+          if (deck) {
+            // Remove items from wants list that are no longer in the deck
+            const deckCardIds = deck.cards.map((c: any) => c.card.id);
+            const newItems = list.items.filter(item => deckCardIds.includes(item.id));
+            
+            if (newItems.length !== list.items.length) {
+              changed = true;
+              return { ...list, items: newItems };
+            }
+          }
+        }
+        return list;
+      });
+      
+      if (changed) {
+        setWantsLists(updatedLists);
+        syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) });
+      }
+    }
+  }, [userDecks]);
 
   const loadWantsLists = () => {
     if (user?.wantList) {
@@ -299,14 +336,14 @@ export default function MarketplacePage() {
     setIsLoadingTrending(true)
     try {
       const langParam = language !== 'all' ? `?language=${language}` : ''
-      const statsRes = await fetch(`http://localhost:4000/api/statistics${langParam}`)
+      const statsRes = await fetch(`http://localhost:3000/api/statistics${langParam}`)
       if (!statsRes.ok) {
-          const text = await statsRes.text()
-          console.error("Stats fetch failed:", statsRes.status, text.slice(0, 100))
-          throw new Error(`HTTP error! status: ${statsRes.status}`)
+        const text = await statsRes.text()
+        console.error("Stats fetch failed:", statsRes.status, text.slice(0, 100))
+        throw new Error(`HTTP error! status: ${statsRes.status}`)
       }
       const stats = await statsRes.json()
-      
+
       setFeaturedCards(stats.mostPurchasedCards || [])
       setFeaturedSets(stats.mostPurchasedSets || [])
       setRisingCards(stats.trends?.rising || [])
@@ -343,12 +380,12 @@ export default function MarketplacePage() {
       setSellSearchResults([])
       return
     }
-    
+
     setIsSearchingSellCards(true)
     try {
       const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(query)}`)
       const data = await response.json()
-      setSellSearchResults(data.slice(0, 10)) // Show top 10
+      setSellSearchResults(data.slice(0, 50)) // Show top 50
     } catch (error) {
       console.error("Error searching cards for sale:", error)
     } finally {
@@ -356,9 +393,79 @@ export default function MarketplacePage() {
     }
   }
 
+  const handleWantsCardSearch = async (query: string) => {
+    setWantsSearchQuery(query)
+    if (query.length < 3) {
+      setWantsSearchResults([])
+      return
+    }
+
+    setIsSearchingWantsCards(true)
+    try {
+      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(query)}`)
+      const data = await response.json()
+      setWantsSearchResults(data.slice(0, 20))
+    } catch (error) {
+      console.error("Error searching cards for wants list:", error)
+    } finally {
+      setIsSearchingWantsCards(false)
+    }
+  }
+
+  const handleAddToSpecificWantsList = async (card: any) => {
+    if (!selectedList || !user) return
+
+    const newItem: WantsListItem = {
+      id: card.id,
+      name: card.name,
+      set: card.set?.name || card.set || 'Unknown Set',
+      number: card.number || 'N/A',
+      count: 1,
+      condition: "Near Mint",
+      priority: "Medium",
+      owned: false
+    }
+
+    const updatedLists = wantsLists.map(list => {
+      if (list.id === selectedList.id) {
+        if (list.items.some(item => item.id === card.id)) return list
+        return {
+          ...list,
+          items: [...list.items, newItem]
+        }
+      }
+      return list
+    })
+
+    setWantsLists(updatedLists)
+    setSelectedList(updatedLists.find(l => l.id === selectedList.id) || null)
+    syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) })
+    setWantsSearchQuery("")
+    setWantsSearchResults([])
+    alert(`Added ${card.name} to ${selectedList.name}`)
+  }
+
+  const handleDeleteSale = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this listing?")) return
+    try {
+      const res = await fetch(`http://localhost:3000/api/sales/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id })
+      })
+      if (!res.ok) throw new Error("Failed to delete listing")
+      fetchUserSales()
+      fetchSales()
+      alert("Listing deleted successfully")
+    } catch (e) {
+      console.error("Error deleting sale", e)
+      alert("Error deleting listing")
+    }
+  }
+
   const handleListForSale = async () => {
     if (!user || !selectedSellCard || !listingPrice) return
-    
+
     setIsListing(true)
     try {
       // 1. Create Card Entity
@@ -385,7 +492,7 @@ export default function MarketplacePage() {
         })
       })
       const cardData = await cardRes.json()
-      
+
       if (!cardRes.ok) throw new Error(cardData.message || "Error creating card")
 
       // 2. Create Sale Entity
@@ -400,17 +507,33 @@ export default function MarketplacePage() {
           language: selectedLanguage,
           condition: selectedCondition,
           observations: listingDescription,
-          imageUrl: selectedSellCard.images?.small
+          imageUrl: selectedSellCard.images?.small,
+          extras: {
+            reverseHolo: isReverse,
+            signed: isSigned,
+            altered: isAltered,
+            firstEdition: isFirstEdition
+          }
         })
       })
-      
+
       if (!saleRes.ok) throw new Error("Error creating sale")
 
       // Success
       setSelectedSellCard(null)
       setListingPrice("")
+      setListingQuantity("1")
+      setListingDescription("")
+      setSelectedCondition("NM")
+      setSelectedLanguage("EN")
+      setIsReverse(false)
+      setIsSigned(false)
+      setIsAltered(false)
+      setIsFirstEdition(false)
+      setSellImagePreview(null)
       setSellSearchQuery("")
       fetchSales() // Refresh marketplace
+      fetchUserSales() // Refresh inventory
       alert("Card listed successfully!")
     } catch (error: any) {
       console.error("Error listing card:", error)
@@ -454,6 +577,19 @@ export default function MarketplacePage() {
       case "Medium": return "bg-amber-500/20 text-amber-700 border-amber-500/30"
       case "Low": return "bg-emerald-500/20 text-emerald-700 border-emerald-500/30"
       default: return "bg-muted text-muted-foreground"
+    }
+  }
+
+  const getLanguageFlag = (lang: string) => {
+    switch (lang?.toUpperCase()) {
+      case 'EN': return '🇺🇸'
+      case 'ES': return '🇪🇸'
+      case 'JP': return '🇯🇵'
+      case 'DE': return '🇩🇪'
+      case 'FR': return '🇫🇷'
+      case 'IT': return '🇮🇹'
+      case 'PT': return '🇵🇹'
+      default: return '🌐'
     }
   }
 
@@ -502,9 +638,9 @@ export default function MarketplacePage() {
           const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${set.id}&pageSize=250&orderBy=number`)
           const result = await res.json()
           const setCards = result.data || []
-          const ownedIds = user?.ownedEnglishCards || []
+          const ownedIds = [...(user?.ownedEnglishCards || []), ...(user?.ownedPokemon || [])]
           const missingCards = setCards.filter((card: any) => !ownedIds.includes(card.id))
-          
+
           items = missingCards.map((card: any) => ({
             id: card.id,
             name: card.name,
@@ -523,7 +659,7 @@ export default function MarketplacePage() {
 
     const newList: WantsList = {
       id: Date.now().toString(),
-      name: newListName,
+      name: newListName || sourceName || "New List",
       type: newListType,
       sourceId: selectedSourceId || undefined,
       sourceName,
@@ -535,7 +671,7 @@ export default function MarketplacePage() {
     const updatedLists = [...wantsLists, newList]
     setWantsLists(updatedLists)
     syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) })
-    
+
     setNewListName("")
     setNewListType("empty")
     setSelectedSourceId(null)
@@ -565,7 +701,7 @@ export default function MarketplacePage() {
     })
     setWantsLists(updatedLists)
     syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) })
-    
+
     // Update selected list if it's the one being modified
     if (selectedList?.id === listId) {
       setSelectedList(prev => prev ? {
@@ -603,7 +739,7 @@ export default function MarketplacePage() {
       if (list.id === listId) {
         return {
           ...list,
-          items: list.items.map(item => 
+          items: list.items.map(item =>
             item.id.toString() === itemId.toString() ? { ...item, ...updates } : item
           )
         }
@@ -616,7 +752,7 @@ export default function MarketplacePage() {
     if (selectedList?.id === listId) {
       setSelectedList(prev => prev ? {
         ...prev,
-        items: prev.items.map(item => 
+        items: prev.items.map(item =>
           item.id.toString() === itemId.toString() ? { ...item, ...updates } : item
         )
       } : null)
@@ -630,15 +766,18 @@ export default function MarketplacePage() {
       return
     }
     const newItem = {
-      id: Date.now().toString(),
+      id: listing.id, // Use listing ID as cart item ID to make finding easier
       saleId: listing.id,
       name: listing.cardName,
       set: listing.cardSet,
       condition: listing.condition,
+      language: listing.language,
       price: listing.price,
       quantity: 1,
-      seller: listing.sellerName,
-      imageUrl: listing.imageUrl
+      sellerId: listing.sellerId,
+      sellerName: listing.sellerName,
+      sellerCountry: listing.country || listing.sellerCountry || "ES",
+      imageUrl: listing.cardImage || listing.imageUrl
     }
     const updatedCart = [...cartItems, newItem]
     setCartItems(updatedCart)
@@ -666,17 +805,17 @@ export default function MarketplacePage() {
 
   const handleRunWizard = () => {
     if (!selectedList || selectedList.items.length === 0) return
-    
+
     setIsWizardOpen(true)
-    
+
     const missingItems = selectedList.items.filter(item => !item.owned)
     if (missingItems.length === 0) {
       setWizardResults(null)
       return
     }
 
-    const matchingSales = realSales.filter(sale => 
-      missingItems.some(item => 
+    const matchingSales = realSales.filter(sale =>
+      missingItems.some(item =>
         sale.cardName.toLowerCase().includes(item.name.toLowerCase()) ||
         item.name.toLowerCase().includes(sale.cardName.toLowerCase())
       )
@@ -690,8 +829,8 @@ export default function MarketplacePage() {
     })
 
     const sortedSellers = Array.from(sellersMap.entries()).sort((a, b) => b[1].length - a[1].length)
-    
-    let opt1Sellers: {name: string, cards: number}[] = []
+
+    let opt1Sellers: { name: string, cards: number }[] = []
     let opt1Total = 0
     let opt1CardsCount = 0
 
@@ -721,24 +860,27 @@ export default function MarketplacePage() {
   const getMissingCount = (list: WantsList) => list.items.filter(item => !item.owned).length
   const getOwnedCount = (list: WantsList) => list.items.filter(item => item.owned).length
 
-  const allTimeHighCards = realSales?.length 
+  const allTimeHighCards = realSales?.length
     ? [...realSales].sort((a, b) => b.price - a.price).slice(0, 5).map(s => ({
-        id: s.id,
-        name: s.cardName,
-        set: s.cardSet,
-        price: s.price,
-        note: 'Market Peak'
-      }))
+      id: s.id,
+      name: s.cardName || s.name || s.card?.name || "Unknown Card",
+      set: s.cardSet || s.set || s.card?.set?.name || s.card?.set || "Unknown Set",
+      price: s.price,
+      image: s.imageUrl || s.cardImage || s.card?.images?.small,
+      tcgId: s.tcgId || s.card?.id,
+      note: 'Market Peak'
+    }))
     : [];
 
-  const allTimeLowCards = realSales?.length 
+  const allTimeLowCards = realSales?.length
     ? [...realSales].sort((a, b) => a.price - b.price).slice(0, 5).map(s => ({
-        id: s.id,
-        name: s.cardName,
-        set: s.cardSet,
-        price: s.price,
-        prevHigh: s.price * 1.2
-      }))
+      id: s.id,
+      name: s.cardName || s.name || s.card?.name || "Unknown Card",
+      set: s.cardSet || s.set || s.card?.set?.name || s.card?.set || "Unknown Set",
+      price: s.price,
+      image: s.imageUrl || s.cardImage || s.card?.images?.small,
+      tcgId: s.tcgId || s.card?.id
+    }))
     : [];
 
   return (
@@ -769,7 +911,7 @@ export default function MarketplacePage() {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Dialog open={isAddFundsOpen} onOpenChange={setIsAddFundsOpen}>
                   <DialogTrigger asChild>
                     <Button className="gap-2 shadow-lg shadow-primary/20">
@@ -837,11 +979,11 @@ export default function MarketplacePage() {
                     </Tabs>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsAddFundsOpen(false)}>Cancel</Button>
-                      <Button 
+                      <Button
                         onClick={() => {
                           const amount = parseFloat(addAmount);
                           if (isNaN(amount) || amount <= 0) return;
-                          
+
                           const newBalance = (user.balance || 0) + amount;
                           updateUser({ balance: newBalance });
                           setIsAddFundsOpen(false);
@@ -869,7 +1011,7 @@ export default function MarketplacePage() {
                   We found the best ways to get all the cards in your list. Choose the option that fits you best.
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-4 py-4">
                 {wizardResults ? (
                   <>
@@ -975,60 +1117,60 @@ export default function MarketplacePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-col gap-4 sm:flex-row">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          placeholder="Search cards (e.g. charizard, charizard PAF, charizard 51...)"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              router.push(`/marketplace/search?q=${encodeURIComponent(searchQuery)}&set=${selectedSet}`)
-                            }
-                          }}
-                          className="pl-10"
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Select value={selectedSet} onValueChange={setSelectedSet}>
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Filter by Set" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <div className="p-2 border-b">
-                              <div className="relative">
-                                <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input 
-                                  placeholder="Search sets..." 
-                                  value={setSearchTerm}
-                                  onChange={(e) => setSetSearchTerm(e.target.value)}
-                                  className="pl-8 h-8 text-xs"
-                                  onKeyDown={(e) => e.stopPropagation()} // Prevent closing select on space
-                                />
-                              </div>
-                            </div>
-                            <div className="max-h-[300px] overflow-y-auto">
-                              <SelectItem value="all">All Sets</SelectItem>
-                              {allSets
-                                .filter(set => set.name.toLowerCase().includes(setSearchTerm.toLowerCase()) || set.id.toLowerCase().includes(setSearchTerm.toLowerCase()))
-                                .map(set => (
-                                  <SelectItem key={set.id} value={set.id}>
-                                    {set.name} ({set.id})
-                                  </SelectItem>
-                                ))
-                              }
-                            </div>
-                          </SelectContent>
-                        </Select>
-                        <Button className="gap-2" onClick={() => {
-                          router.push(`/marketplace/search?q=${encodeURIComponent(searchQuery)}&set=${selectedSet}`)
-                        }}>
-                          <Search className="h-4 w-4" />
-                          Search
-                        </Button>
-                      </div>
+                  <div className="flex flex-col gap-4 sm:flex-row">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search cards (e.g. charizard, charizard PAF, charizard 51...)"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            router.push(`/marketplace/search?q=${encodeURIComponent(searchQuery)}&set=${selectedSet}`)
+                          }
+                        }}
+                        className="pl-10"
+                      />
                     </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Select value={selectedSet} onValueChange={setSelectedSet}>
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue placeholder="Filter by Set" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <div className="p-2 border-b">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                              <Input
+                                placeholder="Search sets..."
+                                value={setSearchTerm}
+                                onChange={(e) => setSetSearchTerm(e.target.value)}
+                                className="pl-8 h-8 text-xs"
+                                onKeyDown={(e) => e.stopPropagation()} // Prevent closing select on space
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-[300px] overflow-y-auto">
+                            <SelectItem value="all">All Sets</SelectItem>
+                            {allSets
+                              .filter(set => set.name.toLowerCase().includes(setSearchTerm.toLowerCase()) || set.id.toLowerCase().includes(setSearchTerm.toLowerCase()))
+                              .map(set => (
+                                <SelectItem key={set.id} value={set.id}>
+                                  {set.name} ({set.id})
+                                </SelectItem>
+                              ))
+                            }
+                          </div>
+                        </SelectContent>
+                      </Select>
+                      <Button className="gap-2" onClick={() => {
+                        router.push(`/marketplace/search?q=${encodeURIComponent(searchQuery)}&set=${selectedSet}`)
+                      }}>
+                        <Search className="h-4 w-4" />
+                        Search
+                      </Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1250,19 +1392,25 @@ export default function MarketplacePage() {
                       <div className="divide-y divide-border">
                         {allTimeHighCards.length > 0 ? (
                           allTimeHighCards.map((card) => (
-                            <div key={card.id} className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50">
-                              <div className="flex h-14 w-10 items-center justify-center rounded bg-gradient-to-br from-amber-100 to-amber-200">
-                                <Star className="h-5 w-5 text-amber-600" />
+                            <Link key={card.id} href={`/marketplace/card/${card.tcgId || card.id}`}>
+                              <div className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50 cursor-pointer">
+                                <div className="aspect-[3/4] h-14 bg-muted rounded overflow-hidden flex items-center justify-center">
+                                  {card.image ? (
+                                    <img src={card.image} alt="" className="h-full w-full object-contain" />
+                                  ) : (
+                                    <Star className="h-5 w-5 text-amber-600" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="font-medium">{card.name}</h4>
+                                  <p className="text-sm text-muted-foreground">{card.set}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold">{card.price.toFixed(2)}€</p>
+                                  <Badge variant="outline" className="text-xs">{card.note}</Badge>
+                                </div>
                               </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium">{card.name}</h4>
-                                <p className="text-sm text-muted-foreground">{card.set}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-semibold">${card.price.toLocaleString()}</p>
-                                <Badge variant="outline" className="text-xs">{card.note}</Badge>
-                              </div>
-                            </div>
+                            </Link>
                           ))
                         ) : (
                           <div className="py-10 text-center text-muted-foreground">
@@ -1285,19 +1433,24 @@ export default function MarketplacePage() {
                       <div className="divide-y divide-border">
                         {allTimeLowCards.length > 0 ? (
                           allTimeLowCards.map((card) => (
-                            <div key={card.id} className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50">
-                              <div className="flex h-14 w-10 items-center justify-center rounded bg-muted">
-                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                            <Link key={card.id} href={`/marketplace/card/${card.tcgId || card.id}`}>
+                              <div className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50 cursor-pointer">
+                                <div className="aspect-[3/4] h-14 bg-muted rounded overflow-hidden flex items-center justify-center">
+                                  {card.image ? (
+                                    <img src={card.image} alt="" className="h-full w-full object-contain" />
+                                  ) : (
+                                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="font-medium">{card.name}</h4>
+                                  <p className="text-sm text-muted-foreground">{card.set}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold text-emerald-600">{card.price.toFixed(2)}€</p>
+                                </div>
                               </div>
-                              <div className="flex-1">
-                                <h4 className="font-medium">{card.name}</h4>
-                                <p className="text-sm text-muted-foreground">{card.set}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-semibold text-emerald-600">${card.price.toFixed(2)}</p>
-                                <p className="text-xs text-muted-foreground line-through">${card.prevHigh.toFixed(2)}</p>
-                              </div>
-                            </div>
+                            </Link>
                           ))
                         ) : (
                           <div className="py-10 text-center text-muted-foreground">
@@ -1328,47 +1481,65 @@ export default function MarketplacePage() {
                           <p className="text-sm text-muted-foreground">Loading recent listings...</p>
                         </div>
                       ) : realSales.length > 0 ? (
-                        realSales.map((listing) => (
-                          <div
-                            key={listing.id}
-                            className="flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50"
-                          >
-                            <div className="flex h-16 w-12 items-center justify-center rounded bg-muted overflow-hidden">
-                              {listing.cardImage ? (
-                                <img src={listing.cardImage} alt={listing.cardName} className="h-full w-full object-contain" />
-                              ) : (
-                                <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium">{listing.cardName}</h4>
-                                <Badge variant="outline" className="text-xs">
-                                  {listing.cardSet}
-                                </Badge>
-                                <span className="text-[10px] text-muted-foreground ml-auto">
-                                  {new Date(listing.createdAt).toLocaleDateString()}
-                                </span>
+                        realSales.map((listing) => {
+                          const cartItemForListing = cartItems.find((item: any) => item.saleId === listing.id || item.id === listing.id);
+                          const inCartQty = cartItemForListing ? cartItemForListing.quantity : 0;
+                          const availableStock = (listing.amount || 1) - inCartQty;
+                          const isOutOfStock = availableStock <= 0;
+
+                          return (
+                            <div
+                              key={listing.id}
+                              className={`flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50 ${isOutOfStock ? 'opacity-50 grayscale-[0.5]' : ''}`}
+                            >
+                              <div className="flex h-16 w-12 items-center justify-center rounded bg-muted overflow-hidden">
+                                {listing.cardImage ? (
+                                  <img src={listing.cardImage} alt={listing.cardName} className="h-full w-full object-contain" />
+                                ) : (
+                                  <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                )}
                               </div>
-                              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                                <Badge className={getConditionColor(listing.condition)}>
-                                  {listing.condition}
-                                </Badge>
-                                <span>{listing.language}</span>
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-bold text-sm truncate">{listing.cardName}</h4>
+                                  <Badge variant="outline" className="text-[10px] font-bold">
+                                    {listing.cardSet}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground ml-auto">
+                                    {new Date(listing.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                  <Badge className={`${getConditionColor(listing.condition)} border-none text-[10px] px-1.5 py-0 rounded-full font-bold`}>
+                                    {listing.condition}
+                                  </Badge>
+                                  <div className="flex items-center gap-1">
+                                    <span>{getLanguageFlag(listing.language)}</span>
+                                    <span className="font-bold uppercase tracking-tighter text-[10px]">{listing.language}</span>
+                                  </div>
+                                  <span className={`text-[10px] font-bold ${isOutOfStock ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                    {isOutOfStock ? 'OUT OF STOCK' : `${availableStock} STOCK`}
+                                  </span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-medium">
+                                  Seller: <span className="text-foreground">{listing.sellerName}</span>
+                                </p>
                               </div>
-                              <p className="text-xs text-muted-foreground">
-                                Seller: {listing.sellerName}
-                              </p>
+                              <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                                <span className="text-xl font-black tracking-tighter">{listing.price.toFixed(2)}€</span>
+                                <Button 
+                                  size="sm" 
+                                  className={`gap-2 h-9 rounded-full ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'}`} 
+                                  onClick={() => !isOutOfStock && handleAddToCart(listing)}
+                                  disabled={isOutOfStock}
+                                >
+                                  {isOutOfStock ? <X className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+                                  <span className="hidden sm:inline font-bold uppercase text-[10px] tracking-widest">{isOutOfStock ? 'Sold Out' : 'Add to Cart'}</span>
+                                </Button>
+                              </div>
                             </div>
-                             <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                              <span className="text-lg font-bold">{listing.price.toFixed(2)}€</span>
-                              <Button size="sm" className="gap-2" onClick={() => handleAddToCart(listing)}>
-                                <ShoppingCart className="h-4 w-4" />
-                                <span className="hidden sm:inline">Add to Cart</span>
-                              </Button>
-                            </div>
-                          </div>
-                        ))
+                          );
+                        })
                       ) : (
                         <div className="py-10 text-center text-muted-foreground">
                           No active listings found.
@@ -1429,12 +1600,12 @@ export default function MarketplacePage() {
 
                         <div className="p-4 bg-background rounded-lg border border-border space-y-4">
                           <div className="flex items-center gap-2">
-                            <input 
-                              type="checkbox" 
-                              id="terms" 
+                            <input
+                              type="checkbox"
+                              id="terms"
                               checked={hasAcceptedTerms}
                               onChange={(e) => setHasAcceptedTerms(e.target.checked)}
-                              className="h-4 w-4 rounded border-border" 
+                              className="h-4 w-4 rounded border-border"
                             />
                             <label htmlFor="terms" className="text-sm cursor-pointer">
                               I accept the <Button variant="link" className="p-0 h-auto text-sm">Seller Terms & Conditions</Button>
@@ -1442,8 +1613,8 @@ export default function MarketplacePage() {
                           </div>
                         </div>
 
-                        <Button 
-                          className="w-full h-12 text-lg shadow-lg shadow-primary/20" 
+                        <Button
+                          className="w-full h-12 text-lg shadow-lg shadow-primary/20"
                           disabled={!hasAcceptedTerms}
                           onClick={() => setIsSeller(true)}
                         >
@@ -1487,42 +1658,56 @@ export default function MarketplacePage() {
                                     <p className="text-muted-foreground">Loading your listings...</p>
                                   </div>
                                 ) : userSales.length > 0 ? (
-                                  userSales.map((listing) => (
-                                    <div key={listing.id} className="group flex items-center gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary/30 transition-all shadow-sm hover:shadow-md">
-                                      <div className="aspect-[3/4] h-16 bg-muted rounded overflow-hidden">
-                                        {listing.cardImage && <img src={listing.cardImage} alt="" className="h-full w-full object-contain group-hover:scale-110 transition-transform" />}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <p className="font-bold text-sm truncate">{listing.cardName}</p>
-                                          <Badge variant="outline" className="text-[10px] h-4">{listing.condition}</Badge>
+                                    userSales.map((listing) => (
+                                      <div key={listing.id} className="group flex items-center gap-6 rounded-xl border border-border bg-card p-5 hover:border-primary/50 transition-all shadow-sm hover:shadow-lg">
+                                        <div className="aspect-[3/4] h-24 bg-muted rounded-lg overflow-hidden flex items-center justify-center p-1 bg-white shadow-inner">
+                                          {listing.cardImage ? (
+                                            <img src={listing.cardImage} alt="" className="h-full w-full object-contain group-hover:scale-110 transition-transform" />
+                                          ) : (
+                                            <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                                          )}
                                         </div>
-                                        <p className="text-xs text-muted-foreground truncate">{listing.cardSet}</p>
-                                        <div className="flex items-center gap-3 mt-1">
-                                          <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded text-secondary-foreground font-medium">{listing.language}</span>
-                                          <span className="text-[10px] text-muted-foreground">{listing.isReverse ? 'Reverse Holo' : 'Standard'}</span>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-3 mb-2">
+                                            <Link href={`/marketplace/card/${listing.tcgId || listing.cardId}`} className="font-black text-xl hover:text-primary transition-colors truncate">
+                                              {listing.cardName}
+                                            </Link>
+                                            <Badge className={`${getConditionColor(listing.condition)} border-none font-bold text-xs px-2 py-0.5 rounded-full`}>
+                                              {listing.condition}
+                                            </Badge>
+                                          </div>
+                                          <p className="text-sm text-muted-foreground font-medium mb-3">{listing.cardSet}</p>
+                                          <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
+                                              <span className="text-lg">{getLanguageFlag(listing.language)}</span>
+                                              <span className="text-xs font-bold uppercase">{listing.language}</span>
+                                            </div>
+                                            {listing.extras?.reverseHolo && <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-500/30 text-[10px] font-bold">REVERSE</Badge>}
+                                            {listing.extras?.firstEdition && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[10px] font-bold">1ST ED</Badge>}
+                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-muted px-2 py-1 rounded">
+                                              Stock: {listing.amount}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="text-right flex flex-col items-end gap-3">
+                                          <p className="font-black text-3xl tracking-tighter text-foreground">{listing.price.toFixed(2)}€</p>
+                                          <div className="flex gap-2">
+                                            <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full" onClick={(e) => { e.preventDefault(); e.stopPropagation(); /* TODO: Edit */ }}>
+                                              <Edit3 className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 border-red-100" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteSale(listing.id); }}>
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </div>
                                         </div>
                                       </div>
-                                      <div className="text-right">
-                                        <p className="font-black text-lg">{listing.price.toFixed(2)}€</p>
-                                        <p className="text-[10px] text-muted-foreground font-medium">Qty: {listing.amount}</p>
-                                      </div>
-                                      <div className="flex flex-col gap-1">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                          <Edit3 className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))
+                                    ))
                                 ) : (
                                   <div className="py-20 text-center text-muted-foreground border-2 border-dashed border-border rounded-xl">
                                     <Tag className="h-12 w-12 mx-auto mb-4 opacity-20" />
                                     <h3 className="font-bold text-lg">Your inventory is empty</h3>
                                     <p className="text-sm mt-2">Start selling cards to see them here.</p>
-                                    <Button variant="outline" className="mt-4 gap-2" onClick={() => {/* Set active sub-tab to 'new' */}}>
+                                    <Button variant="outline" className="mt-4 gap-2" onClick={() => {/* Set active sub-tab to 'new' */ }}>
                                       <Plus className="h-4 w-4" />
                                       List your first card
                                     </Button>
@@ -1549,19 +1734,19 @@ export default function MarketplacePage() {
                                     <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Step 1: Search Card</label>
                                     <div className="relative">
                                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                      <Input 
-                                        placeholder="Search by name (e.g. Charizard)..." 
+                                      <Input
+                                        placeholder="Search by name (e.g. Charizard)..."
                                         value={sellSearchQuery}
                                         onChange={(e) => handleSellSearch(e.target.value)}
                                         className="pl-10 h-11"
                                       />
                                     </div>
-                                    
+
                                     {sellSearchResults.length > 0 && (
                                       <Card className="absolute z-50 w-full mt-1 shadow-2xl max-h-[300px] overflow-y-auto border-primary/20">
                                         <CardContent className="p-0">
                                           {sellSearchResults.map((card) => (
-                                            <div 
+                                            <div
                                               key={card.id}
                                               className="flex items-center gap-3 p-3 hover:bg-primary/5 cursor-pointer transition-colors border-b border-border last:border-0"
                                               onClick={() => {
@@ -1632,12 +1817,43 @@ export default function MarketplacePage() {
                                         <SelectContent>
                                           <SelectItem value="EN">🇺🇸 English</SelectItem>
                                           <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
-                                          <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
-                                          <SelectItem value="DE">🇩🇪 German</SelectItem>
                                           <SelectItem value="FR">🇫🇷 French</SelectItem>
+                                          <SelectItem value="DE">🇩🇪 German</SelectItem>
                                           <SelectItem value="IT">🇮🇹 Italian</SelectItem>
+                                          <SelectItem value="PT">🇵🇹 Portuguese</SelectItem>
                                         </SelectContent>
                                       </Select>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-secondary/20 rounded-xl">
+                                    <div className="flex flex-col gap-2">
+                                      <label className="text-[10px] font-black uppercase text-muted-foreground">Reverse</label>
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox checked={isReverse} onCheckedChange={(checked) => setIsReverse(!!checked)} id="reverse" />
+                                        <label htmlFor="reverse" className="text-xs cursor-pointer">Holo</label>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                      <label className="text-[10px] font-black uppercase text-muted-foreground">Signed</label>
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox checked={isSigned} onCheckedChange={(checked) => setIsSigned(!!checked)} id="signed" />
+                                        <label htmlFor="signed" className="text-xs cursor-pointer">Yes</label>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                      <label className="text-[10px] font-black uppercase text-muted-foreground">Altered</label>
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox checked={isAltered} onCheckedChange={(checked) => setIsAltered(!!checked)} id="altered" />
+                                        <label htmlFor="altered" className="text-xs cursor-pointer">Yes</label>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                      <label className="text-[10px] font-black uppercase text-muted-foreground">1st Ed.</label>
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox checked={isFirstEdition} onCheckedChange={(checked) => setIsFirstEdition(!!checked)} id="first" />
+                                        <label htmlFor="first" className="text-xs cursor-pointer">Yes</label>
+                                      </div>
                                     </div>
                                   </div>
 
@@ -1645,10 +1861,10 @@ export default function MarketplacePage() {
                                     <div className="space-y-2">
                                       <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Price (€)</label>
                                       <div className="relative">
-                                        <Input 
-                                          type="number" 
-                                          placeholder="0.00" 
-                                          step="0.01" 
+                                        <Input
+                                          type="number"
+                                          placeholder="0.00"
+                                          step="0.01"
                                           value={listingPrice}
                                           onChange={(e) => setListingPrice(e.target.value)}
                                           className="h-11 pr-8"
@@ -1658,16 +1874,16 @@ export default function MarketplacePage() {
                                     </div>
                                     <div className="space-y-2">
                                       <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Quantity</label>
-                                      <Input 
-                                        type="number" 
-                                        value={listingQuantity} 
-                                        onChange={(e) => setListingQuantity(e.target.value)} 
-                                        min="1" 
+                                      <Input
+                                        type="number"
+                                        value={listingQuantity}
+                                        onChange={(e) => setListingQuantity(e.target.value)}
+                                        min="1"
                                         className="h-11"
                                       />
                                     </div>
                                   </div>
-                                  
+
                                   {listingPrice && parseFloat(listingPrice) > 0 && (
                                     <div className="p-3 bg-secondary/50 rounded-lg flex items-center justify-between text-xs font-bold uppercase tracking-tighter">
                                       <span className="text-muted-foreground">Market Fee (2%): -{(parseFloat(listingPrice) * 0.02).toFixed(2)}€</span>
@@ -1692,10 +1908,10 @@ export default function MarketplacePage() {
                                             <p className="text-[10px] text-muted-foreground uppercase">Real photos increase trust by 400%</p>
                                           </div>
                                         )}
-                                        <input 
-                                          type="file" 
-                                          className="hidden" 
-                                          accept="image/*" 
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          accept="image/*"
                                           onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) {
@@ -1713,7 +1929,7 @@ export default function MarketplacePage() {
 
                                   <div className="space-y-2">
                                     <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Additional Info</label>
-                                    <textarea 
+                                    <textarea
                                       className="w-full h-32 rounded-xl border border-border bg-background p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
                                       placeholder="Centering, holo bleed, specific wear details..."
                                       value={listingDescription}
@@ -1721,8 +1937,8 @@ export default function MarketplacePage() {
                                     />
                                   </div>
 
-                                  <Button 
-                                    className="w-full h-12 text-lg font-black uppercase tracking-widest shadow-xl shadow-primary/20" 
+                                  <Button
+                                    className="w-full h-12 text-lg font-black uppercase tracking-widest shadow-xl shadow-primary/20"
                                     onClick={handleListForSale}
                                     disabled={isListing || !selectedSellCard || !listingPrice}
                                   >
@@ -1765,7 +1981,7 @@ export default function MarketplacePage() {
                                         {sale.status === "pending" ? "Pending Shipment" : "Shipped"}
                                       </Badge>
                                     </div>
-                                    
+
                                     <div className="grid gap-4 md:grid-cols-2 p-3 bg-secondary/30 rounded-lg">
                                       <div className="space-y-1">
                                         <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Item Details</p>
@@ -2070,8 +2286,8 @@ export default function MarketplacePage() {
                                         <div className="p-2 border-b">
                                           <div className="relative">
                                             <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input 
-                                              placeholder="Search sets..." 
+                                            <Input
+                                              placeholder="Search sets..."
                                               value={setSearchTerm}
                                               onChange={(e) => setSetSearchTerm(e.target.value)}
                                               className="pl-8 h-8 text-xs"
@@ -2081,7 +2297,7 @@ export default function MarketplacePage() {
                                         </div>
                                         <div className="max-h-[200px] overflow-y-auto">
                                           {allSets
-                                            .filter(set => set.name.toLowerCase().includes(setSearchTerm.toLowerCase()) || set.id.toLowerCase().includes(setSearchTerm.toLowerCase()))
+                                            .filter(set => (set.name.toLowerCase().includes(setSearchTerm.toLowerCase()) || set.id.toLowerCase().includes(setSearchTerm.toLowerCase())) && (user?.ownedEnglishCards?.some(id => id.startsWith(set.id))))
                                             .map(set => (
                                               <SelectItem key={set.id} value={set.id}>
                                                 {set.name} ({set.id})
@@ -2177,20 +2393,44 @@ export default function MarketplacePage() {
                                 </DialogHeader>
                                 <div className="space-y-4 py-4">
                                   <div className="flex gap-2">
-                                    <Input 
-                                      placeholder="Search card by name..." 
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          // Implement card search for wants list
-                                        }
-                                      }}
-                                    />
-                                    <Button size="icon">
-                                      <Search className="h-4 w-4" />
-                                    </Button>
+                                    <div className="relative flex-1">
+                                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                      <Input
+                                        placeholder="Search card by name..."
+                                        value={wantsSearchQuery}
+                                        onChange={(e) => handleWantsCardSearch(e.target.value)}
+                                        className="pl-10"
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="min-h-[200px] rounded-lg border border-dashed flex items-center justify-center text-muted-foreground text-sm">
-                                    Search for a card to add it to your list.
+                                  <div className="min-h-[200px] max-h-[400px] overflow-y-auto rounded-lg border border-border">
+                                    {isSearchingWantsCards ? (
+                                      <div className="flex items-center justify-center h-full py-10">
+                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                      </div>
+                                    ) : wantsSearchResults.length > 0 ? (
+                                      <div className="divide-y divide-border">
+                                        {wantsSearchResults.map((card) => (
+                                          <div key={card.id} className="flex items-center gap-3 p-3 hover:bg-secondary/50 transition-colors">
+                                            <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden">
+                                              <img src={card.images?.small} alt="" className="h-full w-full object-contain" />
+                                            </div>
+                                            <div className="flex-1">
+                                              <p className="font-bold text-sm">{card.name}</p>
+                                              <p className="text-xs text-muted-foreground">{card.set?.name || card.set} - {card.number}</p>
+                                            </div>
+                                            <Button size="sm" onClick={() => handleAddToSpecificWantsList(card)}>
+                                              <Plus className="h-4 w-4" />
+                                            </Button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center justify-center h-full py-10 text-muted-foreground text-sm">
+                                        <Search className="h-10 w-10 mb-2 opacity-20" />
+                                        <p>Search for a card to add it to your list.</p>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </DialogContent>
@@ -2210,21 +2450,22 @@ export default function MarketplacePage() {
                                     >
                                       {item.owned && <Check className="h-3 w-3" />}
                                     </button>
-                                    <div className="flex h-14 w-10 items-center justify-center rounded bg-muted">
-                                      <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                    <div className="aspect-[3/4] h-16 bg-muted rounded overflow-hidden flex items-center justify-center p-0.5 bg-white shadow-inner">
+                                      {item.image ? (
+                                        <img src={item.image} alt="" className="h-full w-full object-contain" />
+                                      ) : (
+                                        <ImageIcon className="h-6 w-6 text-muted-foreground/20" />
+                                      )}
                                     </div>
                                     <div className="flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <h4 className={`font-medium ${item.owned ? 'line-through' : ''}`}>{item.name}</h4>
-                                        <Badge variant="outline" className="text-[10px]">{item.number}</Badge>
-                                        <span className="text-xs font-bold text-primary">x{item.count}</span>
+                                      <div className="flex items-center gap-3">
+                                        <h4 className={`font-black text-lg ${item.owned ? 'line-through text-muted-foreground' : ''}`}>{item.name}</h4>
+                                        <Badge variant="outline" className="text-[10px] font-bold">{item.number}</Badge>
+                                        <span className="text-sm font-black text-primary bg-primary/5 px-2 py-0.5 rounded">x{item.count}</span>
                                       </div>
-                                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                                        <span>{item.set}</span>
-                                        <span className="bg-secondary/50 px-1 rounded text-[10px]">{item.condition}</span>
-                                        <Badge className={`text-[10px] h-4 ${getPriorityColor(item.priority)}`}>
-                                          {item.priority}
-                                        </Badge>
+                                      <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground mt-1.5">
+                                        <span className="hover:text-foreground transition-colors cursor-default">{item.set}</span>
+                                        <span className="bg-secondary/80 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{item.condition}</span>
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -2241,8 +2482,8 @@ export default function MarketplacePage() {
                                           <div className="space-y-4 py-4">
                                             <div className="space-y-2">
                                               <label className="text-xs font-bold uppercase">Quantity</label>
-                                              <Input 
-                                                type="number" 
+                                              <Input
+                                                type="number"
                                                 defaultValue={item.count}
                                                 onChange={(e) => {
                                                   const newCount = parseInt(e.target.value);
@@ -2254,7 +2495,7 @@ export default function MarketplacePage() {
                                             </div>
                                             <div className="space-y-2">
                                               <label className="text-xs font-bold uppercase">Condition</label>
-                                              <Select 
+                                              <Select
                                                 defaultValue={item.condition}
                                                 onValueChange={(val) => handleUpdateItem(selectedList.id, item.id, { condition: val })}
                                               >
@@ -2272,7 +2513,7 @@ export default function MarketplacePage() {
                                             </div>
                                             <div className="space-y-2">
                                               <label className="text-xs font-bold uppercase">Priority</label>
-                                              <Select 
+                                              <Select
                                                 defaultValue={item.priority}
                                                 onValueChange={(val: any) => handleUpdateItem(selectedList.id, item.id, { priority: val })}
                                               >
@@ -2289,9 +2530,9 @@ export default function MarketplacePage() {
                                           </div>
                                         </DialogContent>
                                       </Dialog>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
                                         className="h-8 w-8 hover:bg-red-50 hover:text-red-500"
                                         onClick={() => handleRemoveFromList(selectedList.id, item.id)}
                                       >
@@ -2341,97 +2582,209 @@ export default function MarketplacePage() {
                 {/* Cart Tab */}
                 <TabsContent value="cart">
                   <div className="grid gap-8 lg:grid-cols-3">
-                    <div className="lg:col-span-2">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <ShoppingCart className="h-5 w-5" />
-                            Your Shopping Cart ({cartItems.length} items)
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="divide-y divide-border">
-                             {cartItems.map((item) => (
-                              <div key={item.id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
-                                <div className="h-24 w-16 bg-muted rounded overflow-hidden flex items-center justify-center">
-                                  {item.imageUrl ? (
-                                    <img src={item.imageUrl} alt={item.name} className="h-full w-full object-contain" />
-                                  ) : (
-                                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                  )}
+                    <div className="lg:col-span-2 space-y-6">
+                      {cartItems.length > 0 ? (() => {
+                        // Group items by seller
+                        const groupedBySeller: Record<string, { sellerId: string, sellerName: string, country: string, items: any[] }> = {};
+                        cartItems.forEach(item => {
+                          const sellerId = item.sellerId || 'unknown';
+                          if (!groupedBySeller[sellerId]) {
+                            groupedBySeller[sellerId] = {
+                              sellerId: sellerId,
+                              sellerName: item.sellerName || item.seller || 'Unknown Seller',
+                              country: item.sellerCountry || 'ES',
+                              items: []
+                            };
+                          }
+                          groupedBySeller[sellerId].items.push(item);
+                        });
+
+                        return Object.values(groupedBySeller).map(sellerGroup => {
+                          const sellerSubtotal = sellerGroup.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                          const shippingInfo = shippingPrices[sellerGroup.country] || shippingPrices['ES'];
+                          const isCertifiedForced = sellerSubtotal > 50;
+                          
+                          return (
+                            <Card key={sellerGroup.sellerId} className="overflow-hidden border-none shadow-md bg-card/50">
+                              <CardHeader className="bg-secondary/20 py-3 flex flex-row items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xl">{shippingInfo.flag}</span>
+                                  <div>
+                                    <h3 className="font-bold text-sm uppercase tracking-tight">{sellerGroup.sellerName}</h3>
+                                    <p className="text-[10px] text-muted-foreground font-medium">{shippingInfo.name}</p>
+                                  </div>
                                 </div>
-                                <div className="flex flex-1 flex-col justify-between">
-                                  <div className="flex justify-between">
-                                    <div>
-                                      <h4 className="font-medium">{item.name}</h4>
-                                      <p className="text-sm text-muted-foreground">{item.set}</p>
-                                      <div className="mt-1 flex items-center gap-2">
-                                        <Badge variant="outline" className="text-xs">
-                                          {item.condition}
-                                        </Badge>
-                                        <span className="text-xs text-muted-foreground">Seller: {item.seller}</span>
+                                <div className="text-right">
+                                  <p className="text-xs font-bold text-muted-foreground uppercase">Seller Subtotal</p>
+                                  <p className="text-lg font-black text-primary">{sellerSubtotal.toFixed(2)}€</p>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="p-0">
+                                <div className="divide-y divide-border/50">
+                                  {sellerGroup.items.map((item) => (
+                                    <div key={item.id} className="flex gap-4 p-4 hover:bg-secondary/5 transition-colors">
+                                      <div className="aspect-[3/4] h-20 bg-white rounded-md shadow-sm overflow-hidden p-0.5 flex items-center justify-center">
+                                        {item.image || item.imageUrl ? (
+                                          <img src={item.image || item.imageUrl} alt={item.name} className="h-full w-full object-contain" />
+                                        ) : (
+                                          <ImageIcon className="h-6 w-6 text-muted-foreground/20" />
+                                        )}
+                                      </div>
+                                      <div className="flex-1 flex flex-col justify-between py-1">
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                            <h4 className="font-black text-base tracking-tight">{item.name}</h4>
+                                            <p className="text-xs text-muted-foreground font-medium">{item.set}</p>
+                                            <div className="mt-1.5 flex items-center gap-2">
+                                              <Badge className={`${getConditionColor(item.condition)} border-none font-bold text-[10px] px-1.5 py-0 rounded-full`}>
+                                                {item.condition}
+                                              </Badge>
+                                              <div className="flex items-center gap-1 bg-secondary/80 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                                {getLanguageFlag(item.language)} {item.language}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="font-black text-lg">{item.price.toFixed(2)}€</p>
+                                            <p className="text-[10px] text-muted-foreground">Each</p>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center justify-between mt-3">
+                                          <div className="flex items-center gap-3 bg-background/50 rounded-full border border-border p-1">
+                                            <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary"
+                                              onClick={() => handleUpdateCartQuantity(item.id, -1)}
+                                            >
+                                              <Minus className="h-3 w-3" />
+                                            </Button>
+                                            <span className="w-6 text-center text-xs font-black">{item.quantity}</span>
+                                            <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary"
+                                              onClick={() => handleUpdateCartQuantity(item.id, 1)}
+                                            >
+                                              <Plus className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 text-destructive hover:text-destructive hover:bg-destructive/5 gap-1.5 text-[10px] font-black uppercase tracking-widest"
+                                            onClick={() => handleRemoveFromCart(item.id)}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                            Remove
+                                          </Button>
+                                        </div>
                                       </div>
                                     </div>
-                                    <span className="font-bold">{item.price.toFixed(2)}€</span>
+                                  ))}
+                                </div>
+                                <div className="p-4 bg-secondary/10 border-t border-border flex items-center justify-between">
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Shipping Method</label>
+                                    {isCertifiedForced ? (
+                                      <div className="flex items-center gap-2 text-xs font-bold text-primary">
+                                        <Check className="h-3 w-3" />
+                                        Certified Shipping (Required for orders &gt;50€)
+                                      </div>
+                                    ) : (
+                                      <Select defaultValue="ordinary">
+                                        <SelectTrigger className="h-8 w-48 text-xs font-bold bg-background">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="ordinary">Ordinary Shipping ({shippingInfo.min.toFixed(2)}€)</SelectItem>
+                                          <SelectItem value="certified">Certified Shipping ({shippingInfo.max.toFixed(2)}€)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    )}
                                   </div>
-                                  <div className="flex items-center justify-between mt-4">
-                                    <div className="flex items-center gap-2 rounded-md border border-border px-2 py-1">
-                                      <button 
-                                        className="text-muted-foreground hover:text-foreground"
-                                        onClick={() => handleUpdateCartQuantity(item.id, -1)}
-                                      >
-                                        <Minus className="h-4 w-4" />
-                                      </button>
-                                      <span className="w-8 text-center text-sm">{item.quantity}</span>
-                                      <button 
-                                        className="text-muted-foreground hover:text-foreground"
-                                        onClick={() => handleUpdateCartQuantity(item.id, 1)}
-                                      >
-                                        <Plus className="h-4 w-4" />
-                                      </button>
-                                    </div>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="text-destructive gap-2"
-                                      onClick={() => handleRemoveFromCart(item.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                      Remove
-                                    </Button>
+                                  <div className="text-right">
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Shipping Price</p>
+                                    <p className="text-base font-black">{(isCertifiedForced ? shippingInfo.max : shippingInfo.min).toFixed(2)}€</p>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              </CardContent>
+                            </Card>
+                          );
+                        });
+                      })() : (
+                        <Card className="flex flex-col items-center justify-center py-24 text-center border-dashed">
+                          <div className="h-20 w-20 bg-muted rounded-full flex items-center justify-center mb-6">
+                            <ShoppingCart className="h-10 w-10 text-muted-foreground/20" />
                           </div>
-                        </CardContent>
-                      </Card>
+                          <h3 className="text-2xl font-black uppercase tracking-tighter">Your cart is empty</h3>
+                          <p className="text-muted-foreground mt-2 max-w-xs">Looks like you haven't added any cards yet. Time to hunt for some grails!</p>
+                          <Button className="mt-8 px-8 h-12 font-black uppercase tracking-widest shadow-xl shadow-primary/20" onClick={() => setActiveTab("buy")}>
+                            Start Shopping
+                          </Button>
+                        </Card>
+                      )}
                     </div>
                     <div className="lg:col-span-1">
-                      <Card>
+                      <Card className="sticky top-24 shadow-2xl border-primary/10 overflow-hidden">
+                        <div className="h-2 bg-primary w-full" />
                         <CardHeader>
-                          <CardTitle>Order Summary</CardTitle>
+                          <CardTitle className="font-black uppercase tracking-tighter text-xl italic">Checkout Summary</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Subtotal</span>
-                            <span>{cartTotal.toFixed(2)}€</span>
+                        <CardContent className="space-y-6">
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-sm font-medium">
+                              <span className="text-muted-foreground uppercase tracking-widest text-[10px] font-black">Subtotal ({cartItems.length} items)</span>
+                              <span className="font-bold">{cartTotal.toFixed(2)}€</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-medium">
+                              <span className="text-muted-foreground uppercase tracking-widest text-[10px] font-black">Total Shipping</span>
+                              <span className="font-bold">
+                                {(() => {
+                                  const grouped: Record<string, string> = {};
+                                  cartItems.forEach(item => { grouped[item.sellerId || 'unknown'] = item.sellerCountry || 'ES'; });
+                                  return Object.entries(grouped).reduce((total, [sid, country]) => {
+                                    const sellerItems = cartItems.filter(i => (i.sellerId || 'unknown') === sid);
+                                    const subtotal = sellerItems.reduce((s, i) => s + i.price * i.quantity, 0);
+                                    const sinfo = shippingPrices[country] || shippingPrices['ES'];
+                                    return total + (subtotal > 50 ? sinfo.max : sinfo.min);
+                                  }, 0).toFixed(2);
+                                })()}€
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Shipping</span>
-                            <span>{cartItems.length > 0 ? "4.99€" : "0.00€"}</span>
+                          
+                          <Separator className="bg-border/50" />
+                          
+                          <div className="flex justify-between items-end">
+                            <span className="text-lg font-black uppercase tracking-tighter italic">Total Payable</span>
+                            <span className="text-4xl font-black text-primary tracking-tighter">
+                              {(() => {
+                                const grouped: Record<string, string> = {};
+                                cartItems.forEach(item => { grouped[item.sellerId || 'unknown'] = item.sellerCountry || 'ES'; });
+                                const ship = Object.entries(grouped).reduce((total, [sid, country]) => {
+                                  const sellerItems = cartItems.filter(i => (i.sellerId || 'unknown') === sid);
+                                  const subtotal = sellerItems.reduce((s, i) => s + i.price * i.quantity, 0);
+                                  const sinfo = shippingPrices[country] || shippingPrices['ES'];
+                                  return total + (subtotal > 50 ? sinfo.max : sinfo.min);
+                                }, 0);
+                                return (cartTotal + ship).toFixed(2);
+                              })()}€
+                            </span>
                           </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Tax</span>
-                            <span>{(cartTotal * 0.08).toFixed(2)}€</span>
+                          
+                          <div className="pt-4 space-y-3">
+                            <Button className="w-full h-14 text-lg font-black uppercase tracking-widest shadow-xl shadow-primary/20 group relative overflow-hidden" size="lg">
+                              <span className="relative z-10 flex items-center gap-2">
+                                Complete Purchase
+                                <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                              </span>
+                              <div className="absolute inset-0 bg-gradient-to-r from-primary to-accent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </Button>
+                            <p className="text-[10px] text-center text-muted-foreground uppercase font-medium">
+                              Secure checkout powered by TCG Temple Pay
+                            </p>
                           </div>
-                          <div className="border-t border-border pt-4 flex justify-between font-bold text-lg">
-                            <span>Total</span>
-                            <span>{(cartTotal + (cartItems.length > 0 ? 4.99 : 0) + cartTotal * 0.08).toFixed(2)}€</span>
-                          </div>
-                          <Button className="w-full mt-4" size="lg">
-                            Checkout
-                          </Button>
                         </CardContent>
                       </Card>
                     </div>

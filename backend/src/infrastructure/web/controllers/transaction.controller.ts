@@ -1,11 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { TransactionRepository } from '../../../domain/repositories/transaction.repository';
 import { SaleRepository } from '../../../domain/repositories/sale.repository';
+import { TransactionStatus } from '../../../domain/entities/transaction.entity';
 import {
   CreateTransactionUseCase,
   GetTransactionUseCase,
   ListTransactionsUseCase,
-  UpdateTransactionStatusUseCase
+  UpdateTransactionStatusUseCase,
+  GetPriceHistoryUseCase,
+  CreateTransactionDto
 } from '../../../application/use-cases';
 import { db } from '../../database/postgres/database';
 
@@ -14,13 +17,15 @@ export class TransactionController {
     private readonly transactionRepository: TransactionRepository,
     private readonly saleRepository: SaleRepository
   ) {}
+
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const dto = req.body as CreateTransactionDto;
       const transaction = await new CreateTransactionUseCase(
         this.transactionRepository, 
         this.saleRepository,
         db
-      ).execute(req.body);
+      ).execute(dto);
       res.status(201).json(transaction);
     } catch (err) {
       next(err);
@@ -56,13 +61,23 @@ export class TransactionController {
 
   updateStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { status, userId } = req.body;
+      const status = req.body.status as TransactionStatus;
+      const userId = String(req.body.userId);
       const transaction = await new UpdateTransactionStatusUseCase(this.transactionRepository, this.saleRepository).execute(
         String(req.params['id']),
         status,
         userId
       );
       res.json(transaction);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  getPriceHistory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const history = await new GetPriceHistoryUseCase(this.transactionRepository).execute(String(req.params['cardId']));
+      res.json(history);
     } catch (err) {
       next(err);
     }

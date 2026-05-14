@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { CardRepository } from '../../../domain/repositories/card.repository';
 import { TcgRepository } from '../../../domain/repositories/tcg.repository';
 import { TransactionRepository } from '../../../domain/repositories/transaction.repository';
+import { SaleRepository } from '../../../domain/repositories/sale.repository';
 import {
   GetAllCardsUseCase,
   GetCardByIdUseCase,
@@ -17,7 +18,8 @@ export class CardController {
   constructor(
     private readonly cardRepository: CardRepository,
     private readonly tcgRepository: TcgRepository,
-    private readonly transactionRepository: TransactionRepository
+    private readonly transactionRepository: TransactionRepository,
+    private readonly saleRepository: SaleRepository
   ) {}
 
   getAll = async (_req: Request, res: Response, next: NextFunction) => {
@@ -99,9 +101,10 @@ export class CardController {
       const filters = {
         name: req.query.name as string,
         set: req.query.set as string,
-        number: req.query.number as string
+        number: req.query.number as string,
+        language: req.query.language as string
       };
-      const cards = await new SearchCardsUseCase(this.tcgRepository).execute(filters);
+      const cards = await new SearchCardsUseCase(this.tcgRepository, this.saleRepository).execute(filters);
       res.json(cards);
     } catch (err) {
       next(err);

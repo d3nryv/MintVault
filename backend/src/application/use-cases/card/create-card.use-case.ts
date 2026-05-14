@@ -25,7 +25,7 @@ export class CreateCardUseCase {
         rarity: tcgCard.rarity || 'Common',
         price: dto.price ?? 0,
         stock: dto.stock ?? 1,
-        source: 'TCG_SDK',
+        source: tcgCard.set.name,
         description: `Set: ${tcgCard.set.name} (${tcgCard.set.series})`,
         ownerId: dto.ownerId ?? null,
         language: dto.language ?? 'English',
@@ -46,6 +46,7 @@ export class CreateCardUseCase {
             images: tcgCard.images,
             set: tcgCard.set
         },
+        tcgId: tcgCard.id
     };
 
     return this.cardRepository.create(cardData);
