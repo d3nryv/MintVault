@@ -1,29 +1,30 @@
-import { SaleEntity } from "../../../domain/entities/sale.entity";
 import { SaleRepository } from "../../../domain/repositories/sale.repository";
+import { CardRepository } from "../../../domain/repositories/card.repository";
+import { UserRepository } from "../../../domain/repositories/user.repository";
 import { CustomError } from "../../../domain/errors/custom.error";
+import { SaleResponseDto } from "../../dtos/sale.dto";
 
 export class GetSaleUseCase {
-  constructor(private readonly saleRepository: SaleRepository) {}
+  constructor(
+    private readonly saleRepository: SaleRepository,
+    private readonly cardRepository: CardRepository,
+    private readonly userRepository: UserRepository
+  ) {}
 
-  async execute(id: string): Promise<SaleEntity> {
+  async execute(id: string): Promise<SaleResponseDto> {
     const sale = await this.saleRepository.findById(id);
     if (!sale) throw CustomError.notFound('Sale not found');
-    return sale;
-  }
-}
 
-export class GetAllSalesUseCase {
-  constructor(private readonly saleRepository: SaleRepository) {}
+    const card = await this.cardRepository.findById(sale.cardId);
+    const seller = await this.userRepository.findById(sale.sellerId);
 
-  async execute(): Promise<SaleEntity[]> {
-    return await this.saleRepository.findAll();
-  }
-}
-
-export class ListSalesBySellerUseCase {
-  constructor(private readonly saleRepository: SaleRepository) {}
-
-  async execute(sellerId: string): Promise<SaleEntity[]> {
-    return await this.saleRepository.findAllBySeller(sellerId);
+    return {
+      ...sale,
+      cardName: card?.name || 'Unknown Card',
+      cardSet: card?.source || 'Unknown Set',
+      cardImage: card?.metadata?.['images']?.['small'] || '',
+      sellerName: seller?.username || 'Unknown Seller',
+      tcgId: card?.tcgId
+    } as SaleResponseDto;
   }
 }

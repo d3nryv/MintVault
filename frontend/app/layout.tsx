@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/context/auth-context"
+import { MarketplaceProvider } from "@/context/marketplace-context"
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
@@ -45,7 +46,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
+            <MarketplaceProvider>
+              {children}
+            </MarketplaceProvider>
             {process.env.NODE_ENV === 'production' && <Analytics />}
           </AuthProvider>
         </ThemeProvider>

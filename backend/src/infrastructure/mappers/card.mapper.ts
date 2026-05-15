@@ -21,7 +21,8 @@ export class CardMapper {
             row.acquired_at || null,
             row.created_at,
             row.updated_at,
-            row.metadata || {}
+            row.metadata || {},
+            row.metadata?.tcg_id
         );
     }
 

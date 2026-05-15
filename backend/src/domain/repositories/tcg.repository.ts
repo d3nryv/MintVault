@@ -28,4 +28,5 @@ export interface TcgPlayerInfo {
 export abstract class TcgRepository {
   abstract getCardById(id: string): Promise<TcgPlayerInfo | null>;
   abstract findCardsByName(name: string): Promise<TcgPlayerInfo[]>;
+  abstract searchCards(filters: { name?: string; set?: string; number?: string }): Promise<TcgPlayerInfo[]>;
 }

@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, CheckCircle2, Loader2, User, Mail, Save, ArrowLeft } from "lucide-react"
+import { MapPin, AlertCircle, CheckCircle2, Loader2, User, Mail, Save, ArrowLeft } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { COUNTRIES } from "@/lib/countries"
 
 export default function ProfilePage() {
   const { user, updateUser, isLoading: isAuthLoading } = useAuth()
@@ -17,6 +19,7 @@ export default function ProfilePage() {
   
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
+  const [country, setCountry] = useState("ES")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -28,6 +31,7 @@ export default function ProfilePage() {
     if (user) {
       setUsername(user.username)
       setEmail(user.email)
+      setCountry(user.country || "ES")
     }
   }, [user, isAuthLoading, router])
 
@@ -45,13 +49,13 @@ export default function ProfilePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, email }),
+        body: JSON.stringify({ username, email, country }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        updateUser({ username, email })
+        updateUser({ username, email, country })
         setSuccess("Profile updated successfully!")
       } else {
         setError(data.error || "Failed to update profile")
@@ -171,6 +175,26 @@ export default function ProfilePage() {
                         required
                         className="bg-background/50 border-border/50 focus:ring-primary h-11"
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        Location / Country
+                      </Label>
+                      <Select value={country} onValueChange={setCountry}>
+                        <SelectTrigger className="bg-background/50 border-border/50 focus:ring-primary h-11">
+                          <SelectValue placeholder="Select your country" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {COUNTRIES.map((c) => (
+                            <SelectItem key={c.code} value={c.code}>
+                              {c.name} ({c.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground">Used to calculate shipping rates for your buyers.</p>
                     </div>
                   </div>
                 </CardContent>

@@ -10,15 +10,26 @@ import {
   DeleteSaleUseCase,
 } from '../../../application/use-cases';
 
+import { UserRepository } from '../../../domain/repositories/user.repository';
+
+import { TransactionRepository } from '../../../domain/repositories/transaction.repository';
+
 export class SaleController {
   constructor(
     private readonly saleRepository: SaleRepository,
-    private readonly cardRepository: CardRepository
+    private readonly cardRepository: CardRepository,
+    private readonly userRepository: UserRepository,
+    private readonly transactionRepository: TransactionRepository
   ) {}
 
   getAll = async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const sales = await new GetAllSalesUseCase(this.saleRepository).execute();
+      const sales = await new GetAllSalesUseCase(
+        this.saleRepository, 
+        this.cardRepository, 
+        this.userRepository,
+        this.transactionRepository
+      ).execute();
       res.json(sales);
     } catch (err) {
       next(err);
@@ -36,7 +47,7 @@ export class SaleController {
 
   getById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const sale = await new GetSaleUseCase(this.saleRepository).execute(String(req.params['id']));
+      const sale = await new GetSaleUseCase(this.saleRepository, this.cardRepository, this.userRepository).execute(String(req.params['id']));
       res.json(sale);
     } catch (err) {
       next(err);
@@ -45,7 +56,7 @@ export class SaleController {
 
   getBySeller = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const sales = await new ListSalesBySellerUseCase(this.saleRepository).execute(String(req.params['userId']));
+      const sales = await new ListSalesBySellerUseCase(this.saleRepository, this.cardRepository, this.userRepository).execute(String(req.params['userId']));
       res.json(sales);
     } catch (err) {
       next(err);

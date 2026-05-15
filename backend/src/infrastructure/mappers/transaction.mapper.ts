@@ -14,6 +14,7 @@ export class TransactionMapper {
             row.status as TransactionStatus,
             row.payment_method,
             row.shipping_address,
+            row.reported_undelivered,
             row.created_at,
             row.updated_at
         );
@@ -30,6 +31,7 @@ export class TransactionMapper {
         if (transaction.status !== undefined) dbFields.status = transaction.status;
         if (transaction.paymentMethod !== undefined) dbFields.payment_method = transaction.paymentMethod;
         if (transaction.shippingAddress !== undefined) dbFields.shipping_address = transaction.shippingAddress;
+        if (transaction.reportedUndelivered !== undefined) dbFields.reported_undelivered = transaction.reportedUndelivered;
 
         return dbFields;
     }

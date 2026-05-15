@@ -67,4 +67,37 @@ export class PostgresSaleRepository implements SaleRepository {
         const query = 'DELETE FROM sales WHERE id = $1';
         await connection.query(query, [id]);
     }
+
+    async findRecent(limit: number): Promise<SaleEntity[]> {
+        const query = 'SELECT * FROM sales ORDER BY created_at DESC LIMIT $1';
+        const { rows } = await db.query(query, [limit]);
+        return rows.map(row => SaleMapper.toEntity(row));
+    }
+
+    async findLowestPricesByTcgIds(tcgIds: string[], language?: string): Promise<Record<string, number>> {
+        if (tcgIds.length === 0) return {};
+
+        let query = `
+            SELECT c.metadata->>'tcg_id' as tcg_id, MIN(s.price) as min_price
+            FROM sales s
+            JOIN cards c ON s.card_id = c.id
+            WHERE c.metadata->>'tcg_id' = ANY($1)
+        `;
+        const params: any[] = [tcgIds];
+
+        if (language && language !== 'all') {
+            query += ` AND s.language = $2`;
+            params.push(language);
+        }
+
+        query += ` GROUP BY c.metadata->>'tcg_id'`;
+
+        const { rows } = await db.query(query, params);
+        
+        const result: Record<string, number> = {};
+        rows.forEach(row => {
+            result[row.tcg_id] = parseFloat(row.min_price);
+        });
+        return result;
+    }
 }

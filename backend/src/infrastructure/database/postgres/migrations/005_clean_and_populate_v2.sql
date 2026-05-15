@@ -26,7 +26,7 @@ BEGIN
     INSERT INTO cards (
         owner_id, name, type, rarity, price, stock, source, language, is_for_sale, metadata
     ) VALUES (
-        master_user_id, 'Charizard-EX', 'Pokémon', 'Rare Holo EX', 150.00, 1, 'TCG_SDK', 'English', TRUE,
+        master_user_id, 'Charizard-EX', 'Pokémon', 'Rare Holo EX', 150.00, 1, 'Fates Collide', 'EN', TRUE,
         '{
             "tcg_id": "xy10-11",
             "hp": "180",
@@ -48,7 +48,7 @@ BEGIN
     INSERT INTO cards (
         owner_id, name, type, rarity, price, stock, source, language, is_for_sale, metadata
     ) VALUES (
-        noob_user_id, 'Umbreon-GX', 'Pokémon', 'Rare Holo GX', 85.50, 1, 'TCG_SDK', 'English', TRUE,
+        noob_user_id, 'Umbreon-GX', 'Pokémon', 'Rare Holo GX', 85.50, 1, 'Sun & Moon', 'EN', TRUE,
         '{
             "tcg_id": "sm1-80",
             "hp": "200",

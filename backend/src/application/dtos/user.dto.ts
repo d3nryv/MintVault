@@ -17,6 +17,8 @@ export interface CreateUserDto {
     favouritePokemon?: string[];
     wantList?: string[];
     cart?: string[];
+    country?: string;
+    balance?: number;
 }
 
 export interface UpdateUserDto {
@@ -40,6 +42,8 @@ export interface UpdateUserDto {
     favouritePokemon?: string[];
     wantList?: string[];
     cart?: string[];
+    country?: string;
+    balance?: number;
 }
 
 export interface LoginUserDto {

@@ -15,6 +15,7 @@ export class CardEntity {
     public acquiredAt: string | null,
     public createdAt: Date,
     public updatedAt: Date,
-    public metadata: Record<string, any> | null
+    public metadata: Record<string, any> | null,
+    public tcgId?: string
   ) {}
 }

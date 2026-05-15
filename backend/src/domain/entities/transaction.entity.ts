@@ -11,6 +11,7 @@ export class TransactionEntity {
     public status: TransactionStatus,
     public paymentMethod: string,
     public shippingAddress: string | null = null,
+    public reportedUndelivered: boolean = false,
     public createdAt: Date = new Date(),
     public updatedAt: Date = new Date()
   ) {}
@@ -25,6 +26,7 @@ export class TransactionEntity {
     status?: TransactionStatus;
     paymentMethod?: string;
     shippingAddress?: string;
+    reportedUndelivered?: boolean;
     createdAt?: Date;
     updatedAt?: Date;
   }): TransactionEntity {
@@ -38,6 +40,7 @@ export class TransactionEntity {
       props.status || 'pending',
       props.paymentMethod || 'other',
       props.shippingAddress || null,
+      props.reportedUndelivered || false,
       props.createdAt || new Date(),
       props.updatedAt || new Date()
     );

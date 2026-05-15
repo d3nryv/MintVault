@@ -30,7 +30,9 @@ export class CreateUserUseCase {
         favouritePokemon: dto.favouritePokemon ?? [],
         ownedDecks: [],
         wantList: dto.wantList ?? [],
-        cart: dto.cart ?? []
+        cart: dto.cart ?? [],
+        country: dto.country ?? 'ES',
+        balance: dto.balance ?? 0
     };
     return this.userRepository.create(userData);
   }
