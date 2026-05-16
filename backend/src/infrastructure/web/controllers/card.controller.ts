@@ -20,7 +20,7 @@ export class CardController {
     private readonly tcgRepository: TcgRepository,
     private readonly transactionRepository: TransactionRepository,
     private readonly saleRepository: SaleRepository
-  ) {}
+  ) { }
 
   getAll = async (_req: Request, res: Response, next: NextFunction) => {
     try {
@@ -57,7 +57,10 @@ export class CardController {
       }
       const card = await new CreateCardUseCase(this.cardRepository, this.tcgRepository).execute(req.body);
       res.status(201).json(card);
-    } catch (err) {
+    } catch (err: any) {
+      if (err.statusCode) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
       next(err);
     }
   };
@@ -89,7 +92,7 @@ export class CardController {
         this.transactionRepository,
         this.cardRepository
       ).execute(String(req.params['id']));
-      
+
       res.json(data);
     } catch (err) {
       next(err);

@@ -20,7 +20,7 @@ export class PostgresCardRepository implements CardRepository {
     async findById(id: string): Promise<CardEntity | null> {
         const query = 'SELECT * FROM cards WHERE id = $1';
         const { rows } = await db.query(query, [id]);
-        
+
         if (rows.length === 0) return null;
         return CardMapper.toEntity(rows[0]);
     }
@@ -30,12 +30,12 @@ export class PostgresCardRepository implements CardRepository {
         const keys = Object.keys(dbData);
         const values = Object.values(dbData);
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-        
+
         const query = `
             INSERT INTO cards (${keys.join(', ')}) 
             VALUES (${placeholders}) 
             RETURNING *`;
-        
+
         const { rows } = await db.query(query, values);
         return CardMapper.toEntity(rows[0]);
     }
@@ -44,7 +44,7 @@ export class PostgresCardRepository implements CardRepository {
         const dbData = CardMapper.toDatabase(card);
         const keys = Object.keys(dbData);
         const values = Object.values(dbData);
-        
+
         if (keys.length === 0) {
             const existing = await this.findById(id);
             if (!existing) throw new Error('Card not found');
@@ -53,7 +53,7 @@ export class PostgresCardRepository implements CardRepository {
 
         const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
         const query = `UPDATE cards SET ${setClause} WHERE id = $1 RETURNING *`;
-        
+
         const { rows } = await db.query(query, [id, ...values]);
         if (rows.length === 0) throw new Error('Card not found');
         return CardMapper.toEntity(rows[0]);

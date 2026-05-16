@@ -75,8 +75,10 @@ export class SaleController {
 
   delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = req.body.userId; // En un futuro esto vendría del JWT
-      await new DeleteSaleUseCase(this.saleRepository).execute(String(req.params['id']), userId);
+      const { id } = req.params;
+      const { userId } = req.body;
+      
+      await new DeleteSaleUseCase(this.saleRepository, this.cardRepository).execute(String(id), userId);
       res.status(204).send();
     } catch (err) {
       next(err);

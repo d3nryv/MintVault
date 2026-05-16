@@ -8,7 +8,7 @@ export class CreateCardUseCase {
   constructor(
     private readonly cardRepository: CardRepository,
     private readonly tcgRepository: TcgRepository
-  ) {}
+  ) { }
 
   async execute(dto: CreateCardDto): Promise<CardEntity> {
     if (!dto || !dto.tcgId) {
@@ -20,33 +20,33 @@ export class CreateCardUseCase {
     }
 
     const cardData: Omit<CardEntity, 'id' | 'createdAt' | 'updatedAt'> = {
-        name: tcgCard.name,
-        type: tcgCard.supertype,
-        rarity: tcgCard.rarity || 'Common',
-        price: dto.price ?? 0,
-        stock: dto.stock ?? 1,
-        source: tcgCard.set.name,
-        description: `Set: ${tcgCard.set.name} (${tcgCard.set.series})`,
-        ownerId: dto.ownerId ?? null,
-        language: dto.language ?? 'English',
-        isForSale: dto.isForSale ?? false,
-        saleId: null,
-        acquiredAt: new Date().toISOString(),
-        metadata: {
-            tcg_id: tcgCard.id,
-            hp: tcgCard.hp,
-            types: tcgCard.types,
-            subtypes: tcgCard.subtypes,
-            abilities: tcgCard.abilities,
-            attacks: tcgCard.attacks,
-            weaknesses: tcgCard.weaknesses,
-            resistances: tcgCard.resistances,
-            retreatCost: tcgCard.retreatCost,
-            flavorText: tcgCard.flavorText,
-            images: tcgCard.images,
-            set: tcgCard.set
-        },
-        tcgId: tcgCard.id
+      name: tcgCard.name,
+      type: tcgCard.supertype || 'Pokémon',
+      rarity: tcgCard.rarity || 'Common',
+      price: dto.price ?? 0,
+      stock: dto.stock ?? 1,
+      source: tcgCard.set?.name || 'Unknown Set',
+      description: `Set: ${tcgCard.set.name} (${tcgCard.set.series})`,
+      ownerId: dto.ownerId ?? null,
+      language: dto.language ?? 'English',
+      isForSale: dto.isForSale ?? false,
+      saleId: null,
+      acquiredAt: new Date().toISOString(),
+      metadata: {
+        tcg_id: tcgCard.id,
+        hp: tcgCard.hp,
+        types: tcgCard.types,
+        subtypes: tcgCard.subtypes,
+        abilities: tcgCard.abilities,
+        attacks: tcgCard.attacks,
+        weaknesses: tcgCard.weaknesses,
+        resistances: tcgCard.resistances,
+        retreatCost: tcgCard.retreatCost,
+        flavorText: tcgCard.flavorText,
+        images: tcgCard.images,
+        set: tcgCard.set
+      },
+      tcgId: tcgCard.id
     };
 
     return this.cardRepository.create(cardData);

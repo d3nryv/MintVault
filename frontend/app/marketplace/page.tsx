@@ -325,8 +325,10 @@ export default function MarketplacePage() {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
       setRealSales(data)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching sales:", error)
+      const message = error instanceof Error ? error.message : "Error fetching sales";
+      // Optional: set an error state to show in UI
     } finally {
       setIsLoadingSales(false)
     }
@@ -453,13 +455,16 @@ export default function MarketplacePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user?.id })
       })
-      if (!res.ok) throw new Error("Failed to delete listing")
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete listing");
+      }
       fetchUserSales()
       fetchSales()
       alert("Listing deleted successfully")
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error deleting sale", e)
-      alert("Error deleting listing")
+      alert(e.message || "Error deleting listing")
     }
   }
 
@@ -491,9 +496,8 @@ export default function MarketplacePage() {
           }
         })
       })
-      const cardData = await cardRes.json()
-
-      if (!cardRes.ok) throw new Error(cardData.message || "Error creating card")
+      const cardData = await cardRes.json().catch(() => ({}));
+      if (!cardRes.ok) throw new Error(cardData.error || cardData.message || "Error creating card")
 
       // 2. Create Sale Entity
       const saleRes = await fetch('http://127.0.0.1:3000/api/sales', {
