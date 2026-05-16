@@ -223,20 +223,30 @@ export default function MarketplacePage() {
   // Debounce for Sell Search
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (sellSearchQuery.length < 3 && sellSelectedSet === 'all') {
+      // Allow searching by set alone, or by query if >= 3 chars
+      if (!sellSearchQuery && sellSelectedSet === 'all') {
+        setSellSearchResults([])
+        return
+      }
+
+      if (sellSearchQuery && sellSearchQuery.length < 3 && sellSelectedSet === 'all') {
         setSellSearchResults([])
         return
       }
 
       setIsSearchingSellCards(true)
       try {
-        let url = `http://127.0.0.1:3000/api/cards/search?name=${encodeURIComponent(sellSearchQuery)}`
+        let url = `http://localhost:3000/api/cards/search?name=${encodeURIComponent(sellSearchQuery)}`
         if (sellSelectedSet !== 'all') {
           url += `&set=${encodeURIComponent(sellSelectedSet)}`
         }
         const response = await fetch(url)
         const data = await response.json()
-        setSellSearchResults(data.slice(0, 50)) // Show top 50
+        if (Array.isArray(data)) {
+          setSellSearchResults(data.slice(0, 50)) // Show top 50
+        } else {
+          setSellSearchResults([])
+        }
       } catch (error) {
         console.error("Error searching cards for sale:", error)
       } finally {
@@ -250,20 +260,30 @@ export default function MarketplacePage() {
   // Debounce for Wants Search
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (wantsSearchQuery.length < 3 && wantsSelectedSet === 'all') {
+      // Allow searching by set alone, or by query if >= 3 chars
+      if (!wantsSearchQuery && wantsSelectedSet === 'all') {
+        setWantsSearchResults([])
+        return
+      }
+
+      if (wantsSearchQuery && wantsSearchQuery.length < 3 && wantsSelectedSet === 'all') {
         setWantsSearchResults([])
         return
       }
 
       setIsSearchingWantsCards(true)
       try {
-        let url = `http://127.0.0.1:3000/api/cards/search?name=${encodeURIComponent(wantsSearchQuery)}`
+        let url = `http://localhost:3000/api/cards/search?name=${encodeURIComponent(wantsSearchQuery)}`
         if (wantsSelectedSet !== 'all') {
           url += `&set=${encodeURIComponent(wantsSelectedSet)}`
         }
         const response = await fetch(url)
         const data = await response.json()
-        setWantsSearchResults(data.slice(0, 20))
+        if (Array.isArray(data)) {
+          setWantsSearchResults(data.slice(0, 20))
+        } else {
+          setWantsSearchResults([])
+        }
       } catch (error) {
         console.error("Error searching cards for wants list:", error)
       } finally {
@@ -538,7 +558,7 @@ export default function MarketplacePage() {
     setIsListing(true)
     try {
       // 1. Create Card Entity
-      const cardRes = await fetch('http://127.0.0.1:3000/api/cards', {
+      const cardRes = await fetch('http://localhost:3000/api/cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -564,7 +584,7 @@ export default function MarketplacePage() {
       if (!cardRes.ok) throw new Error(cardData.error || cardData.message || "Error creating card")
 
       // 2. Create Sale Entity
-      const saleRes = await fetch('http://127.0.0.1:3000/api/sales', {
+      const saleRes = await fetch('http://localhost:3000/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2621,7 +2641,7 @@ export default function MarketplacePage() {
                                       <Input
                                         placeholder="Search card by name..."
                                         value={wantsSearchQuery}
-                                        onChange={(e) => handleWantsCardSearch(e.target.value)}
+                                        onChange={(e) => setWantsSearchQuery(e.target.value)}
                                         className="pl-10"
                                       />
                                     </div>
