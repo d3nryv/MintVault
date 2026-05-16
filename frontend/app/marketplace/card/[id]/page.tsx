@@ -187,7 +187,7 @@ export default function CardDetailPage() {
   const [filterLanguage, setFilterLanguage] = useState("all")
   const [filterLocations, setFilterLocations] = useState<string[]>([])
   const [filterSellerType, setFilterSellerType] = useState<string[]>([])
-  const [filterMaxPrice, setFilterMaxPrice] = useState(100)
+  const [filterMaxPrice, setFilterMaxPrice] = useState<number | "">("")
   const [filterMinQty, setFilterMinQty] = useState(1)
   const [filterExtras, setFilterExtras] = useState({
     reverse: "all",
@@ -384,8 +384,7 @@ export default function CardDetailPage() {
     if (filterLocations.length > 0 && !filterLocations.includes(l.country || "ES")) return false
 
     // Price
-    if (l.price > filterMaxPrice) return false
-
+    if (filterMaxPrice !== "" && l.price > Number(filterMaxPrice)) return false
     // Qty
     if (l.amount < filterMinQty) return false
 
@@ -653,7 +652,7 @@ export default function CardDetailPage() {
                           setFilterLanguage("all");
                           setFilterLocations([]);
                           setFilterSellerType([]);
-                          setFilterMaxPrice(100);
+                          setFilterMaxPrice("");
                           setFilterMinQty(1);
                         }}
                       >
@@ -818,10 +817,13 @@ export default function CardDetailPage() {
                           <Input
                             type="number"
                             value={filterMaxPrice}
-                            onChange={(e) => setFilterMaxPrice(Number(e.target.value))}
+                            onChange={(e) => setFilterMaxPrice(e.target.value === "" ? "" : Number(e.target.value))}
                             className="h-9 text-sm"
+                            placeholder="No limit"
                           />
-                          <p className="text-[10px] text-muted-foreground italic">Showing listings up to {filterMaxPrice}€</p>
+                          <p className="text-[10px] text-muted-foreground italic">
+                            {filterMaxPrice === "" ? "Showing all prices" : `Showing listings up to ${filterMaxPrice}€`}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -837,7 +839,8 @@ export default function CardDetailPage() {
                       <div className="col-span-1 text-center">Lang</div>
                       <div className="col-span-1 text-center">Adds</div>
                       <div className="col-span-1 text-center">Cond</div>
-                      <div className="col-span-3">Description</div>
+                      <div className="col-span-1 text-center">Photo</div>
+                      <div className="col-span-2">Description</div>
                       <div className="col-span-2 text-right">Price / Shipping</div>
                       <div className="col-span-1 text-center">Qty</div>
                       <div className="col-span-1"></div>
@@ -887,8 +890,48 @@ export default function CardDetailPage() {
                               </Badge>
                             </div>
 
+                            {/* Seller Photo */}
+                            <div className="col-span-1 flex justify-center">
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-7 w-7 rounded-full transition-colors ${listing.imageUrl
+                                      ? 'text-accent hover:bg-accent/10'
+                                      : 'text-muted-foreground/30 cursor-default'
+                                      }`}
+                                    disabled={!listing.imageUrl}
+                                    title={listing.imageUrl ? 'View seller photo' : 'No photo uploaded'}
+                                  >
+                                    <Camera className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DialogTrigger>
+                                {listing.imageUrl && (
+                                  <DialogContent className="max-w-md">
+                                    <DialogHeader>
+                                      <DialogTitle className="flex items-center gap-2">
+                                        <Camera className="h-4 w-4" />
+                                        Seller Photo — {listing.sellerName}
+                                      </DialogTitle>
+                                      <DialogDescription>
+                                        Photo uploaded by the seller for this listing.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="flex justify-center rounded-lg overflow-hidden bg-muted/40 p-4">
+                                      <img
+                                        src={listing.imageUrl}
+                                        alt={`Seller photo for ${listing.sellerName}`}
+                                        className="max-h-[420px] object-contain rounded-md shadow-lg"
+                                      />
+                                    </div>
+                                  </DialogContent>
+                                )}
+                              </Dialog>
+                            </div>
+
                             {/* Description (Center) */}
-                            <div className="col-span-3 min-w-0">
+                            <div className="col-span-2 min-w-0">
                               <p className="text-[11px] text-muted-foreground line-clamp-2 leading-tight italic">
                                 {listing.observations || "---"}
                               </p>

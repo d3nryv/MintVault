@@ -503,7 +503,7 @@ export default function MarketplacePage() {
           language: selectedLanguage,
           condition: selectedCondition,
           observations: listingDescription,
-          imageUrl: selectedSellCard.images?.small,
+          imageUrl: sellImagePreview || null,
           extras: {
             reverseHolo: isReverse,
             signed: isSigned,
