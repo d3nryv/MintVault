@@ -83,6 +83,7 @@ type WantsListItem = {
   condition: string
   priority: "High" | "Medium" | "Low"
   owned: boolean
+  imageUrl?: string
 }
 export interface WantsList {
   id: string
@@ -201,33 +202,7 @@ export default function MarketplacePage() {
     }
   }, [user])
 
-  // Sync wants lists with decks
-  useEffect(() => {
-    if (userDecks.length > 0 && wantsLists.length > 0) {
-      let changed = false;
-      const updatedLists = wantsLists.map(list => {
-        if (list.type === 'deck' && list.sourceId) {
-          const deck = userDecks.find(d => d.id.toString() === list.sourceId);
-          if (deck) {
-            // Remove items from wants list that are no longer in the deck
-            const deckCardIds = deck.cards.map((c: any) => c.card.id);
-            const newItems = list.items.filter(item => deckCardIds.includes(item.id));
-            
-            if (newItems.length !== list.items.length) {
-              changed = true;
-              return { ...list, items: newItems };
-            }
-          }
-        }
-        return list;
-      });
-      
-      if (changed) {
-        setWantsLists(updatedLists);
-        syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) });
-      }
-    }
-  }, [userDecks]);
+
 
   // Debounce for Sell Search
   useEffect(() => {
@@ -441,7 +416,8 @@ export default function MarketplacePage() {
       count: 1,
       condition: "Near Mint",
       priority: "Medium",
-      owned: false
+      owned: false,
+      imageUrl: card.images?.small
     }
 
     const updatedLists = wantsLists.map(list => {
@@ -648,6 +624,7 @@ export default function MarketplacePage() {
           condition: "Any",
           priority: "Medium" as const,
           owned: false,
+          imageUrl: item.card.images?.small
         }))
       }
     } else if (newListType === "collection" && selectedSourceId) {
@@ -670,6 +647,7 @@ export default function MarketplacePage() {
             condition: "Near Mint",
             priority: "Medium" as const,
             owned: false,
+            imageUrl: card.images?.small
           }))
         } catch (e) {
           console.error("Error importing set cards", e)
@@ -2459,7 +2437,12 @@ export default function MarketplacePage() {
                           <CardContent>
                             <div className="space-y-3">
                               {selectedList.items.length > 0 ? (
-                                selectedList.items.map((item: any) => (
+                                [...selectedList.items].sort((a, b) => {
+                                  if (a.set !== b.set) return a.set.localeCompare(b.set)
+                                  const numA = parseInt(String(a.number).replace(/\\D/g, '')) || 0
+                                  const numB = parseInt(String(b.number).replace(/\\D/g, '')) || 0
+                                  return numA - numB
+                                }).map((item: any) => (
                                   <div
                                     key={item.id}
                                     className={`flex items-center gap-4 rounded-lg border p-4 transition-all ${item.owned ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
@@ -2471,8 +2454,8 @@ export default function MarketplacePage() {
                                       {item.owned && <Check className="h-3 w-3" />}
                                     </button>
                                     <div className="aspect-[3/4] h-16 bg-muted rounded overflow-hidden flex items-center justify-center p-0.5 bg-white shadow-inner">
-                                      {item.image ? (
-                                        <img src={item.image} alt="" className="h-full w-full object-contain" />
+                                      {item.imageUrl || item.image ? (
+                                        <img src={item.imageUrl || item.image} alt="" className="h-full w-full object-contain" />
                                       ) : (
                                         <ImageIcon className="h-6 w-6 text-muted-foreground/20" />
                                       )}
