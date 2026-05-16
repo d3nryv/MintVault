@@ -229,6 +229,52 @@ export default function MarketplacePage() {
     }
   }, [userDecks]);
 
+  // Debounce for Sell Search
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (sellSearchQuery.length < 3) {
+        setSellSearchResults([])
+        return
+      }
+
+      setIsSearchingSellCards(true)
+      try {
+        const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(sellSearchQuery)}`)
+        const data = await response.json()
+        setSellSearchResults(data.slice(0, 50)) // Show top 50
+      } catch (error) {
+        console.error("Error searching cards for sale:", error)
+      } finally {
+        setIsSearchingSellCards(false)
+      }
+    }, 400) // 400ms debounce
+
+    return () => clearTimeout(timer)
+  }, [sellSearchQuery])
+
+  // Debounce for Wants Search
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (wantsSearchQuery.length < 3) {
+        setWantsSearchResults([])
+        return
+      }
+
+      setIsSearchingWantsCards(true)
+      try {
+        const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(wantsSearchQuery)}`)
+        const data = await response.json()
+        setWantsSearchResults(data.slice(0, 20))
+      } catch (error) {
+        console.error("Error searching cards for wants list:", error)
+      } finally {
+        setIsSearchingWantsCards(false)
+      }
+    }, 400) // 400ms debounce
+
+    return () => clearTimeout(timer)
+  }, [wantsSearchQuery])
+
   const loadWantsLists = () => {
     if (user?.wantList) {
       try {
@@ -376,42 +422,12 @@ export default function MarketplacePage() {
     }
   }
 
-  const handleSellSearch = async (query: string) => {
+  const handleSellSearch = (query: string) => {
     setSellSearchQuery(query)
-    if (query.length < 3) {
-      setSellSearchResults([])
-      return
-    }
-
-    setIsSearchingSellCards(true)
-    try {
-      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(query)}`)
-      const data = await response.json()
-      setSellSearchResults(data.slice(0, 50)) // Show top 50
-    } catch (error) {
-      console.error("Error searching cards for sale:", error)
-    } finally {
-      setIsSearchingSellCards(false)
-    }
   }
 
-  const handleWantsCardSearch = async (query: string) => {
+  const handleWantsCardSearch = (query: string) => {
     setWantsSearchQuery(query)
-    if (query.length < 3) {
-      setWantsSearchResults([])
-      return
-    }
-
-    setIsSearchingWantsCards(true)
-    try {
-      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(query)}`)
-      const data = await response.json()
-      setWantsSearchResults(data.slice(0, 20))
-    } catch (error) {
-      console.error("Error searching cards for wants list:", error)
-    } finally {
-      setIsSearchingWantsCards(false)
-    }
   }
 
   const handleAddToSpecificWantsList = async (card: any) => {

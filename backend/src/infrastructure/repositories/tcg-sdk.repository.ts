@@ -39,7 +39,7 @@ export class TcgSdkRepository implements TcgRepository {
 
     async findCardsByName(name: string): Promise<TcgPlayerInfo[]> {
         try {
-            const query = `name:${name.trim()}`;
+            const query = `name:*${name.trim()}*`;
             console.log(`[DEBUG] Buscando en API con query: ${query}`);
             const cards = await PokemonTCG.findCardsByQueries({ q: query });
             if (!cards) return [];
@@ -76,7 +76,7 @@ export class TcgSdkRepository implements TcgRepository {
     async searchCards(filters: { name?: string; set?: string; number?: string }): Promise<TcgPlayerInfo[]> {
         try {
             const queries: string[] = [];
-            if (filters.name) queries.push(`name:${filters.name.trim()}`);
+            if (filters.name) queries.push(`name:*${filters.name.trim()}*`);
             if (filters.set) queries.push(`set.id:${filters.set.trim()}`);
             if (filters.number) queries.push(`number:${filters.number.trim()}`);
 
