@@ -8,7 +8,9 @@ import {
     DeleteUserUseCase,
     LoginUserUseCase,
     FollowUserUseCase,
-    UnfollowUserUseCase
+    UnfollowUserUseCase,
+    EmptyCartUseCase,
+    RemoveVendorFromCartUseCase
 } from '../../../application/use-cases';
 
 export class UserController {
@@ -95,6 +97,27 @@ export class UserController {
             const followingId = req.params.id as string;
             await new UnfollowUserUseCase(this.userRepository).execute(followerId as string, followingId);
             res.status(200).json({ message: 'User unfollowed successfully' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    emptyCart = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const id = req.params.id as string;
+            await new EmptyCartUseCase(this.userRepository).execute(id);
+            res.status(204).send();
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    removeVendorFromCart = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const id = req.params.id as string;
+            const vendorId = req.params.vendorId as string;
+            await new RemoveVendorFromCartUseCase(this.userRepository).execute(id, vendorId);
+            res.status(204).send();
         } catch (error) {
             next(error);
         }

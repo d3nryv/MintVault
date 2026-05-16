@@ -14,5 +14,7 @@ router.put('/:id', controller.update);
 router.delete('/:id', controller.delete);
 router.post('/:id/follow', controller.follow);
 router.post('/:id/unfollow', controller.unfollow);
+router.delete('/:id/cart', controller.emptyCart);
+router.delete('/:id/cart/vendor/:vendorId', controller.removeVendorFromCart);
 
 export { router as userRouter };

@@ -16,6 +16,8 @@ export * from './user/login-user.use-case';
 export * from './user/toggle-favorite-pokemon.use-case';
 export * from './user/follow-user.use-case';
 export * from './user/unfollow-user.use-case';
+export * from './user/empty-cart.use-case';
+export * from './user/remove-vendor-from-cart.use-case';
 
 export * from './album/get-all-albums.use-case';
 export * from './album/get-album-by-id.use-case';
