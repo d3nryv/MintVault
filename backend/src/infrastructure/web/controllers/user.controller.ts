@@ -6,7 +6,9 @@ import {
     CreateUserUseCase, 
     UpdateUserUseCase, 
     DeleteUserUseCase,
-    LoginUserUseCase
+    LoginUserUseCase,
+    FollowUserUseCase,
+    UnfollowUserUseCase
 } from '../../../application/use-cases';
 
 export class UserController {
@@ -71,6 +73,28 @@ export class UserController {
             const id = req.params.id as string;
             await new DeleteUserUseCase(this.userRepository).execute(id);
             res.status(204).send();
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    follow = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { followerId } = req.body;
+            const followingId = req.params.id as string;
+            await new FollowUserUseCase(this.userRepository).execute(followerId as string, followingId);
+            res.status(200).json({ message: 'User followed successfully' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    unfollow = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { followerId } = req.body;
+            const followingId = req.params.id as string;
+            await new UnfollowUserUseCase(this.userRepository).execute(followerId as string, followingId);
+            res.status(200).json({ message: 'User unfollowed successfully' });
         } catch (error) {
             next(error);
         }

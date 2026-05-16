@@ -12,5 +12,7 @@ router.post('/login', controller.login);
 router.post('/', controller.create);
 router.put('/:id', controller.update);
 router.delete('/:id', controller.delete);
+router.post('/:id/follow', controller.follow);
+router.post('/:id/unfollow', controller.unfollow);
 
 export { router as userRouter };
