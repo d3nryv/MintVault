@@ -81,7 +81,6 @@ type WantsListItem = {
   number: string
   count: number
   condition: string
-  priority: "High" | "Medium" | "Low"
   owned: boolean
   imageUrl?: string
 }
@@ -182,7 +181,23 @@ export default function MarketplacePage() {
   const [wantsSearchQuery, setWantsSearchQuery] = useState("")
   const [wantsSearchResults, setWantsSearchResults] = useState<any[]>([])
   const [isSearchingWantsCards, setIsSearchingWantsCards] = useState(false)
+  const [sellSelectedSet, setSellSelectedSet] = useState("all")
+  const [wantsSelectedSet, setWantsSelectedSet] = useState("all")
+  const [sellSetSearchTerm, setSellSetSearchTerm] = useState("")
+  const [wantsSetSearchTerm, setWantsSetSearchTerm] = useState("")
   const [sellerShippingMethod, setSellerShippingMethod] = useState<Record<string, 'ordinary' | 'certified'>>({}) // sellerId -> method
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingListing, setEditingListing] = useState<any>(null)
+  const [editPrice, setEditPrice] = useState("")
+  const [editQuantity, setEditQuantity] = useState("")
+  const [editCondition, setEditCondition] = useState("")
+  const [editLanguage, setEditLanguage] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editReverse, setEditReverse] = useState(false)
+  const [editSigned, setEditSigned] = useState(false)
+  const [editAltered, setEditAltered] = useState(false)
+  const [editFirstEdition, setEditFirstEdition] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
   const { user, updateUser } = useAuth()
   const { language } = useMarketplace()
 
@@ -208,14 +223,18 @@ export default function MarketplacePage() {
   // Debounce for Sell Search
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (sellSearchQuery.length < 3) {
+      if (sellSearchQuery.length < 3 && sellSelectedSet === 'all') {
         setSellSearchResults([])
         return
       }
 
       setIsSearchingSellCards(true)
       try {
-        const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(sellSearchQuery)}`)
+        let url = `http://127.0.0.1:3000/api/cards/search?name=${encodeURIComponent(sellSearchQuery)}`
+        if (sellSelectedSet !== 'all') {
+          url += `&set=${encodeURIComponent(sellSelectedSet)}`
+        }
+        const response = await fetch(url)
         const data = await response.json()
         setSellSearchResults(data.slice(0, 50)) // Show top 50
       } catch (error) {
@@ -226,19 +245,23 @@ export default function MarketplacePage() {
     }, 400) // 400ms debounce
 
     return () => clearTimeout(timer)
-  }, [sellSearchQuery])
+  }, [sellSearchQuery, sellSelectedSet])
 
   // Debounce for Wants Search
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (wantsSearchQuery.length < 3) {
+      if (wantsSearchQuery.length < 3 && wantsSelectedSet === 'all') {
         setWantsSearchResults([])
         return
       }
 
       setIsSearchingWantsCards(true)
       try {
-        const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(wantsSearchQuery)}`)
+        let url = `http://127.0.0.1:3000/api/cards/search?name=${encodeURIComponent(wantsSearchQuery)}`
+        if (wantsSelectedSet !== 'all') {
+          url += `&set=${encodeURIComponent(wantsSelectedSet)}`
+        }
+        const response = await fetch(url)
         const data = await response.json()
         setWantsSearchResults(data.slice(0, 20))
       } catch (error) {
@@ -249,7 +272,7 @@ export default function MarketplacePage() {
     }, 400) // 400ms debounce
 
     return () => clearTimeout(timer)
-  }, [wantsSearchQuery])
+  }, [wantsSearchQuery, wantsSelectedSet])
 
   const loadWantsLists = () => {
     if (user?.wantList) {
@@ -416,7 +439,6 @@ export default function MarketplacePage() {
       number: card.number || 'N/A',
       count: 1,
       condition: "Near Mint",
-      priority: "Medium",
       owned: false,
       imageUrl: card.images?.small
     }
@@ -438,6 +460,55 @@ export default function MarketplacePage() {
     setWantsSearchQuery("")
     setWantsSearchResults([])
     alert(`Added ${card.name} to ${selectedList.name}`)
+  }
+
+  const handleEditListing = (listing: any) => {
+    setEditingListing(listing)
+    setEditPrice(listing.price.toString())
+    setEditQuantity(listing.amount.toString())
+    setEditCondition(listing.condition)
+    setEditLanguage(listing.language)
+    setEditDescription(listing.observations || "")
+    setEditReverse(!!listing.extras?.reverseHolo)
+    setEditSigned(!!listing.extras?.signed)
+    setEditAltered(!!listing.extras?.altered)
+    setEditFirstEdition(!!listing.extras?.firstEdition)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateListing = async () => {
+    if (!editingListing || !user) return
+    setIsUpdating(true)
+    try {
+      const res = await fetch(`http://localhost:3000/api/sales/${editingListing.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          price: parseFloat(editPrice),
+          amount: parseInt(editQuantity),
+          condition: editCondition,
+          language: editLanguage,
+          observations: editDescription,
+          extras: {
+            reverseHolo: editReverse,
+            signed: editSigned,
+            altered: editAltered,
+            firstEdition: editFirstEdition
+          }
+        })
+      })
+      if (!res.ok) throw new Error("Failed to update listing")
+      setIsEditDialogOpen(false)
+      fetchUserSales()
+      fetchSales()
+      alert("Listing updated successfully")
+    } catch (e) {
+      console.error("Error updating sale", e)
+      alert("Error updating listing")
+    } finally {
+      setIsUpdating(false)
+    }
   }
 
   const handleDeleteSale = async (id: string) => {
@@ -568,14 +639,6 @@ export default function MarketplacePage() {
     }
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "High": return "bg-red-500/20 text-red-700 border-red-500/30"
-      case "Medium": return "bg-amber-500/20 text-amber-700 border-amber-500/30"
-      case "Low": return "bg-emerald-500/20 text-emerald-700 border-emerald-500/30"
-      default: return "bg-muted text-muted-foreground"
-    }
-  }
 
   const getLanguageFlag = (lang: string) => {
     switch (lang?.toUpperCase()) {
@@ -623,7 +686,6 @@ export default function MarketplacePage() {
           number: item.card.number,
           count: item.count || 1,
           condition: "Any",
-          priority: "Medium" as const,
           owned: false,
           imageUrl: item.card.images?.small
         }))
@@ -646,7 +708,6 @@ export default function MarketplacePage() {
             number: card.number,
             count: 1,
             condition: "Near Mint",
-            priority: "Medium" as const,
             owned: false,
             imageUrl: card.images?.small
           }))
@@ -876,7 +937,7 @@ export default function MarketplacePage() {
       name: s.cardName || s.name || s.card?.name || "Unknown Card",
       set: s.cardSet || s.set || s.card?.set?.name || s.card?.set || "Unknown Set",
       price: s.price,
-      image: s.imageUrl || s.cardImage || s.card?.images?.small,
+      image: s.cardImage || s.imageUrl || (s.card && s.card.images ? s.card.images.small : ""),
       tcgId: s.tcgId || s.card?.id,
       note: 'Market Peak'
     }))
@@ -888,7 +949,7 @@ export default function MarketplacePage() {
       name: s.cardName || s.name || s.card?.name || "Unknown Card",
       set: s.cardSet || s.set || s.card?.set?.name || s.card?.set || "Unknown Set",
       price: s.price,
-      image: s.imageUrl || s.cardImage || s.card?.images?.small,
+      image: s.cardImage || s.imageUrl || (s.card && s.card.images ? s.card.images.small : ""),
       tcgId: s.tcgId || s.card?.id
     }))
     : [];
@@ -1266,8 +1327,8 @@ export default function MarketplacePage() {
                         <Card className="group cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1">
                           <CardContent className="p-4">
                             <div className="mb-3 aspect-[3/4] flex items-center justify-center rounded-lg bg-muted overflow-hidden">
-                              {card.image ? (
-                                <img src={card.image} alt={card.name} className="h-full w-full object-contain transition-transform group-hover:scale-105" />
+                              {card.image || card.card_image ? (
+                                <img src={card.image || card.card_image} alt={card.name} className="h-full w-full object-contain transition-transform group-hover:scale-105" />
                               ) : (
                                 <ImageIcon className="h-10 w-10 text-muted-foreground" />
                               )}
@@ -1316,8 +1377,12 @@ export default function MarketplacePage() {
                           risingCards.map((card) => (
                             <Link key={card.id} href={`/marketplace/card/${card.id}`}>
                               <div className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50 cursor-pointer">
-                                <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden">
-                                  {card.card_image && <img src={card.card_image} alt="" className="h-full w-full object-contain" />}
+                                <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden flex items-center justify-center">
+                                  {card.card_image || card.image ? (
+                                    <img src={card.card_image || card.image} alt="" className="h-full w-full object-contain" />
+                                  ) : (
+                                    <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
+                                  )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate">{card.card_name}</p>
@@ -1359,8 +1424,12 @@ export default function MarketplacePage() {
                           fallingCards.map((card) => (
                             <Link key={card.id} href={`/marketplace/card/${card.id}`}>
                               <div className="flex items-center gap-4 p-4 transition-colors hover:bg-secondary/50 cursor-pointer">
-                                <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden">
-                                  {card.card_image && <img src={card.card_image} alt="" className="h-full w-full object-contain" />}
+                                <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden flex items-center justify-center">
+                                  {card.card_image || card.image ? (
+                                    <img src={card.card_image || card.image} alt="" className="h-full w-full object-contain" />
+                                  ) : (
+                                    <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
+                                  )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm truncate">{card.card_name}</p>
@@ -1503,8 +1572,8 @@ export default function MarketplacePage() {
                               className={`flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50 ${isOutOfStock ? 'opacity-50 grayscale-[0.5]' : ''}`}
                             >
                               <div className="flex h-16 w-12 items-center justify-center rounded bg-muted overflow-hidden">
-                                {listing.cardImage ? (
-                                  <img src={listing.cardImage} alt={listing.cardName} className="h-full w-full object-contain" />
+                                {listing.cardImage || listing.image || listing.card_image || listing.imageUrl ? (
+                                  <img src={listing.cardImage || listing.image || listing.card_image || listing.imageUrl} alt={listing.cardName} className="h-full w-full object-contain" />
                                 ) : (
                                   <ImageIcon className="h-6 w-6 text-muted-foreground" />
                                 )}
@@ -1671,8 +1740,8 @@ export default function MarketplacePage() {
                                     userSales.map((listing) => (
                                       <div key={listing.id} className="group flex items-center gap-6 rounded-xl border border-border bg-card p-5 hover:border-primary/50 transition-all shadow-sm hover:shadow-lg">
                                         <div className="aspect-[3/4] h-24 bg-muted rounded-lg overflow-hidden flex items-center justify-center p-1 bg-white shadow-inner">
-                                          {listing.cardImage ? (
-                                            <img src={listing.cardImage} alt="" className="h-full w-full object-contain group-hover:scale-110 transition-transform" />
+                                          {listing.cardImage || listing.image || listing.card_image || listing.imageUrl ? (
+                                            <img src={listing.cardImage || listing.image || listing.card_image || listing.imageUrl} alt="" className="h-full w-full object-contain group-hover:scale-110 transition-transform" />
                                           ) : (
                                             <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
                                           )}
@@ -1702,7 +1771,7 @@ export default function MarketplacePage() {
                                         <div className="text-right flex flex-col items-end gap-3">
                                           <p className="font-black text-3xl tracking-tighter text-foreground">{listing.price.toFixed(2)}€</p>
                                           <div className="flex gap-2">
-                                            <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full" onClick={(e) => { e.preventDefault(); e.stopPropagation(); /* TODO: Edit */ }}>
+                                            <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditListing(listing); }}>
                                               <Edit3 className="h-4 w-4" />
                                             </Button>
                                             <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 border-red-100" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteSale(listing.id); }}>
@@ -1742,14 +1811,46 @@ export default function MarketplacePage() {
                                 <div className="space-y-6">
                                   <div className="space-y-2 relative">
                                     <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Step 1: Search Card</label>
-                                    <div className="relative">
-                                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                      <Input
-                                        placeholder="Search by name (e.g. Charizard)..."
-                                        value={sellSearchQuery}
-                                        onChange={(e) => handleSellSearch(e.target.value)}
-                                        className="pl-10 h-11"
-                                      />
+                                    <div className="flex gap-2">
+                                      <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                          placeholder="Search by name (e.g. Charizard)..."
+                                          value={sellSearchQuery}
+                                          onChange={(e) => handleSellSearch(e.target.value)}
+                                          className="pl-10 h-11"
+                                        />
+                                      </div>
+                                      <Select value={sellSelectedSet} onValueChange={setSellSelectedSet}>
+                                        <SelectTrigger className="w-[180px] h-11">
+                                          <SelectValue placeholder="All Sets" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <div className="p-2 border-b">
+                                            <div className="relative">
+                                              <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                              <Input
+                                                placeholder="Search sets..."
+                                                value={sellSetSearchTerm}
+                                                onChange={(e) => setSellSetSearchTerm(e.target.value)}
+                                                className="pl-8 h-8 text-xs"
+                                                onKeyDown={(e) => e.stopPropagation()}
+                                              />
+                                            </div>
+                                          </div>
+                                          <div className="max-h-[200px] overflow-y-auto">
+                                            <SelectItem value="all">All Sets</SelectItem>
+                                            {allSets
+                                              .filter(set => set.name.toLowerCase().includes(sellSetSearchTerm.toLowerCase()) || set.id.toLowerCase().includes(sellSetSearchTerm.toLowerCase()))
+                                              .map(set => (
+                                                <SelectItem key={set.id} value={set.id}>
+                                                  {set.name}
+                                                </SelectItem>
+                                              ))
+                                            }
+                                          </div>
+                                        </SelectContent>
+                                      </Select>
                                     </div>
 
                                     {sellSearchResults.length > 0 && (
@@ -1784,8 +1885,12 @@ export default function MarketplacePage() {
 
                                     {selectedSellCard && (
                                       <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <div className="aspect-[3/4] h-24 bg-white rounded shadow-sm overflow-hidden p-1">
-                                          <img src={selectedSellCard.images?.small} alt="" className="h-full w-full object-contain" />
+                                        <div className="aspect-[3/4] h-24 bg-white rounded shadow-sm overflow-hidden p-1 flex items-center justify-center">
+                                          {selectedSellCard.images?.small ? (
+                                            <img src={selectedSellCard.images?.small} alt="" className="h-full w-full object-contain" />
+                                          ) : (
+                                            <ImageIcon className="h-8 w-8 text-muted-foreground/20" />
+                                          )}
                                         </div>
                                         <div className="flex-1">
                                           <div className="flex items-center justify-between">
@@ -2082,6 +2187,114 @@ export default function MarketplacePage() {
                           </Card>
                         </TabsContent>
                       </Tabs>
+                      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle className="text-2xl font-black uppercase italic">Edit Listing</DialogTitle>
+                            <DialogDescription>Modify the details of your marketplace listing.</DialogDescription>
+                          </DialogHeader>
+                          {editingListing && (
+                            <div className="grid gap-6 md:grid-cols-2 py-4">
+                              <div className="space-y-4">
+                                <div className="aspect-[3/4] max-h-[300px] bg-muted rounded-2xl overflow-hidden flex items-center justify-center p-4 bg-white shadow-inner border border-border/50">
+                                  {editingListing.cardImage || editingListing.image || editingListing.card_image || editingListing.imageUrl ? (
+                                    <img src={editingListing.cardImage || editingListing.image || editingListing.card_image || editingListing.imageUrl} alt="" className="h-full w-full object-contain" />
+                                  ) : (
+                                    <ImageIcon className="h-12 w-12 text-muted-foreground/20" />
+                                  )}
+                                </div>
+                                <div>
+                                  <h4 className="font-black text-xl">{editingListing.cardName}</h4>
+                                  <p className="text-muted-foreground font-medium">{editingListing.cardSet}</p>
+                                </div>
+                              </div>
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Price (€)</label>
+                                    <Input 
+                                      type="number" 
+                                      step="0.01" 
+                                      value={editPrice} 
+                                      onChange={(e) => setEditPrice(e.target.value)} 
+                                      className="font-bold"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Quantity</label>
+                                    <Input 
+                                      type="number" 
+                                      min="1" 
+                                      value={editQuantity} 
+                                      onChange={(e) => setEditQuantity(e.target.value)} 
+                                      className="font-bold"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Condition</label>
+                                    <Select value={editCondition} onValueChange={setEditCondition}>
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="M">Mint (M)</SelectItem>
+                                        <SelectItem value="NM">Near Mint (NM)</SelectItem>
+                                        <SelectItem value="LP">Light Played (LP)</SelectItem>
+                                        <SelectItem value="MP">Moderately Played (MP)</SelectItem>
+                                        <SelectItem value="HP">Heavily Played (HP)</SelectItem>
+                                        <SelectItem value="PO">Poor (PO)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Language</label>
+                                    <Select value={editLanguage} onValueChange={setEditLanguage}>
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="EN">🇺🇸 English</SelectItem>
+                                        <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
+                                        <SelectItem value="FR">🇫🇷 French</SelectItem>
+                                        <SelectItem value="DE">🇩🇪 German</SelectItem>
+                                        <SelectItem value="IT">🇮🇹 Italian</SelectItem>
+                                        <SelectItem value="PT">🇵🇹 Portuguese</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={editReverse} onCheckedChange={(c) => setEditReverse(!!c)} id="edit-reverse" />
+                                    <label htmlFor="edit-reverse" className="text-xs font-bold uppercase cursor-pointer">Reverse Holo</label>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={editFirstEdition} onCheckedChange={(c) => setEditFirstEdition(!!c)} id="edit-first" />
+                                    <label htmlFor="edit-first" className="text-xs font-bold uppercase cursor-pointer">1st Edition</label>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Observations</label>
+                                  <textarea 
+                                    className="w-full h-24 rounded-lg border border-border bg-background p-3 text-sm resize-none focus:ring-2 focus:ring-primary/20"
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    placeholder="Centering, scratches, etc..."
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                            <Button onClick={handleUpdateListing} disabled={isUpdating} className="font-black uppercase tracking-widest min-w-[120px]">
+                              {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   )}
                 </TabsContent>
@@ -2412,6 +2625,36 @@ export default function MarketplacePage() {
                                         className="pl-10"
                                       />
                                     </div>
+                                    <Select value={wantsSelectedSet} onValueChange={setWantsSelectedSet}>
+                                      <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="All Sets" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <div className="p-2 border-b">
+                                          <div className="relative">
+                                            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                            <Input
+                                              placeholder="Search sets..."
+                                              value={wantsSetSearchTerm}
+                                              onChange={(e) => setWantsSetSearchTerm(e.target.value)}
+                                              className="pl-8 h-8 text-xs"
+                                              onKeyDown={(e) => e.stopPropagation()}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="max-h-[200px] overflow-y-auto">
+                                          <SelectItem value="all">All Sets</SelectItem>
+                                          {allSets
+                                            .filter(set => set.name.toLowerCase().includes(wantsSetSearchTerm.toLowerCase()) || set.id.toLowerCase().includes(wantsSetSearchTerm.toLowerCase()))
+                                            .map(set => (
+                                              <SelectItem key={set.id} value={set.id}>
+                                                {set.name}
+                                              </SelectItem>
+                                            ))
+                                          }
+                                        </div>
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                   <div className="min-h-[200px] max-h-[400px] overflow-y-auto rounded-lg border border-border">
                                     {isSearchingWantsCards ? (
@@ -2422,8 +2665,12 @@ export default function MarketplacePage() {
                                       <div className="divide-y divide-border">
                                         {wantsSearchResults.map((card) => (
                                           <div key={card.id} className="flex items-center gap-3 p-3 hover:bg-secondary/50 transition-colors">
-                                            <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden">
-                                              <img src={card.images?.small} alt="" className="h-full w-full object-contain" />
+                                            <div className="aspect-[3/4] h-12 bg-muted rounded overflow-hidden flex items-center justify-center">
+                                              {card.images?.small ? (
+                                                <img src={card.images.small} alt="" className="h-full w-full object-contain" />
+                                              ) : (
+                                                <ImageIcon className="h-4 w-4 text-muted-foreground/30" />
+                                              )}
                                             </div>
                                             <div className="flex-1">
                                               <p className="font-bold text-sm">{card.name}</p>
@@ -2523,22 +2770,6 @@ export default function MarketplacePage() {
                                                   <SelectItem value="Near Mint">Near Mint</SelectItem>
                                                   <SelectItem value="Excellent">Excellent</SelectItem>
                                                   <SelectItem value="Light Played">Light Played</SelectItem>
-                                                </SelectContent>
-                                              </Select>
-                                            </div>
-                                            <div className="space-y-2">
-                                              <label className="text-xs font-bold uppercase">Priority</label>
-                                              <Select
-                                                defaultValue={item.priority}
-                                                onValueChange={(val: any) => handleUpdateItem(selectedList.id, item.id, { priority: val })}
-                                              >
-                                                <SelectTrigger>
-                                                  <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                  <SelectItem value="High">High</SelectItem>
-                                                  <SelectItem value="Medium">Medium</SelectItem>
-                                                  <SelectItem value="Low">Low</SelectItem>
                                                 </SelectContent>
                                               </Select>
                                             </div>
@@ -2650,8 +2881,8 @@ export default function MarketplacePage() {
                                   {sellerGroup.items.map((item) => (
                                     <div key={item.id} className="flex gap-4 p-4 hover:bg-secondary/5 transition-colors">
                                       <div className="aspect-[3/4] h-20 bg-white rounded-md shadow-sm overflow-hidden p-0.5 flex items-center justify-center">
-                                        {item.image || item.imageUrl ? (
-                                          <img src={item.image || item.imageUrl} alt={item.name} className="h-full w-full object-contain" />
+                                        {item.image || item.cardImage || item.card_image || item.imageUrl ? (
+                                          <img src={item.image || item.cardImage || item.card_image || item.imageUrl} alt={item.name} className="h-full w-full object-contain" />
                                         ) : (
                                           <ImageIcon className="h-6 w-6 text-muted-foreground/20" />
                                         )}

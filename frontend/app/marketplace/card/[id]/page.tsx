@@ -181,6 +181,10 @@ export default function CardDetailPage() {
   const [isAddingToWants, setIsAddingToWants] = useState(false)
   const [realPriceHistory, setRealPriceHistory] = useState<any[]>([])
   const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({})
+  // Wants item detail form state
+  const [wantsCount, setWantsCount] = useState(1)
+  const [wantsCondition, setWantsCondition] = useState("Near Mint")
+  const [wantsLanguage, setWantsLanguage] = useState("EN")
 
   // Advanced Filtering states
   const [filterCondition, setFilterCondition] = useState("all")
@@ -241,10 +245,11 @@ export default function CardDetailPage() {
                 name: card.name,
                 set: card.metadata?.set?.name || card.set?.name || card.set || 'Unknown Set',
                 number: card.metadata?.number || card.number || 'N/A',
-                count: 1,
-                condition: "Near Mint",
-                priority: "Medium",
-                owned: false
+                count: wantsCount,
+                condition: wantsCondition,
+                language: wantsLanguage,
+                owned: false,
+                imageUrl: card.metadata?.images?.small || card.images?.small
               }
             ]
           }
@@ -262,6 +267,11 @@ export default function CardDetailPage() {
 
       setWantsLists(updatedLists)
       updateUser({ wantList: updatedLists.map(l => JSON.stringify(l)) })
+      // Reset form
+      setSelectedListId("")
+      setWantsCount(1)
+      setWantsCondition("Near Mint")
+      setWantsLanguage("EN")
       alert("Added to Wants List!")
       setIsWantsDialogOpen(false)
     } catch (e) {
@@ -480,13 +490,14 @@ export default function CardDetailPage() {
                           Add to Wants
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-md">
+                      <DialogContent className="max-w-lg">
                         <DialogHeader>
                           <DialogTitle>Add to Want List</DialogTitle>
-                          <DialogDescription>Select which list you want to add {card.name} to.</DialogDescription>
+                          <DialogDescription>Configure what you're looking for for <strong>{card.name}</strong>.</DialogDescription>
                         </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
+                        <div className="space-y-4 py-2">
+                          {/* Target list */}
+                          <div className="space-y-1.5">
                             <label className="text-xs font-bold uppercase text-muted-foreground">Target List</label>
                             <Select value={selectedListId} onValueChange={setSelectedListId}>
                               <SelectTrigger>
@@ -498,6 +509,62 @@ export default function CardDetailPage() {
                                 ))}
                               </SelectContent>
                             </Select>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* Copies */}
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Copies</label>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={99}
+                                value={wantsCount}
+                                onChange={(e) => setWantsCount(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="h-9 col-span-2"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* Condition */}
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Min. Condition</label>
+                              <Select value={wantsCondition} onValueChange={setWantsCondition}>
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Any">Any</SelectItem>
+                                  <SelectItem value="Near Mint">Near Mint (NM)</SelectItem>
+                                  <SelectItem value="Excellent">Excellent (EX)</SelectItem>
+                                  <SelectItem value="Good">Good (GD)</SelectItem>
+                                  <SelectItem value="Light Played">Light Played (LP)</SelectItem>
+                                  <SelectItem value="Heavily Played">Heavily Played (PL)</SelectItem>
+                                  <SelectItem value="Poor">Poor (PO)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Language */}
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-bold uppercase text-muted-foreground">Language</label>
+                              <Select value={wantsLanguage} onValueChange={setWantsLanguage}>
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Any">Any</SelectItem>
+                                  <SelectItem value="EN">🇺🇸 English</SelectItem>
+                                  <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
+                                  <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
+                                  <SelectItem value="DE">🇩🇪 German</SelectItem>
+                                  <SelectItem value="FR">🇫🇷 French</SelectItem>
+                                  <SelectItem value="IT">🇮🇹 Italian</SelectItem>
+                                  <SelectItem value="PT">🇵🇹 Portuguese</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                         </div>
                         <DialogFooter>
