@@ -268,10 +268,10 @@ function SearchContent() {
               </div>
             ) : sortedResults.map((card) => (
               <Card key={card.id} className="group overflow-hidden transition-all hover:shadow-xl hover:-translate-y-1 border-border/50">
-                <div className="aspect-[3/4] relative bg-muted flex items-center justify-center overflow-hidden">
+                <div className="aspect-[3/4] relative bg-muted flex items-center justify-center overflow-hidden p-2">
                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                    {card.images?.small ? (
-                     <img src={card.images.small} alt={card.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                     <img src={card.images.small} alt={card.name} className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-110" />
                    ) : (
                      <ImageIcon className="h-20 w-20 text-muted-foreground/30" />
                    )}
