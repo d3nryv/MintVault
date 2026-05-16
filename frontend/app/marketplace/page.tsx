@@ -801,6 +801,17 @@ export default function MarketplacePage() {
     syncUserWithBackend({ cart: updatedCart.map(i => JSON.stringify(i)) })
   }
 
+  const handleClearCart = () => {
+    setCartItems([])
+    syncUserWithBackend({ cart: [] })
+  }
+
+  const handleClearSellerCart = (sellerId: string) => {
+    const updatedCart = cartItems.filter(item => (item.sellerId || 'unknown') !== sellerId)
+    setCartItems(updatedCart)
+    syncUserWithBackend({ cart: updatedCart.map(i => JSON.stringify(i)) })
+  }
+
   const handleRunWizard = () => {
     if (!selectedList || selectedList.items.length === 0) return
 
@@ -2617,9 +2628,20 @@ export default function MarketplacePage() {
                                     <p className="text-[10px] text-muted-foreground font-medium">{shippingInfo.name}</p>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-xs font-bold text-muted-foreground uppercase">Seller Subtotal</p>
-                                  <p className="text-lg font-black text-primary">{sellerSubtotal.toFixed(2)}€</p>
+                                <div className="flex items-center gap-4">
+                                  <div className="text-right">
+                                    <p className="text-xs font-bold text-muted-foreground uppercase">Seller Subtotal</p>
+                                    <p className="text-lg font-black text-primary">{sellerSubtotal.toFixed(2)}€</p>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0"
+                                    onClick={() => handleClearSellerCart(sellerGroup.sellerId)}
+                                    title="Remove all items from this seller"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </CardHeader>
                               <CardContent className="p-0">
@@ -2732,7 +2754,18 @@ export default function MarketplacePage() {
                       <Card className="sticky top-24 shadow-2xl border-primary/10 overflow-hidden">
                         <div className="h-2 bg-primary w-full" />
                         <CardHeader>
-                          <CardTitle className="font-black uppercase tracking-tighter text-xl italic">Checkout Summary</CardTitle>
+                          <CardTitle className="font-black uppercase tracking-tighter text-xl italic flex justify-between items-center">
+                            Checkout Summary
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive text-[10px] h-6 px-2"
+                              onClick={handleClearCart}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Clear Cart
+                            </Button>
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
                           <div className="space-y-3">
