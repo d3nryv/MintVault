@@ -9,4 +9,6 @@ export abstract class UserRepository {
     abstract delete(id: string): Promise<void>;
     abstract follow(followerId: string, followingId: string): Promise<void>;
     abstract unfollow(followerId: string, followingId: string): Promise<void>;
+    abstract emptyCart(userId: string): Promise<void>;
+    abstract removeVendorItemsFromCart(userId: string, vendorId: string): Promise<void>;
 }

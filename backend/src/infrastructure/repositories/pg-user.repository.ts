@@ -101,4 +101,22 @@ export class PostgresUserRepository implements UserRepository {
             await client.query(queryFollowers, [followerId, followingId]);
         });
     }
+
+    async emptyCart(userId: string): Promise<void> {
+        const query = 'UPDATE users SET cart = \'{}\' WHERE id = $1';
+        await db.query(query, [userId]);
+    }
+
+    async removeVendorItemsFromCart(userId: string, vendorId: string): Promise<void> {
+        const query = `
+            UPDATE users 
+            SET cart = (
+                SELECT COALESCE(array_agg(item), '{}')
+                FROM unnest(cart) AS item
+                LEFT JOIN sales s ON item::uuid = s.id
+                WHERE s.seller_id::text != $2 OR s.seller_id IS NULL
+            )
+            WHERE id = $1`;
+        await db.query(query, [userId, vendorId]);
+    }
 }
