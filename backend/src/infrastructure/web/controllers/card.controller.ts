@@ -102,7 +102,7 @@ export class CardController {
   search = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const filters = {
-        name: req.query.name as string,
+        name: (req.query.name || req.params.name) as string,
         set: req.query.set as string,
         number: req.query.number as string,
         language: req.query.language as string
