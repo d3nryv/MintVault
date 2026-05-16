@@ -7,4 +7,6 @@ export abstract class UserRepository {
     abstract create(user: Omit<UserEntity, 'id' | 'registerDate' | 'followers' | 'following'>): Promise<UserEntity>;
     abstract update(id: string, user: Partial<UserEntity>): Promise<UserEntity>;
     abstract delete(id: string): Promise<void>;
+    abstract follow(followerId: string, followingId: string): Promise<void>;
+    abstract unfollow(followerId: string, followingId: string): Promise<void>;
 }

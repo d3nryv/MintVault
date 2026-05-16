@@ -65,4 +65,40 @@ export class PostgresUserRepository implements UserRepository {
         const query = 'DELETE FROM users WHERE id = $1';
         await db.query(query, [id]);
     }
+
+    async follow(followerId: string, followingId: string): Promise<void> {
+        await db.transactional(async (client) => {
+            // Add followingId to follower's following list
+            const queryFollowing = `
+                UPDATE users 
+                SET following = array_append(following, $2) 
+                WHERE id = $1 AND NOT ($2 = ANY(following))`;
+            await client.query(queryFollowing, [followerId, followingId]);
+
+            // Add followerId to followed user's followers list
+            const queryFollowers = `
+                UPDATE users 
+                SET followers = array_append(followers, $1) 
+                WHERE id = $2 AND NOT ($1 = ANY(followers))`;
+            await client.query(queryFollowers, [followerId, followingId]);
+        });
+    }
+
+    async unfollow(followerId: string, followingId: string): Promise<void> {
+        await db.transactional(async (client) => {
+            // Remove followingId from follower's following list
+            const queryFollowing = `
+                UPDATE users 
+                SET following = array_remove(following, $2) 
+                WHERE id = $1`;
+            await client.query(queryFollowing, [followerId, followingId]);
+
+            // Remove followerId from followed user's followers list
+            const queryFollowers = `
+                UPDATE users 
+                SET followers = array_remove(followers, $1) 
+                WHERE id = $2`;
+            await client.query(queryFollowers, [followerId, followingId]);
+        });
+    }
 }
