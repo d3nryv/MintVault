@@ -151,7 +151,7 @@ export default function CardDetailPage() {
   const [filterLanguage, setFilterLanguage] = useState("all")
   const [filterLocations, setFilterLocations] = useState<string[]>([])
   const [filterSellerType, setFilterSellerType] = useState<string[]>([])
-  const [filterMaxPrice, setFilterMaxPrice] = useState(100)
+  const [filterMaxPrice, setFilterMaxPrice] = useState<number | "">("")
   const [filterMinQty, setFilterMinQty] = useState(1)
   const [filterExtras, setFilterExtras] = useState({
     reverse: "all",
@@ -348,7 +348,7 @@ export default function CardDetailPage() {
     if (filterLocations.length > 0 && !filterLocations.includes(l.country || "ES")) return false
     
     // Price
-    if (l.price > filterMaxPrice) return false
+    if (filterMaxPrice !== "" && l.price > Number(filterMaxPrice)) return false
     
     // Qty
     if (l.amount < filterMinQty) return false
@@ -617,7 +617,7 @@ export default function CardDetailPage() {
                           setFilterLanguage("all");
                           setFilterLocations([]);
                           setFilterSellerType([]);
-                          setFilterMaxPrice(100);
+                          setFilterMaxPrice("");
                           setFilterMinQty(1);
                         }}
                       >
@@ -782,10 +782,13 @@ export default function CardDetailPage() {
                           <Input 
                             type="number" 
                             value={filterMaxPrice} 
-                            onChange={(e) => setFilterMaxPrice(Number(e.target.value))}
+                            onChange={(e) => setFilterMaxPrice(e.target.value === "" ? "" : Number(e.target.value))}
                             className="h-9 text-sm"
+                            placeholder="No limit"
                           />
-                          <p className="text-[10px] text-muted-foreground italic">Showing listings up to {filterMaxPrice}€</p>
+                          <p className="text-[10px] text-muted-foreground italic">
+                            {filterMaxPrice === "" ? "Showing all prices" : `Showing listings up to ${filterMaxPrice}€`}
+                          </p>
                         </div>
                       </div>
                     </div>
