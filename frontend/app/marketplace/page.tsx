@@ -182,6 +182,7 @@ export default function MarketplacePage() {
   const [wantsSearchQuery, setWantsSearchQuery] = useState("")
   const [wantsSearchResults, setWantsSearchResults] = useState<any[]>([])
   const [isSearchingWantsCards, setIsSearchingWantsCards] = useState(false)
+  const [sellerShippingMethod, setSellerShippingMethod] = useState<Record<string, 'ordinary' | 'certified'>>({}) // sellerId -> method
   const { user, updateUser } = useAuth()
   const { language } = useMarketplace()
 
@@ -2717,7 +2718,10 @@ export default function MarketplacePage() {
                                         Certified Shipping (Required for orders &gt;50€)
                                       </div>
                                     ) : (
-                                      <Select defaultValue="ordinary">
+                                      <Select
+                                        value={sellerShippingMethod[sellerGroup.sellerId] || 'ordinary'}
+                                        onValueChange={(val) => setSellerShippingMethod(prev => ({ ...prev, [sellerGroup.sellerId]: val as 'ordinary' | 'certified' }))}
+                                      >
                                         <SelectTrigger className="h-8 w-48 text-xs font-bold bg-background">
                                           <SelectValue />
                                         </SelectTrigger>
@@ -2730,7 +2734,7 @@ export default function MarketplacePage() {
                                   </div>
                                   <div className="text-right">
                                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Shipping Price</p>
-                                    <p className="text-base font-black">{(isCertifiedForced ? shippingInfo.max : shippingInfo.min).toFixed(2)}€</p>
+                                    <p className="text-base font-black">{(isCertifiedForced ? shippingInfo.max : (sellerShippingMethod[sellerGroup.sellerId] === 'certified' ? shippingInfo.max : shippingInfo.min)).toFixed(2)}€</p>
                                   </div>
                                 </div>
                               </CardContent>
@@ -2777,15 +2781,16 @@ export default function MarketplacePage() {
                               <span className="text-muted-foreground uppercase tracking-widest text-[10px] font-black">Total Shipping</span>
                               <span className="font-bold">
                                 {(() => {
-                                  const grouped: Record<string, string> = {};
-                                  cartItems.forEach(item => { grouped[item.sellerId || 'unknown'] = item.sellerCountry || 'ES'; });
-                                  return Object.entries(grouped).reduce((total, [sid, country]) => {
-                                    const sellerItems = cartItems.filter(i => (i.sellerId || 'unknown') === sid);
-                                    const subtotal = sellerItems.reduce((s, i) => s + i.price * i.quantity, 0);
-                                    const sinfo = shippingPrices[country] || shippingPrices['ES'];
-                                    return total + (subtotal > 50 ? sinfo.max : sinfo.min);
-                                  }, 0).toFixed(2);
-                                })()}€
+                                   const grouped: Record<string, string> = {};
+                                   cartItems.forEach(item => { grouped[item.sellerId || 'unknown'] = item.sellerCountry || 'ES'; });
+                                   return Object.entries(grouped).reduce((total, [sid, country]) => {
+                                     const sellerItems = cartItems.filter(i => (i.sellerId || 'unknown') === sid);
+                                     const subtotal = sellerItems.reduce((s, i) => s + i.price * i.quantity, 0);
+                                     const sinfo = shippingPrices[country] || shippingPrices['ES'];
+                                     const isCertified = subtotal > 50 || sellerShippingMethod[sid] === 'certified';
+                                     return total + (isCertified ? sinfo.max : sinfo.min);
+                                   }, 0).toFixed(2);
+                                 })()}€
                               </span>
                             </div>
                           </div>
@@ -2802,7 +2807,8 @@ export default function MarketplacePage() {
                                   const sellerItems = cartItems.filter(i => (i.sellerId || 'unknown') === sid);
                                   const subtotal = sellerItems.reduce((s, i) => s + i.price * i.quantity, 0);
                                   const sinfo = shippingPrices[country] || shippingPrices['ES'];
-                                  return total + (subtotal > 50 ? sinfo.max : sinfo.min);
+                                  const isCertified = subtotal > 50 || sellerShippingMethod[sid] === 'certified';
+                                  return total + (isCertified ? sinfo.max : sinfo.min);
                                 }, 0);
                                 return (cartTotal + ship).toFixed(2);
                               })()}€
