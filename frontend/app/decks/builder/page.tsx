@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
+import { syncWantsListWithDeckUpdate } from "@/utils/wants-sync"
 
 // --- Official Set Abbreviations & Order ---
 const SET_ABBREVIATIONS: Record<string, string> = {
@@ -198,7 +199,7 @@ export default function DeckBuilderPage() {
   const [isImporting, setIsImporting] = useState(false)
 
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
 
   const totalCards = useMemo(() => deck.reduce((acc, item) => acc + item.count, 0), [deck])
   const pokemonCount = useMemo(() => deck.filter(i => i.card.supertype === 'Pokémon').reduce((acc, i) => acc + i.count, 0), [deck])
@@ -543,6 +544,23 @@ export default function DeckBuilderPage() {
       })
 
       if (response.ok) {
+        const savedDeck = await response.json()
+        if (!deckId) setDeckId(savedDeck.id)
+
+        if (user && user.wantList) {
+          const updatedWantList = syncWantsListWithDeckUpdate(user.wantList, savedDeck.id.toString(), deck)
+          if (updatedWantList !== user.wantList) {
+            const userUpdateResponse = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ wantList: updatedWantList })
+            })
+            if (userUpdateResponse.ok) {
+              updateUser({ wantList: updatedWantList })
+            }
+          }
+        }
+
         showNotification("¡Mazo guardado correctamente!")
       } else {
         const errorData = await response.json()

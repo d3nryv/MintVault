@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { AlertCircle, X, Plus, Minus, Loader2 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
+import { syncWantsListWithSetUpdate } from "@/utils/wants-sync"
 
 export interface Attack {
   name: string
@@ -92,18 +93,26 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
       
       const itemToModify = card.id
       let newValue: string[]
+      let isOwnedNow: boolean
       
       if (action === 'add') {
         newValue = [...currentValue, itemToModify]
+        isOwnedNow = true
       } else {
         const index = currentValue.lastIndexOf(itemToModify)
         if (index > -1) {
           currentValue.splice(index, 1)
         }
         newValue = currentValue
+        isOwnedNow = newValue.includes(itemToModify)
       }
 
-      const updateData: any = { [dbField]: newValue }
+      const updatedWantList = syncWantsListWithSetUpdate(user.wantList || [], card, isOwnedNow)
+
+      const updateData: any = { 
+        [dbField]: newValue,
+        wantList: updatedWantList
+      }
 
       const response = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
         method: 'PUT',
@@ -112,7 +121,7 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
       })
 
       if (response.ok) {
-        updateUser({ [field]: newValue })
+        updateUser({ [field]: newValue, wantList: updatedWantList })
       }
     } catch (error) {
       console.error('Failed to update collection', error)
