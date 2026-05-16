@@ -94,12 +94,48 @@ const formatSalesCount = (count: number): string => {
 
 const getConditionInfo = (condition: string) => {
   const conditions: Record<string, { abbr: string; label: string; color: string; description: string }> = {
-    M: { abbr: "M", label: "Mint", color: "bg-emerald-500 text-white", description: "Perfect condition, no visible flaws" },
-    NM: { abbr: "NM", label: "Near Mint", color: "bg-green-500 text-white", description: "Almost perfect with 1-3 micro-scratches or slightly rounded corners" },
-    LP: { abbr: "LP", label: "Lightly Played", color: "bg-lime-500 text-white", description: "Minor wear like softened edges or surface scratches, still clean appearance" },
-    MP: { abbr: "MP", label: "Moderately Played", color: "bg-yellow-500 text-foreground", description: "Visible wear on corners and edges with loss of shine" },
-    HP: { abbr: "HP", label: "Heavily Played", color: "bg-orange-500 text-white", description: "Significant damage and multiple defects but structurally playable" },
-    PO: { abbr: "PO", label: "Poor", color: "bg-red-500 text-white", description: "Severely damaged card" },
+    MT: {
+      abbr: "MT",
+      label: "Mint",
+      color: "bg-cyan-500 text-white",
+      description: "Perfect"
+    },
+    NM: {
+      abbr: "NM",
+      label: "Near Mint",
+      color: "bg-emerald-500 text-white",
+      description: "Fresh out of the booster"
+    },
+    EX: {
+      abbr: "EX",
+      label: "Excellent",
+      color: "bg-olive-600 text-white",
+      description: "Minor wear"
+    },
+    GD: {
+      abbr: "GD",
+      label: "Good",
+      color: "bg-amber-500 text-black",
+      description: "Visible wear"
+    },
+    LP: {
+      abbr: "LP",
+      label: "Light Played",
+      color: "bg-orange-500 text-white",
+      description: "Severe wear"
+    },
+    PL: {
+      abbr: "PL",
+      label: "Heavily Played",
+      color: "bg-rose-500 text-white",
+      description: "Damaged"
+    },
+    PO: {
+      abbr: "PO",
+      label: "Poor",
+      color: "bg-red-600 text-white",
+      description: "Destroyed"
+    }
   }
   return conditions[condition] || conditions.LP
 }
@@ -151,7 +187,7 @@ export default function CardDetailPage() {
   const [filterLanguage, setFilterLanguage] = useState("all")
   const [filterLocations, setFilterLocations] = useState<string[]>([])
   const [filterSellerType, setFilterSellerType] = useState<string[]>([])
-  const [filterMaxPrice, setFilterMaxPrice] = useState<number | "">("")
+  const [filterMaxPrice, setFilterMaxPrice] = useState(100)
   const [filterMinQty, setFilterMinQty] = useState(1)
   const [filterExtras, setFilterExtras] = useState({
     reverse: "all",
@@ -260,10 +296,10 @@ export default function CardDetailPage() {
     }
 
     const currentCart = user.cart ? user.cart.map(item => typeof item === 'string' ? JSON.parse(item) : item) : []
-    
+
     // Check if item from same listing already in cart
     const existingItemIndex = currentCart.findIndex((item: any) => item.id === listing.id)
-    
+
     let updatedCart
     if (existingItemIndex > -1) {
       updatedCart = [...currentCart]
@@ -340,19 +376,19 @@ export default function CardDetailPage() {
   const filteredSellers = listings.filter(l => {
     // Condition
     if (filterCondition !== "all" && CONDITION_VALUES[l.condition] < CONDITION_VALUES[filterCondition]) return false
-    
+
     // Language
     if (filterLanguage !== "all" && l.language !== filterLanguage) return false
-    
+
     // Location
     if (filterLocations.length > 0 && !filterLocations.includes(l.country || "ES")) return false
-    
+
     // Price
-    if (filterMaxPrice !== "" && l.price > Number(filterMaxPrice)) return false
-    
+    if (l.price > filterMaxPrice) return false
+
     // Qty
     if (l.amount < filterMinQty) return false
-    
+
     // Extras
     if (filterExtras.reverse !== "all") {
       const wants = filterExtras.reverse === "Yes"
@@ -534,43 +570,43 @@ export default function CardDetailPage() {
                 {/* Chart */}
                 <div className="relative h-72 mt-4 bg-secondary/20 rounded-xl p-4 border border-border/50">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={filteredPriceHistory.length > 0 ? filteredPriceHistory : [{date: 'N/A', price: 0}]}>
+                    <AreaChart data={filteredPriceHistory.length > 0 ? filteredPriceHistory : [{ date: 'N/A', price: 0 }]}>
                       <defs>
                         <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         axisLine={false}
                         tickLine={false}
-                        tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 10}}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                         minTickGap={30}
                       />
-                      <YAxis 
+                      <YAxis
                         axisLine={false}
                         tickLine={false}
-                        tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 10}}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                         tickFormatter={(val) => `${val}€`}
                       />
-                      <RechartsTooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
+                      <RechartsTooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
                           borderColor: 'hsl(var(--border))',
                           borderRadius: '8px',
                           fontSize: '12px'
                         }}
                         itemStyle={{ color: 'hsl(var(--accent))' }}
                       />
-                      <Area 
-                        type="monotone" 
-                        dataKey="price" 
-                        stroke="hsl(var(--accent))" 
+                      <Area
+                        type="monotone"
+                        dataKey="price"
+                        stroke="hsl(var(--accent))"
                         strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorPrice)" 
+                        fillOpacity={1}
+                        fill="url(#colorPrice)"
                         animationDuration={1500}
                       />
                     </AreaChart>
@@ -608,16 +644,16 @@ export default function CardDetailPage() {
                         <FilterIcon className="h-4 w-4" />
                         Filters
                       </h3>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="h-8 text-xs text-muted-foreground hover:text-accent"
                         onClick={() => {
                           setFilterCondition("all");
                           setFilterLanguage("all");
                           setFilterLocations([]);
                           setFilterSellerType([]);
-                          setFilterMaxPrice("");
+                          setFilterMaxPrice(100);
                           setFilterMinQty(1);
                         }}
                       >
@@ -628,8 +664,8 @@ export default function CardDetailPage() {
                     <div className="space-y-6">
                       {/* Location Filter */}
                       <div className="space-y-3">
-                        <button 
-                          onClick={() => setExpandedFilters(prev => ({...prev, location: !prev.location}))}
+                        <button
+                          onClick={() => setExpandedFilters(prev => ({ ...prev, location: !prev.location }))}
                           className="flex items-center justify-between w-full text-sm font-semibold group"
                         >
                           <span className="flex items-center gap-2">
@@ -642,8 +678,8 @@ export default function CardDetailPage() {
                           <div className="grid grid-cols-2 gap-2 pl-6">
                             {["ES", "US", "JP", "DE", "FR", "UK", "IT", "CA"].map(loc => (
                               <div key={loc} className="flex items-center space-x-2">
-                                <Checkbox 
-                                  id={`loc-${loc}`} 
+                                <Checkbox
+                                  id={`loc-${loc}`}
                                   checked={filterLocations.includes(loc)}
                                   onCheckedChange={(checked) => {
                                     setFilterLocations(prev => checked ? [...prev, loc] : prev.filter(l => l !== loc))
@@ -662,8 +698,8 @@ export default function CardDetailPage() {
 
                       {/* Condition Filter */}
                       <div className="space-y-3">
-                        <button 
-                          onClick={() => setExpandedFilters(prev => ({...prev, condition: !prev.condition}))}
+                        <button
+                          onClick={() => setExpandedFilters(prev => ({ ...prev, condition: !prev.condition }))}
                           className="flex items-center justify-between w-full text-sm font-semibold"
                         >
                           <span className="flex items-center gap-2">
@@ -696,8 +732,8 @@ export default function CardDetailPage() {
 
                       {/* Language Filter */}
                       <div className="space-y-3">
-                        <button 
-                          onClick={() => setExpandedFilters(prev => ({...prev, language: !prev.language}))}
+                        <button
+                          onClick={() => setExpandedFilters(prev => ({ ...prev, language: !prev.language }))}
                           className="flex items-center justify-between w-full text-sm font-semibold"
                         >
                           <span className="flex items-center gap-2">
@@ -731,8 +767,8 @@ export default function CardDetailPage() {
 
                       {/* Extra Options */}
                       <div className="space-y-3">
-                        <button 
-                          onClick={() => setExpandedFilters(prev => ({...prev, extra: !prev.extra}))}
+                        <button
+                          onClick={() => setExpandedFilters(prev => ({ ...prev, extra: !prev.extra }))}
                           className="flex items-center justify-between w-full text-sm font-semibold"
                         >
                           <span className="flex items-center gap-2">
@@ -746,9 +782,9 @@ export default function CardDetailPage() {
                             {["Reverse", "Signed", "First Edition", "Altered"].map(extra => (
                               <div key={extra} className="space-y-1">
                                 <label className="text-[10px] uppercase font-bold text-muted-foreground">{extra}</label>
-                                <Select 
-                                  value={filterExtras[extra.toLowerCase().replace(" ", "") as keyof typeof filterExtras]} 
-                                  onValueChange={(val) => setFilterExtras(prev => ({...prev, [extra.toLowerCase().replace(" ", "")]: val}))}
+                                <Select
+                                  value={filterExtras[extra.toLowerCase().replace(" ", "") as keyof typeof filterExtras]}
+                                  onValueChange={(val) => setFilterExtras(prev => ({ ...prev, [extra.toLowerCase().replace(" ", "")]: val }))}
                                 >
                                   <SelectTrigger className="h-8 text-xs">
                                     <SelectValue />
@@ -769,8 +805,8 @@ export default function CardDetailPage() {
 
                       {/* Price Filter */}
                       <div className="space-y-3">
-                        <button 
-                          onClick={() => setExpandedFilters(prev => ({...prev, price: !prev.price}))}
+                        <button
+                          onClick={() => setExpandedFilters(prev => ({ ...prev, price: !prev.price }))}
                           className="flex items-center justify-between w-full text-sm font-semibold"
                         >
                           <span className="flex items-center gap-2">
@@ -779,16 +815,13 @@ export default function CardDetailPage() {
                           </span>
                         </button>
                         <div className="pl-6 space-y-2">
-                          <Input 
-                            type="number" 
-                            value={filterMaxPrice} 
-                            onChange={(e) => setFilterMaxPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                          <Input
+                            type="number"
+                            value={filterMaxPrice}
+                            onChange={(e) => setFilterMaxPrice(Number(e.target.value))}
                             className="h-9 text-sm"
-                            placeholder="No limit"
                           />
-                          <p className="text-[10px] text-muted-foreground italic">
-                            {filterMaxPrice === "" ? "Showing all prices" : `Showing listings up to ${filterMaxPrice}€`}
-                          </p>
+                          <p className="text-[10px] text-muted-foreground italic">Showing listings up to {filterMaxPrice}€</p>
                         </div>
                       </div>
                     </div>
@@ -841,17 +874,17 @@ export default function CardDetailPage() {
 
                             {/* Extras */}
                             <div className="col-span-1 flex flex-wrap justify-center gap-1">
-                                {(listing.isReverse || listing.extras?.reverseHolo) && <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-500/30 text-[8px] px-1 py-0">REV</Badge>}
-                                {(listing.isFirstEdition || listing.extras?.firstEdition) && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[8px] px-1 py-0">1ST</Badge>}
-                                {(listing.isSigned || listing.extras?.signed) && <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30 text-[8px] px-1 py-0">SIG</Badge>}
-                                {(listing.isAltered || listing.extras?.altered) && <Badge variant="outline" className="bg-red-500/10 text-red-700 border-red-500/30 text-[8px] px-1 py-0">ALT</Badge>}
+                              {(listing.isReverse || listing.extras?.reverseHolo) && <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-500/30 text-[8px] px-1 py-0">REV</Badge>}
+                              {(listing.isFirstEdition || listing.extras?.firstEdition) && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[8px] px-1 py-0">1ST</Badge>}
+                              {(listing.isSigned || listing.extras?.signed) && <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30 text-[8px] px-1 py-0">SIG</Badge>}
+                              {(listing.isAltered || listing.extras?.altered) && <Badge variant="outline" className="bg-red-500/10 text-red-700 border-red-500/30 text-[8px] px-1 py-0">ALT</Badge>}
                             </div>
 
                             {/* Condition */}
                             <div className="col-span-1 flex justify-center">
-                                <Badge className={`${cond.color} border-none font-bold text-[10px] px-1.5 py-0 rounded-full`}>
-                                  {cond.abbr}
-                                </Badge>
+                              <Badge className={`${cond.color} border-none font-bold text-[10px] px-1.5 py-0 rounded-full`}>
+                                {cond.abbr}
+                              </Badge>
                             </div>
 
                             {/* Description (Center) */}
@@ -863,43 +896,43 @@ export default function CardDetailPage() {
 
                             {/* Price & Shipping */}
                             <div className="col-span-2 flex flex-col items-end">
-                                <p className="text-sm font-black tracking-tight">{listing.price.toFixed(2)}€</p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  +{getShippingPrice(listing.country || "ES").regular.toFixed(2)}€ shipping
-                                </p>
+                              <p className="text-sm font-black tracking-tight">{listing.price.toFixed(2)}€</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                +{getShippingPrice(listing.country || "ES").regular.toFixed(2)}€ shipping
+                              </p>
                             </div>
-                            
+
                             {/* Quantity & Stock */}
                             <div className="col-span-1 flex flex-col items-center">
-                                <Select 
-                                  value={selectedQty.toString()} 
-                                  onValueChange={(val) => setSelectedQuantities(prev => ({...prev, [listing.id]: Number(val)}))}
-                                  disabled={isOutOfStock}
-                                >
-                                  <SelectTrigger className="w-12 h-7 text-[10px] p-1">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {[...Array(Math.min(availableStock, 10))].map((_, i) => (
-                                      <SelectItem key={i+1} value={(i+1).toString()}>{i+1}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <p className={`text-[9px] font-bold mt-0.5 ${isOutOfStock ? 'text-red-500' : 'text-muted-foreground'}`}>
-                                  {isOutOfStock ? 'Out of Stock' : `${availableStock} left`}
-                                </p>
+                              <Select
+                                value={selectedQty.toString()}
+                                onValueChange={(val) => setSelectedQuantities(prev => ({ ...prev, [listing.id]: Number(val) }))}
+                                disabled={isOutOfStock}
+                              >
+                                <SelectTrigger className="w-12 h-7 text-[10px] p-1">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {[...Array(Math.min(availableStock, 10))].map((_, i) => (
+                                    <SelectItem key={i + 1} value={(i + 1).toString()}>{i + 1}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className={`text-[9px] font-bold mt-0.5 ${isOutOfStock ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                {isOutOfStock ? 'Out of Stock' : `${availableStock} left`}
+                              </p>
                             </div>
 
                             {/* Cart Action */}
                             <div className="col-span-1 flex justify-end">
-                                <Button 
-                                  size="icon" 
-                                  className={`h-8 w-8 rounded-full shadow-sm ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-accent hover:bg-accent/90 text-accent-foreground'}`}
-                                  onClick={() => !isOutOfStock && handleAddToCart(listing)}
-                                  disabled={isOutOfStock}
-                                >
-                                  {isOutOfStock ? <X className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
-                                </Button>
+                              <Button
+                                size="icon"
+                                className={`h-8 w-8 rounded-full shadow-sm ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-accent hover:bg-accent/90 text-accent-foreground'}`}
+                                onClick={() => !isOutOfStock && handleAddToCart(listing)}
+                                disabled={isOutOfStock}
+                              >
+                                {isOutOfStock ? <X className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+                              </Button>
                             </div>
                           </div>
                         );
@@ -911,8 +944,8 @@ export default function CardDetailPage() {
                             <ShoppingBag className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
                             <h3 className="font-bold text-lg mb-1">No listings found</h3>
                             <p className="text-sm text-muted-foreground">Try adjusting your filters to find what you're looking for.</p>
-                            <Button 
-                              variant="link" 
+                            <Button
+                              variant="link"
                               className="mt-2 text-accent font-bold"
                               onClick={() => {
                                 setFilterCondition("all");
