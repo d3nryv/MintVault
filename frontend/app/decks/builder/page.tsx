@@ -518,12 +518,12 @@ export default function DeckBuilderPage() {
 
   const handleSave = async () => {
     if (!user) {
-      showNotification("Debes iniciar sesión para guardar un mazo", "error")
+      showNotification("You must be logged in to save a deck", "error")
       return
     }
 
     if (deck.length === 0) {
-      showNotification("El mazo está vacío", "error")
+      showNotification("The deck is empty", "error")
       return
     }
 
@@ -561,10 +561,10 @@ export default function DeckBuilderPage() {
           }
         }
 
-        showNotification("¡Mazo guardado correctamente!")
+        showNotification("Deck saved successfully!")
       } else {
         const errorData = await response.json()
-        showNotification(errorData.error || "Error al guardar el mazo", "error")
+        showNotification(errorData.error || "Error saving the deck", "error")
       }
     } catch (error) {
       console.error("Save error:", error)
@@ -628,9 +628,9 @@ export default function DeckBuilderPage() {
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-bold text-xs uppercase tracking-widest animate-pulse">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Procesando mazo...
+                  Processing deck...
                 </div>
-                <p className="text-muted-foreground text-sm font-medium">Sincronizando con la base de datos oficial</p>
+                <p className="text-muted-foreground text-sm font-medium">Synchronizing with the official database</p>
               </div>
 
               {selectedCard && (

@@ -8,6 +8,7 @@ const controller = new PageController(pageRepository);
 
 router.post('/', controller.create);
 router.get('/album/:albumId', controller.getByAlbum);
+router.put('/:id', controller.update);
 router.delete('/:id', controller.delete);
 
 export const pageRouter = router;

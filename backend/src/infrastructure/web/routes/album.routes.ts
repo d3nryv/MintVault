@@ -1,12 +1,13 @@
 import { Router } from 'express';
-import { PostgresAlbumRepository, PostgresCardRepository, PostgresPageRepository } from '../../repositories';
+import { PostgresAlbumRepository, PostgresCardRepository, PostgresPageRepository, PostgresUserRepository } from '../../repositories';
 import { AlbumController } from '../controllers/album.controller';
 
 const router = Router();
 const albumRepository = new PostgresAlbumRepository();
 const cardRepository = new PostgresCardRepository();
 const pageRepository = new PostgresPageRepository();
-const controller = new AlbumController(albumRepository, cardRepository, pageRepository);
+const userRepository = new PostgresUserRepository();
+const controller = new AlbumController(albumRepository, cardRepository, pageRepository, userRepository);
 
 router.get('/', controller.getAll);
 router.get('/:id', controller.getById);

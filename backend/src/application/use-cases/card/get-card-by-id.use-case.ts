@@ -49,7 +49,8 @@ export class GetCardByIdUseCase {
           retreatCost: tcgCard.retreatCost,
           flavorText: tcgCard.flavorText,
           images: tcgCard.images,
-          set: tcgCard.set
+          set: tcgCard.set,
+          nationalPokedexNumbers: tcgCard.nationalPokedexNumbers
         },
         tcgCard.id
     );

@@ -1,5 +1,5 @@
 import { AlbumEntity } from "../../../domain/entities/album.entity";
-import { AlbumRepository, CardRepository, PageRepository } from "../../../domain/repositories";
+import { AlbumRepository, CardRepository, PageRepository, UserRepository } from "../../../domain/repositories";
 import { CreateAlbumDto } from "../../dtos/album.dto";
 import { CustomError } from "../../../domain/errors/custom.error";
 
@@ -7,7 +7,8 @@ export class CreateAlbumUseCase {
   constructor(
     private readonly albumRepository: AlbumRepository,
     private readonly cardRepository: CardRepository,
-    private readonly pageRepository: PageRepository
+    private readonly pageRepository: PageRepository,
+    private readonly userRepository: UserRepository
   ) {}
 
   async execute(dto: CreateAlbumDto): Promise<AlbumEntity> {
@@ -35,9 +36,10 @@ export class CreateAlbumUseCase {
     // 4. Crear páginas automáticamente llenando los slots SECUENCIALMENTE
     const cardsPerPage = album.height * album.width;
     const cards = dto.cards || [];
-    const pagesNeeded = Math.max(1, Math.ceil(cards.length / cardsPerPage));
+    const totalSlots = 360;
+    const totalPages = Math.ceil(totalSlots / cardsPerPage);
 
-    for (let p = 0; p < pagesNeeded; p++) {
+    for (let p = 0; p < totalPages; p++) {
         const slots: Record<number, string> = {};
         
         // Coger las cartas de esta página
@@ -59,6 +61,17 @@ export class CreateAlbumUseCase {
     const finalAlbum = await this.albumRepository.findById(album.id);
     if (!finalAlbum) throw CustomError.internalServerError('Failed to retrieve created album');
     
+    // Sync to user's albums text array column
+    try {
+        const user = await this.userRepository.findById(album.ownerId);
+        if (user) {
+            const updatedAlbums = Array.from(new Set([...user.albums, album.id]));
+            await this.userRepository.update(user.id, { albums: updatedAlbums });
+        }
+    } catch (err) {
+        console.error("Failed to sync album to user's albums array:", err);
+    }
+
     return finalAlbum;
   }
 }

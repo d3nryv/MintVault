@@ -185,6 +185,11 @@ export default function CardDetailPage() {
   const [wantsCount, setWantsCount] = useState(1)
   const [wantsCondition, setWantsCondition] = useState("Near Mint")
   const [wantsLanguage, setWantsLanguage] = useState("EN")
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3500)
+  }
 
   // Advanced Filtering states
   const [filterCondition, setFilterCondition] = useState("all")
@@ -272,11 +277,11 @@ export default function CardDetailPage() {
       setWantsCount(1)
       setWantsCondition("Near Mint")
       setWantsLanguage("EN")
-      alert("Added to Wants List!")
+      showNotification("Added to Wants List!")
       setIsWantsDialogOpen(false)
     } catch (e) {
       console.error("Error adding to wants list", e)
-      alert("Error adding to list. Please try again.")
+      showNotification("Error adding to list. Please try again.", "error")
     } finally {
       setIsAddingToWants(false)
     }
@@ -286,7 +291,7 @@ export default function CardDetailPage() {
 
   const handleAddToCart = (listing: any) => {
     if (!user) {
-      alert("Please login to add items to your cart")
+      showNotification("Please login to add items to your cart", "error")
       return
     }
 
@@ -319,7 +324,7 @@ export default function CardDetailPage() {
     }
 
     updateUser({ cart: updatedCart.map(item => JSON.stringify(item)) })
-    alert(`Added ${qty} copies to your cart!`)
+    showNotification(`Added ${qty} copies to your cart!`)
   }
 
   const fetchData = async () => {
@@ -443,6 +448,13 @@ export default function CardDetailPage() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
+
+        {notification && (
+          <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+            <span className="text-base font-bold">{notification.message}</span>
+          </div>
+        )}
+
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {/* Back button */}
           <Link href="/marketplace">

@@ -18,6 +18,9 @@ export * from './user/follow-user.use-case';
 export * from './user/unfollow-user.use-case';
 export * from './user/empty-cart.use-case';
 export * from './user/remove-vendor-from-cart.use-case';
+export * from './user/search-users.use-case';
+export * from './user/accept-follow-request.use-case';
+export * from './user/reject-follow-request.use-case';
 
 export * from './album/get-all-albums.use-case';
 export * from './album/get-album-by-id.use-case';
@@ -29,6 +32,7 @@ export * from './album/move-card.use-case';
 export * from './page/create-page.use-case';
 export * from './page/delete-page.use-case';
 export * from './page/get-all-pages-from-album.use-case';
+export * from './page/update-page.use-case';
 
 export * from './sale/create-sale.use-case';
 export * from './sale/get-sale.use-case';

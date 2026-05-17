@@ -11,7 +11,7 @@ export class CreateUserUseCase {
     if (!dto || !dto.username || !dto.email || !dto.password) {
         throw CustomError.badRequest('Username, email and password are required');
     }
-    const userData: Omit<UserEntity, 'id' | 'registerDate' | 'followers' | 'following'> = {
+    const userData: Omit<UserEntity, 'id' | 'registerDate' | 'followers' | 'following' | 'friendRequests'> = {
         username: dto.username,
         email: dto.email,
         password: BcryptAdapter.hash(dto.password),
@@ -32,7 +32,10 @@ export class CreateUserUseCase {
         wantList: dto.wantList ?? [],
         cart: dto.cart ?? [],
         country: dto.country ?? 'ES',
-        balance: dto.balance ?? 0
+        balance: dto.balance ?? 0,
+        allOwnedCardIds: [],
+        totalCardsSold: 0,
+        ordersArrived: 0
     };
     return this.userRepository.create(userData);
   }

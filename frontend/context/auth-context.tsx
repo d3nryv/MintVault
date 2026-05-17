@@ -15,6 +15,9 @@ interface User {
   wantList?: string[]
   cart?: string[]
   country?: string
+  followers?: string[]
+  following?: string[]
+  friendRequests?: string[]
 }
 
 interface AuthContextType {

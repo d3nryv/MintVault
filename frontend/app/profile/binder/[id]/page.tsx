@@ -19,7 +19,8 @@ import {
   Loader2,
   Layers,
   Inbox,
-  Share2
+  Share2,
+  Save
 } from "lucide-react"
 import { Binder, BinderCard, BinderSize } from "@/lib/types/binder"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -56,11 +57,18 @@ export default function BinderDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<"pages" | "cover">("pages")
 
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [setQuery, setSetQuery] = useState("")
   const [draggedSlot, setDraggedSlot] = useState<number | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -77,13 +85,28 @@ export default function BinderDetailPage() {
   useEffect(() => {
     const fetchSets = async () => {
       try {
+        if (typeof window !== 'undefined') {
+          const cachedSets = localStorage.getItem("tcg_sets_list")
+          if (cachedSets) {
+            const parsed = JSON.parse(cachedSets)
+            setAllSets(parsed)
+            setFilteredSets(parsed)
+            return
+          }
+        }
+
         const response = await fetch("https://api.pokemontcg.io/v2/sets")
         const result = await response.json()
         const setsData = result.data.map((s: any) => ({ id: s.id, name: s.name }))
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("tcg_sets_list", JSON.stringify(setsData))
+        }
+        
         setAllSets(setsData)
         setFilteredSets(setsData)
       } catch (e) {
-        console.error("Error fetching sets:", e)
+        console.warn("Error fetching sets:", e)
       }
     }
     fetchSets()
@@ -106,22 +129,65 @@ export default function BinderDetailPage() {
       setIsLoading(true)
       try {
         // 1. Fetch Album details
-        const albumRes = await fetch(`http://127.0.0.1:3000/api/albums/${binderId}`)
+        const albumRes = await fetch(`http://127.0.0.1:3000/api/albums/${binderId}`, { cache: 'no-store' })
         if (!albumRes.ok) throw new Error('Album not found')
         const albumData = await albumRes.json()
 
         // 2. Fetch Pages for this album
-        const pagesRes = await fetch(`http://127.0.0.1:3000/api/pages/album/${binderId}`)
-        const pagesData = await pagesRes.json()
+        const pagesRes = await fetch(`http://127.0.0.1:3000/api/pages/album/${binderId}`, { cache: 'no-store' })
+        let pagesData = await pagesRes.json()
 
-        // 3. Reconstruct flat cards array
+        // 2.5 Self-healing: Check if any pages are missing up to totalPages, and auto-create them in parallel
         const cardsPerPage = albumData.height * albumData.width
         const totalSlots = 360 // Standard binder size for UI
+        const totalPages = Math.ceil(totalSlots / cardsPerPage)
+        
+        let updatedPagesData = [...pagesData]
+        let hasNewPages = false
+        const missingPageNumbers: number[] = []
+        
+        for (let pNum = 1; pNum <= totalPages; pNum++) {
+          const exists = pagesData.some((p: any) => p.pageNumber === pNum)
+          if (!exists) {
+            missingPageNumbers.push(pNum)
+          }
+        }
+        
+        if (missingPageNumbers.length > 0) {
+          const createdResults = await Promise.all(
+            missingPageNumbers.map(async (pNum) => {
+              try {
+                const createRes = await fetch(`http://127.0.0.1:3000/api/pages`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ albumId: binderId, pageNumber: pNum })
+                })
+                if (createRes.ok) {
+                  return await createRes.json()
+                }
+              } catch (err) {
+                console.warn(`Error auto-creating page ${pNum}:`, err)
+              }
+              return null
+            })
+          )
+          const validNewPages = createdResults.filter(Boolean)
+          if (validNewPages.length > 0) {
+            updatedPagesData.push(...validNewPages)
+            hasNewPages = true
+          }
+        }
+        
+        if (hasNewPages) {
+          updatedPagesData.sort((a, b) => a.pageNumber - b.pageNumber)
+          pagesData = updatedPagesData
+        }
+
+        // 3. Reconstruct flat cards array
         const flatCards = Array(totalSlots).fill(null)
         const ownedCards: Record<number, boolean> = {}
 
         // We need to fetch card details for each ID in the slots
-        // To avoid too many requests, we'll collect all unique card IDs first
         const allCardIds = new Set<string>()
         pagesData.forEach((page: any) => {
           Object.values(page.slots).forEach((cardId: any) => {
@@ -131,10 +197,22 @@ export default function BinderDetailPage() {
 
         const cardDetailsMap = new Map<string, any>()
         if (allCardIds.size > 0) {
-          const idsQuery = Array.from(allCardIds).join(' OR id:')
-          const cardsRes = await fetch(`https://api.pokemontcg.io/v2/cards?q=id:${idsQuery}`)
-          const cardsResult = await cardsRes.json()
-          cardsResult.data.forEach((c: any) => cardDetailsMap.set(c.id, c))
+          const idsArray = Array.from(allCardIds)
+          
+          await Promise.all(
+            idsArray.map(async (id) => {
+              try {
+                // Fetch from our local backend wrapper
+                const cardRes = await fetch(`http://127.0.0.1:3000/api/cards/${id}`, { cache: 'no-store' })
+                if (cardRes.ok) {
+                  const cardData = await cardRes.json()
+                  cardDetailsMap.set(id, cardData)
+                }
+              } catch (err) {
+                console.warn(`Error fetching card details for ${id}:`, err)
+              }
+            })
+          )
         }
 
         pagesData.forEach((page: any) => {
@@ -147,9 +225,9 @@ export default function BinderDetailPage() {
                 flatCards[globalIdx] = {
                   id: card.id,
                   name: card.name,
-                  image: card.images.small,
-                  number: card.number,
-                  set: card.set.name
+                  image: card.metadata?.images?.small || card.image || '',
+                  number: card.metadata?.number || card.number || '',
+                  set: card.metadata?.set?.name || card.set || ''
                 }
                 ownedCards[globalIdx] = true
               }
@@ -178,7 +256,7 @@ export default function BinderDetailPage() {
         setEditCoverValue(metadata.coverValue || albumData.coverUrl || "#000000")
         
       } catch (e) {
-        console.error("Error fetching binder:", e)
+        console.warn("Error fetching binder:", e)
         router.push('/collection?tab=profile')
       } finally {
         setIsLoading(false)
@@ -189,6 +267,32 @@ export default function BinderDetailPage() {
       fetchBinderData()
     }
   }, [binderId])
+
+  // Dynamic debounced card search
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearchResults([])
+      return
+    }
+
+    if (searchQuery.length < 3) {
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const results = await searchCards(searchQuery)
+        setSearchResults(results)
+      } catch (e) {
+        console.error("Error searching cards:", e)
+      } finally {
+        setIsSearching(false)
+      }
+    }, 400) // 400ms debounce
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Automatic saving removed in favor of explicit save for styles
   // Cards are still updated in state locally, but we should update DB on changes
@@ -211,9 +315,30 @@ export default function BinderDetailPage() {
     const cardsPerPage = grid.perPage
     const pageIdx = Math.floor(selectedSlot / cardsPerPage)
     const slotIdx = selectedSlot % cardsPerPage
-    const page = pages.find(p => p.pageNumber === pageIdx + 1)
+    
+    let currentPagesList = [...pages]
+    let page = currentPagesList.find(p => p.pageNumber === pageIdx + 1)
 
-    if (!page) return
+    // If the page does not exist yet (e.g. for legacy binders), create it on-demand!
+    if (!page) {
+      try {
+        const createRes = await fetch(`http://127.0.0.1:3000/api/pages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ albumId: binder.id, pageNumber: pageIdx + 1 })
+        })
+        if (createRes.ok) {
+          page = await createRes.json()
+          currentPagesList.push(page)
+        } else {
+          console.error("Failed to create page on-demand")
+          return
+        }
+      } catch (err) {
+        console.error("Error creating page on-demand:", err)
+        return
+      }
+    }
 
     try {
       const newSlots = { ...page.slots, [slotIdx]: card.id }
@@ -237,9 +362,11 @@ export default function BinderDetailPage() {
         setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
         
         // Update local pages state
-        const newPages = [...pages]
+        const newPages = [...currentPagesList]
         const pIdx = newPages.findIndex(p => p.id === page.id)
-        newPages[pIdx] = { ...page, slots: newSlots }
+        if (pIdx !== -1) {
+          newPages[pIdx] = { ...page, slots: newSlots }
+        }
         setPages(newPages)
         
         setIsModalOpen(false)
@@ -425,6 +552,29 @@ export default function BinderDetailPage() {
     setBinder({ ...binder, ownedCards: newOwned })
   }
 
+  const handleSaveChanges = async () => {
+    if (!binder) return
+    setIsSaving(true)
+    try {
+      for (const page of pages) {
+        const response = await fetch(`http://127.0.0.1:3000/api/pages/${page.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slots: page.slots })
+        })
+        if (!response.ok) {
+          throw new Error(`Failed to save page ${page.pageNumber}`)
+        }
+      }
+      showNotification("Changes successfully saved to the database!", "success")
+    } catch (e) {
+      console.error("Error saving binder changes:", e)
+      showNotification("Error saving changes to the server. Please try again.", "error")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleFillBySet = async () => {
     if (!setQuery || !binder) return
     setIsSearching(true)
@@ -432,6 +582,11 @@ export default function BinderDetailPage() {
       const cards = await fetchSetCards(setQuery)
       const newCards = [...binder.cards]
       const newOwned = { ...(binder.ownedCards || {}) }
+      
+      const grid = getGridConfig(binder.size)
+      const cardsPerPage = grid.perPage
+      const newPages = [...pages]
+
       cards.forEach((card: any, index: number) => {
         if (index < newCards.length) {
           newCards[index] = {
@@ -442,10 +597,19 @@ export default function BinderDetailPage() {
             set: card.set.name
           }
           newOwned[index] = true // Mark as owned by default
+          
+          const pageIdx = Math.floor(index / cardsPerPage)
+          const slotIdx = index % cardsPerPage
+          
+          let page = newPages.find(p => p.pageNumber === pageIdx + 1)
+          if (page) {
+            page.slots = { ...page.slots, [slotIdx]: card.id }
+          }
         }
       })
       
       setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
+      setPages(newPages)
       setIsModalOpen(false)
     } catch (e) {
       console.error("Error filling set:", e)
@@ -469,9 +633,17 @@ export default function BinderDetailPage() {
 
   if (isLoading || !binder) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
+      <div className="min-h-screen bg-background relative flex flex-col">
+      <Header />
+      
+      {notification && (
+        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
+          <span className="text-base font-bold">{notification.message}</span>
+        </div>
+      )}
+
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-12 pt-24">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </main>
         <Footer />
@@ -492,6 +664,13 @@ export default function BinderDetailPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans overflow-x-hidden">
       <Header />
+
+      {notification && (
+        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          <span className="text-base font-bold">{notification.message}</span>
+        </div>
+      )}
+
       <main className="flex-1 pt-24 pb-20 px-4">
         <div className="max-w-[1750px] mx-auto">
           {/* Top Bar */}
@@ -576,10 +755,6 @@ export default function BinderDetailPage() {
                 <Eye className="h-4 w-4" />
                 {viewMode === "cover" ? "Show Pages" : "View Cover"}
               </Button>
-              <Button className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 shadow-xl shadow-primary/20 hover:scale-105 transition-all">
-                <Share2 className="h-4 w-4" />
-                Share
-              </Button>
               <Button 
                 variant="destructive"
                 onClick={handleDeleteBinder}
@@ -587,6 +762,23 @@ export default function BinderDetailPage() {
               >
                 <Trash2 className="h-4 w-4" />
                 Delete
+              </Button>
+              <Button 
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 shadow-xl shadow-emerald-500/20 hover:scale-105 transition-all bg-emerald-600 hover:bg-emerald-700 text-white border-none"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </div>
           </div>

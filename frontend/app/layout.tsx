@@ -31,6 +31,8 @@ export const metadata: Metadata = {
   },
 }
 
+import { Toaster } from "@/components/ui/toaster"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -51,6 +53,7 @@ export default function RootLayout({
             </MarketplaceProvider>
             {process.env.NODE_ENV === 'production' && <Analytics />}
           </AuthProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

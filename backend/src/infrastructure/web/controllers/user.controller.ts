@@ -9,8 +9,11 @@ import {
     LoginUserUseCase,
     FollowUserUseCase,
     UnfollowUserUseCase,
+    AcceptFollowRequestUseCase,
+    RejectFollowRequestUseCase,
     EmptyCartUseCase,
-    RemoveVendorFromCartUseCase
+    RemoveVendorFromCartUseCase,
+    SearchUsersUseCase
 } from '../../../application/use-cases';
 
 export class UserController {
@@ -102,6 +105,28 @@ export class UserController {
         }
     }
 
+    acceptFollow = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { followerId } = req.body;
+            const followingId = req.params.id as string;
+            await new AcceptFollowRequestUseCase(this.userRepository).execute(followerId as string, followingId);
+            res.status(200).json({ message: 'Follow request accepted successfully' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    rejectFollow = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { followerId } = req.body;
+            const followingId = req.params.id as string;
+            await new RejectFollowRequestUseCase(this.userRepository).execute(followerId as string, followingId);
+            res.status(200).json({ message: 'Follow request rejected successfully' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     emptyCart = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const id = req.params.id as string;
@@ -118,6 +143,17 @@ export class UserController {
             const vendorId = req.params.vendorId as string;
             await new RemoveVendorFromCartUseCase(this.userRepository).execute(id, vendorId);
             res.status(204).send();
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    search = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const query = req.query.q as string;
+            if (!query) return res.json([]);
+            const users = await new SearchUsersUseCase(this.userRepository).execute(query);
+            res.json(users);
         } catch (error) {
             next(error);
         }

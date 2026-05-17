@@ -235,9 +235,9 @@ export function ProfileSection() {
       const cards = await Promise.all(
         user.showcase.map(async (id) => {
           try {
-            const res = await fetch(`https://api.pokemontcg.io/v2/cards/${id}`)
-            const data = await res.json()
-            return data.data
+            const res = await fetch(`http://127.0.0.1:3000/api/cards/${id}`)
+            if (res.ok) return await res.json()
+            return null
           } catch { return null }
         })
       )
@@ -413,14 +413,21 @@ export function ProfileSection() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-5 gap-6">
               {[0, 1, 2, 3, 4].map((i) => {
                 const card = showcaseCards[i]
+                const cardImage = card?.metadata?.images?.large || card?.metadata?.images?.small || card?.images?.large || card?.images?.small || card?.image || ''
+                const cardSetName = card?.metadata?.set?.name || card?.set?.name || card?.set || 'Unknown Set'
+                
                 return card ? (
-                  <div key={card.id} className="group cursor-pointer relative">
+                  <div key={card.id || i} className="group cursor-pointer relative">
                     <div className="relative aspect-[2.5/3.5] bg-muted rounded-3xl mb-3 overflow-hidden shadow-md group-hover:shadow-[0_20px_50px_rgba(var(--primary-rgb),0.3)] transition-all duration-700 group-hover:-translate-y-4 group-hover:ring-8 group-hover:ring-primary/10">
-                      <img src={card.images.large || card.images.small} alt={card.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                      {cardImage ? (
+                        <img src={cardImage} alt={card.name} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                      ) : (
+                        <div className="w-full h-full bg-secondary/30 flex items-center justify-center text-xs font-bold text-muted-foreground">No Image</div>
+                      )}
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-end p-5">
                         <div className="min-w-0">
                           <p className="text-xs text-white font-black leading-tight truncate uppercase tracking-tighter">{card.name}</p>
-                          <p className="text-[9px] text-white/60 font-black truncate uppercase tracking-widest">{card.set.name}</p>
+                          <p className="text-[9px] text-white/60 font-black truncate uppercase tracking-widest">{cardSetName}</p>
                         </div>
                       </div>
                     </div>

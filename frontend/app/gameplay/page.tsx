@@ -59,6 +59,11 @@ export default function GameplayPage() {
   const [page, setPage] = useState(1)
   const [userDecks, setUserDecks] = useState<any[]>([])
   const [isLoadingDecks, setIsLoadingDecks] = useState(false)
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3500)
+  }
 
   const fetchHtml = async (url: string) => {
     try {
@@ -330,6 +335,13 @@ export default function GameplayPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+
+      {notification && (
+        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          <span className="text-base font-bold">{notification.message}</span>
+        </div>
+      )}
+
       <main className="pt-20">
         <div className="mx-auto max-w-[1700px] px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8">
@@ -421,7 +433,7 @@ export default function GameplayPage() {
                               className="w-full h-14 text-lg font-black italic uppercase gap-3 border-2"
                               onClick={() => {
                                 navigator.clipboard.writeText(selectedDeck.exportList || "")
-                                alert("Decklist copied to clipboard!")
+                                showNotification("Decklist copied to clipboard!")
                               }}
                               disabled={isFetchingDetails}
                             >
@@ -763,7 +775,7 @@ export default function GameplayPage() {
 
                                 const exportText = `Pokémon: ${pCount}\n${p.map(formatLine).join('\n')}\n\nTrainer: ${tCount}\n${t.map(formatLine).join('\n')}\n\nEnergy: ${eCount}\n${e.map(formatLine).join('\n')}`
                                 navigator.clipboard.writeText(exportText)
-                                alert("Decklist copied to clipboard!")
+                                showNotification("Decklist copied to clipboard!")
                               }}><Download className="h-4 w-4" /></Button>
                                 <Button 
                                   variant="ghost" 
@@ -781,7 +793,7 @@ export default function GameplayPage() {
                         ))
                       ) : (
                         <div className="py-12 text-center text-muted-foreground italic">
-                          No tienes mazos guardados. ¡Crea uno nuevo!
+                          You have no saved decks. Create a new one!
                         </div>
                       )}
                     </div>

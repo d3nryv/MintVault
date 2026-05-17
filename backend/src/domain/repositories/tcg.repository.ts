@@ -13,6 +13,7 @@ export interface TcgPlayerInfo {
   retreatCost?: string[];
   flavorText?: string;
   rarity?: string;
+  nationalPokedexNumbers?: number[];
   images: {
     small: string;
     large: string;

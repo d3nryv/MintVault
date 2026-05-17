@@ -17,6 +17,7 @@ export class UserMapper {
             row.albums || [],
             row.followers || [],
             row.following || [],
+            row.friend_requests || [],
             row.register_date,
             row.medals || [],
             row.owned_english_cards || [],
@@ -30,7 +31,10 @@ export class UserMapper {
             row.want_list || [],
             row.cart || [],
             row.country || 'ES',
-            row.balance !== undefined ? parseFloat(row.balance) : 0
+            row.balance !== undefined ? parseFloat(row.balance) : 0,
+            row.all_owned_card_ids || [],
+            row.total_cards_sold !== undefined ? parseInt(row.total_cards_sold) : 0,
+            row.orders_arrived !== undefined ? parseInt(row.orders_arrived) : 0
         );
     }
 
@@ -48,6 +52,7 @@ export class UserMapper {
         if (user.albums !== undefined) dbFields.albums = user.albums;
         if (user.followers !== undefined) dbFields.followers = user.followers;
         if (user.following !== undefined) dbFields.following = user.following;
+        if (user.friendRequests !== undefined) dbFields.friend_requests = user.friendRequests;
         if (user.registerDate !== undefined) dbFields.register_date = user.registerDate;
         if (user.medals !== undefined) dbFields.medals = user.medals;
         if (user.ownedEnglishCards !== undefined) dbFields.owned_english_cards = user.ownedEnglishCards;
