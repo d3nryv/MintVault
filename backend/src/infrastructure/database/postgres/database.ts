@@ -7,7 +7,7 @@ class Database implements TransactionManager {
   private pool: Pool;
 
   private constructor() {
-    const isProduction = envs.NODE_ENV === 'production';
+    const useSSL = envs.DB_HOST !== 'localhost';
     
     this.pool = new Pool({
       host: envs.DB_HOST,
@@ -18,7 +18,7 @@ class Database implements TransactionManager {
       max: envs.DB_MAX_POOL,
       idleTimeoutMillis: envs.DB_IDLE_TIMEOUT,
       connectionTimeoutMillis: envs.DB_CONNECTION_TIMEOUT,
-      ssl: isProduction ? { rejectUnauthorized: false } : false,
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
     });
 
     // Manejar errores del pool

@@ -7,8 +7,7 @@
         },
         "backend": {
             "entrypoint": "backend",
-            "routePrefix": "/_/backend",
-            "framework": null
+            "routePrefix": "/_/backend"
         }
     }
 }
