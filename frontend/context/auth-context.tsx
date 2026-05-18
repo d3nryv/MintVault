@@ -18,6 +18,7 @@ interface User {
   followers?: string[]
   following?: string[]
   friendRequests?: string[]
+  bannerUrl?: string
 }
 
 interface AuthContextType {

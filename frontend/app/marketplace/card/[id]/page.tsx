@@ -169,6 +169,7 @@ const CONDITION_VALUES: Record<string, number> = {
 export default function CardDetailPage() {
   const { id } = useParams()
   const router = useRouter()
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
   const [card, setCard] = useState<any>(null)
   const [listings, setListings] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -262,7 +263,7 @@ export default function CardDetailPage() {
         return list
       })
 
-      const res = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+      const res = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wantList: updatedLists.map(l => JSON.stringify(l)) })
@@ -569,7 +570,6 @@ export default function CardDetailPage() {
                                   <SelectItem value="Any">Any</SelectItem>
                                   <SelectItem value="EN">🇺🇸 English</SelectItem>
                                   <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
-                                  <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
                                   <SelectItem value="DE">🇩🇪 German</SelectItem>
                                   <SelectItem value="FR">🇫🇷 French</SelectItem>
                                   <SelectItem value="IT">🇮🇹 Italian</SelectItem>
@@ -830,7 +830,6 @@ export default function CardDetailPage() {
                                 <SelectItem value="all">Any Language</SelectItem>
                                 <SelectItem value="EN">🇺🇸 English</SelectItem>
                                 <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
-                                <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
                                 <SelectItem value="DE">🇩🇪 German</SelectItem>
                                 <SelectItem value="FR">🇫🇷 French</SelectItem>
                                 <SelectItem value="IT">🇮🇹 Italian</SelectItem>

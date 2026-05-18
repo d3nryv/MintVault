@@ -45,6 +45,17 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 
+const parseSellerInfo = (bannerUrl: string) => {
+  if (bannerUrl && bannerUrl.startsWith('{"isSeller"')) {
+    try {
+      return JSON.parse(bannerUrl);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 import {
   Select,
   SelectContent,
@@ -57,6 +68,7 @@ export default function PublicProfilePage() {
   const { id } = useParams()
   const router = useRouter()
   const { user: currentUser, updateUser } = useAuth()
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
   const [profileUser, setProfileUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [relationship, setRelationship] = useState<"none" | "pending" | "following" | "mutual">("none")
@@ -106,7 +118,7 @@ export default function PublicProfilePage() {
       setLoading(true)
       try {
         // Fetch User
-        const userRes = await fetch(`http://127.0.0.1:3000/api/users/${id}`)
+        const userRes = await fetch(`${apiBaseUrl}/api/users/${id}`)
         if (userRes.ok) {
           const userData = await userRes.json()
           setProfileUser(userData)
@@ -123,16 +135,16 @@ export default function PublicProfilePage() {
           }
 
           // Fetch Decks
-          const decksRes = await fetch(`http://127.0.0.1:3000/api/decks/owner/${id}`)
+          const decksRes = await fetch(`${apiBaseUrl}/api/decks/owner/${id}`)
           const decksData = await decksRes.json()
           setDecks(decksData)
 
           // Fetch Sales
-          const salesRes = await fetch(`http://127.0.0.1:3000/api/sales/user/${id}`)
+          const salesRes = await fetch(`${apiBaseUrl}/api/sales/user/${id}`)
           if (salesRes.ok) setSales(await salesRes.json())
 
           // Fetch All Pokemon for Pokedex mapping
-          const pokeRes = await fetch(`http://127.0.0.1:3000/api/pokedex/all`)
+          const pokeRes = await fetch(`${apiBaseUrl}/api/pokedex/all`)
           if (pokeRes.ok) setAllPokemon(await pokeRes.json())
 
           // Fetch Collection Details
@@ -151,7 +163,7 @@ export default function PublicProfilePage() {
       // 1. Fetch Binders
       const fetchBinders = async () => {
         try {
-          const bindersRes = await fetch(`http://127.0.0.1:3000/api/albums`, { cache: 'no-store' })
+          const bindersRes = await fetch(`${apiBaseUrl}/api/albums`, { cache: 'no-store' })
           if (bindersRes.ok) {
             const allBinders = await bindersRes.json()
             setBindersList(allBinders.filter((b: any) => b.ownerId === user.id))
@@ -220,7 +232,7 @@ export default function PublicProfilePage() {
             const cards = await Promise.all(
               pokemonCardIds.map(async (cardId: string) => {
                 try {
-                  const cardRes = await fetch(`http://127.0.0.1:3000/api/cards/${cardId}`)
+                  const cardRes = await fetch(`${apiBaseUrl}/api/cards/${cardId}`)
                   if (cardRes.ok) return await cardRes.json()
                 } catch { return null }
               })
@@ -302,7 +314,7 @@ export default function PublicProfilePage() {
             const cards = await Promise.all(
               user.showcase.map(async (id: string) => {
                 try {
-                  const res = await fetch(`http://127.0.0.1:3000/api/cards/${id}`)
+                  const res = await fetch(`${apiBaseUrl}/api/cards/${id}`)
                   if (res.ok) return await res.json()
                   return null
                 } catch { return null }
@@ -390,14 +402,14 @@ export default function PublicProfilePage() {
     setFollowLoading(true)
     try {
       if (relationship === "none") {
-        const res = await fetch(`http://127.0.0.1:3000/api/users/${id}/follow`, {
+        const res = await fetch(`${apiBaseUrl}/api/users/${id}/follow`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ followerId: currentUser.id })
         })
         if (res.ok) setRelationship("pending")
       } else {
-        const res = await fetch(`http://127.0.0.1:3000/api/users/${id}/unfollow`, {
+        const res = await fetch(`${apiBaseUrl}/api/users/${id}/unfollow`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ followerId: currentUser.id })
@@ -424,7 +436,7 @@ export default function PublicProfilePage() {
 
     setCartLoading(saleId)
     try {
-      const response = await fetch(`http://localhost:3000/api/users/${currentUser.id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/users/${currentUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cart: [...(currentUser.cart || []), saleId] })
@@ -449,7 +461,7 @@ export default function PublicProfilePage() {
     setCartLoading("bulk")
     try {
       const newCart = [...(currentUser.cart || []), ...filteredSales.map(s => s.id)]
-      const response = await fetch(`http://localhost:3000/api/users/${currentUser.id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/users/${currentUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cart: newCart })
@@ -506,8 +518,8 @@ export default function PublicProfilePage() {
           </div>
 
           {/* User Info Bar */}
-          <div className="flex flex-col md:flex-row items-end gap-6 -mt-12 px-8 relative z-10">
-            <div className="relative">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-12 px-4 md:px-8 relative z-10 text-center md:text-left">
+            <div className="relative mx-auto md:mx-0">
               {profileUser.profilePicUrl ? (
                 <img
                   src={profileUser.profilePicUrl}
@@ -521,14 +533,28 @@ export default function PublicProfilePage() {
               )}
             </div>
 
-            <div className="flex-grow pb-2">
+            <div className="flex-grow pb-2 w-full md:w-auto">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
+                <div className="flex flex-col items-center md:items-start">
                   <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{profileUser.username}</h1>
-                  <p className="text-lg text-muted-foreground font-medium">{profileUser.title || "Trainer"}</p>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-1">
+                    <p className="text-lg text-muted-foreground font-medium">{profileUser.title || "Trainer"}</p>
+                    {(() => {
+                      const sellerInfo = parseSellerInfo(profileUser.bannerUrl);
+                      if (sellerInfo?.isSeller) {
+                        return (
+                          <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold gap-1 py-0.5 px-2 text-xs rounded-full">
+                            <CheckCircle className="h-3 w-3" />
+                            Verified Seller
+                          </Badge>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 justify-center md:justify-start w-full md:w-auto mt-2 md:mt-0">
                   {currentUser?.id !== profileUser.id && (
                     <Button
                       onClick={handleFollowToggle}
@@ -557,7 +583,7 @@ export default function PublicProfilePage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-4 mt-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap gap-4 mt-4 text-sm text-muted-foreground justify-center md:justify-start w-full">
                 <div className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
                   <span className="font-bold text-foreground">{profileUser.followers?.length || 0}</span> followers
@@ -586,6 +612,21 @@ export default function PublicProfilePage() {
                   <Calendar className="h-4 w-4" />
                   Joined {new Date(profileUser.registerDate).toLocaleDateString()}
                 </div>
+                {(() => {
+                  const sellerInfo = parseSellerInfo(profileUser.bannerUrl);
+                  if (sellerInfo?.isSeller && sellerInfo?.address) {
+                    const addr = sellerInfo.address;
+                    return (
+                      <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 max-w-full">
+                        <MapPin className="h-4 w-4 shrink-0" />
+                        <span className="font-semibold break-words text-left">
+                          Seller Location: {addr.ciudad}, {addr.pais} ({addr.tipoCalle} {addr.nombreCalle})
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
 
@@ -781,7 +822,6 @@ export default function PublicProfilePage() {
                         <SelectContent className="rounded-2xl border-border/50 shadow-2xl p-2 font-bold">
                           <SelectItem value="all" className="rounded-xl">All Langs</SelectItem>
                           <SelectItem value="en" className="rounded-xl">English</SelectItem>
-                          <SelectItem value="jp" className="rounded-xl">Japanese</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

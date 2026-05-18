@@ -13,6 +13,7 @@ import { Loader2, UserCheck, UserPlus, X, Check, Users } from "lucide-react"
 export default function FriendsPage() {
   const { user, login } = useAuth()
   const router = useRouter()
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
   
   const [following, setFollowing] = useState<any[]>([])
   const [followers, setFollowers] = useState<any[]>([])
@@ -30,7 +31,7 @@ export default function FriendsPage() {
     const fetchUsersData = async () => {
       try {
         const fetchUserById = async (id: string) => {
-          const res = await fetch(`http://127.0.0.1:3000/api/users/${id}`)
+          const res = await fetch(`${apiBaseUrl}/api/users/${id}`)
           if (res.ok) return await res.json()
           return null
         }
@@ -67,7 +68,7 @@ export default function FriendsPage() {
 
   const handleAcceptRequest = async (followerId: string) => {
     try {
-      const res = await fetch(`http://127.0.0.1:3000/api/users/${user?.id}/accept-follow`, {
+      const res = await fetch(`${apiBaseUrl}/api/users/${user?.id}/accept-follow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ followerId })
@@ -75,7 +76,7 @@ export default function FriendsPage() {
       
       if (res.ok) {
         // Refresh session
-        const sessionRes = await fetch(`http://127.0.0.1:3000/api/users/${user?.id}`)
+        const sessionRes = await fetch(`${apiBaseUrl}/api/users/${user?.id}`)
         if (sessionRes.ok) {
           const updatedUser = await sessionRes.json()
           login(updatedUser) // Re-login updates context without actually calling login endpoint if passing user obj
@@ -89,7 +90,7 @@ export default function FriendsPage() {
 
   const handleRejectRequest = async (followerId: string) => {
     try {
-      const res = await fetch(`http://127.0.0.1:3000/api/users/${user?.id}/reject-follow`, {
+      const res = await fetch(`${apiBaseUrl}/api/users/${user?.id}/reject-follow`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ followerId })

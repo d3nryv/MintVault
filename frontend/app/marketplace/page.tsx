@@ -73,6 +73,10 @@ import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/context/auth-context"
 import { useMarketplace } from "@/context/marketplace-context"
 
+/** Official TCG card art for listing thumbnails (not seller-uploaded photos) */
+const getListingCardThumbnail = (listing: { cardImage?: string; image?: string; card_image?: string }) =>
+  listing.cardImage || listing.image || listing.card_image || ''
+
 type WantsListType = "empty" | "deck" | "collection"
 type WantsListItem = {
   id: string | number
@@ -151,7 +155,6 @@ export default function MarketplacePage() {
   const [isAddFundsOpen, setIsAddFundsOpen] = useState(false)
   const [wizardResults, setWizardResults] = useState<any>(null)
   const [isSeller, setIsSeller] = useState(false)
-  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false)
   const [listingPrice, setListingPrice] = useState("")
   const [addAmount, setAddAmount] = useState("")
   const [realSales, setRealSales] = useState<any[]>([])
@@ -205,6 +208,7 @@ export default function MarketplacePage() {
   }
   const { user, updateUser } = useAuth()
   const { language } = useMarketplace()
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
 
   useEffect(() => {
     fetchTrending()
@@ -220,10 +224,25 @@ export default function MarketplacePage() {
       fetchUserOrders()
       loadWantsLists()
       loadCart()
+
+      const sellerInfo = user.bannerUrl && user.bannerUrl.startsWith('{"isSeller"')
+        ? JSON.parse(user.bannerUrl)
+        : null;
+      setIsSeller(!!sellerInfo?.isSeller)
+    } else {
+      setIsSeller(false)
     }
   }, [user])
 
-
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const tab = params.get('tab')
+      if (tab && ['buy', 'sell', 'orders', 'wants'].includes(tab)) {
+        setActiveTab(tab)
+      }
+    }
+  }, [])
 
   // Debounce for Sell Search
   useEffect(() => {
@@ -353,7 +372,6 @@ export default function MarketplacePage() {
       if (!pRes.ok) throw new Error(`HTTP error! status: ${pRes.status}`)
       const pData = await pRes.json()
       setUserOrders(pData)
-
       const sRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/transactions/seller/${user.id}`)
       if (!sRes.ok) throw new Error(`HTTP error! status: ${sRes.status}`)
       const sData = await sRes.json()
@@ -365,9 +383,20 @@ export default function MarketplacePage() {
 
   const fetchAllSets = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem('tcg_sets_list')
+        if (cached) {
+          setAllSets(JSON.parse(cached))
+          return
+        }
+      }
       const res = await fetch("https://api.pokemontcg.io/v2/sets")
       const data = await res.json()
-      setAllSets(data.data)
+      const sets = data.data || []
+      setAllSets(sets)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tcg_sets_list', JSON.stringify(sets))
+      }
     } catch (e) {
       console.error("Error fetching sets", e)
     }
@@ -862,7 +891,7 @@ export default function MarketplacePage() {
       sellerId: listing.sellerId,
       sellerName: listing.sellerName,
       sellerCountry: listing.country || listing.sellerCountry || "ES",
-      imageUrl: listing.cardImage || listing.imageUrl
+      imageUrl: getListingCardThumbnail(listing) || listing.imageUrl
     }
     const updatedCart = [...cartItems, newItem]
     setCartItems(updatedCart)
@@ -962,7 +991,7 @@ export default function MarketplacePage() {
       name: s.cardName || s.name || s.card?.name || "Unknown Card",
       set: s.cardSet || s.set || s.card?.set?.name || s.card?.set || "Unknown Set",
       price: s.price,
-      image: s.cardImage || s.imageUrl || (s.card && s.card.images ? s.card.images.small : ""),
+      image: getListingCardThumbnail(s) || (s.card && s.card.images ? s.card.images.small : ""),
       tcgId: s.tcgId || s.card?.id,
       note: 'Market Peak'
     }))
@@ -974,7 +1003,7 @@ export default function MarketplacePage() {
       name: s.cardName || s.name || s.card?.name || "Unknown Card",
       set: s.cardSet || s.set || s.card?.set?.name || s.card?.set || "Unknown Set",
       price: s.price,
-      image: s.cardImage || s.imageUrl || (s.card && s.card.images ? s.card.images.small : ""),
+      image: getListingCardThumbnail(s) || (s.card && s.card.images ? s.card.images.small : ""),
       tcgId: s.tcgId || s.card?.id
     }))
     : [];
@@ -1015,90 +1044,7 @@ export default function MarketplacePage() {
                   </CardContent>
                 </Card>
 
-                <Dialog open={isAddFundsOpen} onOpenChange={setIsAddFundsOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="gap-2 shadow-lg shadow-primary/20">
-                      <Plus className="h-4 w-4" />
-                      Add Funds
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <CreditCard className="h-5 w-5" />
-                        Add Balance
-                      </DialogTitle>
-                      <DialogDescription>
-                        Add funds to your wallet to purchase cards instantly.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <Tabs defaultValue="deposit">
-                      <TabsList className="grid w-full grid-cols-2 mb-4">
-                        <TabsTrigger value="deposit">Deposit</TabsTrigger>
-                        <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="deposit">
-                        <div className="grid gap-4 py-4">
-                          <div className="grid gap-2">
-                            <label className="text-sm font-medium">Amount (€)</label>
-                            <Input
-                              type="number"
-                              placeholder="0.00"
-                              value={addAmount}
-                              onChange={(e) => setAddAmount(e.target.value)}
-                              className="text-lg font-bold"
-                            />
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            {[10, 20, 50].map((amount) => (
-                              <Button
-                                key={amount}
-                                variant="outline"
-                                onClick={() => setAddAmount(amount.toString())}
-                              >
-                                +{amount}€
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      </TabsContent>
-                      <TabsContent value="withdraw">
-                        <div className="grid gap-4 py-4">
-                          <div className="grid gap-2">
-                            <label className="text-sm font-medium">Amount to Withdraw (€)</label>
-                            <Input
-                              type="number"
-                              placeholder="0.00"
-                              className="text-lg font-bold"
-                            />
-                            <p className="text-xs text-muted-foreground">Available balance: {(user.balance || 0).toFixed(2)}€</p>
-                          </div>
-                          <div className="grid gap-2">
-                            <label className="text-sm font-medium">PayPal Email / IBAN</label>
-                            <Input placeholder="your@email.com" />
-                          </div>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsAddFundsOpen(false)}>Cancel</Button>
-                      <Button
-                        onClick={() => {
-                          const amount = parseFloat(addAmount);
-                          if (isNaN(amount) || amount <= 0) return;
-
-                          const newBalance = (user.balance || 0) + amount;
-                          updateUser({ balance: newBalance });
-                          setIsAddFundsOpen(false);
-                          setAddAmount("");
-                        }}
-                        disabled={!addAmount || parseFloat(addAmount) <= 0}
-                      >
-                        Confirm Transaction
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                {/* Balance management is strictly through selling items. Add Funds is disabled. */}
               </div>
             )}
           </div>
@@ -1177,30 +1123,30 @@ export default function MarketplacePage() {
           </Dialog>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className={`mb-8 grid w-full max-w-2xl ${user ? 'grid-cols-5' : 'grid-cols-1'}`}>
-              <TabsTrigger value="buy" className="gap-2">
+            <TabsList className={`mb-8 grid w-full max-w-3xl gap-1 sm:gap-0 h-auto p-1 bg-secondary/50 rounded-xl sm:rounded-full ${user ? 'grid-cols-5' : 'grid-cols-1'}`}>
+              <TabsTrigger value="buy" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5 h-auto rounded-lg sm:rounded-full">
                 <ShoppingBag className="h-4 w-4" />
-                <span className="hidden sm:inline">Buy</span>
+                <span className="text-[9px] sm:text-sm font-bold uppercase tracking-wider">Buy</span>
               </TabsTrigger>
               {user && (
                 <>
-                  <TabsTrigger value="sell" className="gap-2">
+                  <TabsTrigger value="sell" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5 h-auto rounded-lg sm:rounded-full">
                     <Tag className="h-4 w-4" />
-                    <span className="hidden sm:inline">Sell</span>
+                    <span className="text-[9px] sm:text-sm font-bold uppercase tracking-wider">Sell</span>
                   </TabsTrigger>
-                  <TabsTrigger value="orders" className="gap-2">
+                  <TabsTrigger value="orders" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5 h-auto rounded-lg sm:rounded-full">
                     <Package className="h-4 w-4" />
-                    <span className="hidden sm:inline">Orders</span>
+                    <span className="text-[9px] sm:text-sm font-bold uppercase tracking-wider">Orders</span>
                   </TabsTrigger>
-                  <TabsTrigger value="wants" className="gap-2">
+                  <TabsTrigger value="wants" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5 h-auto rounded-lg sm:rounded-full">
                     <Heart className="h-4 w-4" />
-                    <span className="hidden sm:inline">Wants</span>
+                    <span className="text-[9px] sm:text-sm font-bold uppercase tracking-wider">Wants</span>
                   </TabsTrigger>
-                  <TabsTrigger value="cart" className="gap-2 relative">
+                  <TabsTrigger value="cart" className="gap-1 sm:gap-2 flex-col sm:flex-row py-2 sm:py-1.5 h-auto rounded-lg sm:rounded-full relative">
                     <ShoppingCart className="h-4 w-4" />
-                    <span className="hidden sm:inline">Cart</span>
+                    <span className="text-[9px] sm:text-sm font-bold uppercase tracking-wider">Cart</span>
                     {cartItems.length > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] text-accent-foreground">
+                      <span className="absolute right-0 sm:-right-1 top-0 sm:-top-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-accent text-[8px] sm:text-[10px] font-bold text-accent-foreground shadow-sm">
                         {cartItems.length}
                       </span>
                     )}
@@ -1286,7 +1232,7 @@ export default function MarketplacePage() {
                   </h2>
                   <Button variant="ghost" size="sm">View All</Button>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
                   {isLoadingTrending ? (
                     [1, 2, 3, 4].map(i => (
                       <Card key={i} className="animate-pulse">
@@ -1342,7 +1288,7 @@ export default function MarketplacePage() {
                   </h2>
                   <Button variant="ghost" size="sm">View All</Button>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
                   {isLoadingTrending ? (
                     [1, 2, 3, 4].map(i => (
                       <Card key={i} className="animate-pulse">
@@ -1592,7 +1538,7 @@ export default function MarketplacePage() {
                           <p className="text-sm text-muted-foreground">Loading recent listings...</p>
                         </div>
                       ) : realSales.length > 0 ? (
-                        realSales.map((listing) => {
+                        realSales.slice(0, 30).map((listing) => {
                           const cartItemForListing = cartItems.find((item: any) => item.saleId === listing.id || item.id === listing.id);
                           const inCartQty = cartItemForListing ? cartItemForListing.quantity : 0;
                           const availableStock = (listing.amount || 1) - inCartQty;
@@ -1601,18 +1547,18 @@ export default function MarketplacePage() {
                           return (
                             <div
                               key={listing.id}
-                              className={`flex items-center gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/50 ${isOutOfStock ? 'opacity-50 grayscale-[0.5]' : ''}`}
+                              className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-lg border border-border bg-card p-3 sm:p-4 transition-colors hover:bg-secondary/50 min-w-0 overflow-hidden ${isOutOfStock ? 'opacity-50 grayscale-[0.5]' : ''}`}
                             >
-                              <div className="flex h-16 w-12 items-center justify-center rounded bg-muted overflow-hidden">
-                                {listing.cardImage || listing.image || listing.card_image || listing.imageUrl ? (
-                                  <img src={listing.cardImage || listing.image || listing.card_image || listing.imageUrl} alt={listing.cardName} className="h-full w-full object-contain" />
+                              <div className="flex h-16 w-12 shrink-0 items-center justify-center rounded bg-muted overflow-hidden mx-auto sm:mx-0">
+                                {getListingCardThumbnail(listing) ? (
+                                  <img src={getListingCardThumbnail(listing)} alt={listing.cardName} className="h-full w-full object-contain" loading="lazy" />
                                 ) : (
                                   <ImageIcon className="h-6 w-6 text-muted-foreground" />
                                 )}
                               </div>
-                              <div className="flex-1 space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-bold text-sm truncate">{listing.cardName}</h4>
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h4 className="font-bold text-sm truncate max-w-full">{listing.cardName}</h4>
                                   <Badge variant="outline" className="text-[10px] font-bold">
                                     {listing.cardSet}
                                   </Badge>
@@ -1638,9 +1584,9 @@ export default function MarketplacePage() {
                               </div>
                               <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
                                 <span className="text-xl font-black tracking-tighter">{listing.price.toFixed(2)}€</span>
-                                <Button 
-                                  size="sm" 
-                                  className={`gap-2 h-9 rounded-full ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'}`} 
+                                <Button
+                                  size="sm"
+                                  className={`gap-2 h-9 rounded-full ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'}`}
                                   onClick={() => !isOutOfStock && handleAddToCart(listing)}
                                   disabled={isOutOfStock}
                                 >
@@ -1672,86 +1618,36 @@ export default function MarketplacePage() {
                         <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
                           <Tag className="h-8 w-8 text-primary" />
                         </div>
-                        <CardTitle className="text-3xl font-serif">Start Selling on TCG Temple</CardTitle>
+                        <CardTitle className="text-2xl sm:text-3xl font-serif">Become a Seller</CardTitle>
                         <CardDescription className="text-base mt-2">
-                          Join our marketplace and turn your collection into balance.
+                          Complete seller verification in your profile. Terms and shipping address are configured there.
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="flex gap-3 items-start">
-                            <div className="bg-emerald-100 p-1 rounded-full"><Check className="h-4 w-4 text-emerald-600" /></div>
-                            <div>
-                              <p className="font-semibold text-sm">Low Fees</p>
-                              <p className="text-xs text-muted-foreground">Only 2% commission on each sale.</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-3 items-start">
-                            <div className="bg-emerald-100 p-1 rounded-full"><Check className="h-4 w-4 text-emerald-600" /></div>
-                            <div>
-                              <p className="font-semibold text-sm">Fast Payments</p>
-                              <p className="text-xs text-muted-foreground">Withdraw your balance anytime to PayPal or Bank.</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-3 items-start">
-                            <div className="bg-emerald-100 p-1 rounded-full"><Check className="h-4 w-4 text-emerald-600" /></div>
-                            <div>
-                              <p className="font-semibold text-sm">Huge Audience</p>
-                              <p className="text-xs text-muted-foreground">Reach thousands of collectors instantly.</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-3 items-start">
-                            <div className="bg-emerald-100 p-1 rounded-full"><Check className="h-4 w-4 text-emerald-600" /></div>
-                            <div>
-                              <p className="font-semibold text-sm">Secure Shipping</p>
-                              <p className="text-xs text-muted-foreground">Integrated tracking and shipping labels.</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="p-4 bg-background rounded-lg border border-border space-y-4">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id="terms"
-                              checked={hasAcceptedTerms}
-                              onChange={(e) => setHasAcceptedTerms(e.target.checked)}
-                              className="h-4 w-4 rounded border-border"
-                            />
-                            <label htmlFor="terms" className="text-sm cursor-pointer">
-                              I accept the <Button variant="link" className="p-0 h-auto text-sm">Seller Terms & Conditions</Button>
-                            </label>
-                          </div>
-                        </div>
-
-                        <Button
-                          className="w-full h-12 text-lg shadow-lg shadow-primary/20"
-                          disabled={!hasAcceptedTerms}
-                          onClick={() => setIsSeller(true)}
-                        >
-                          Activate Seller Account
+                      <CardContent>
+                        <Button className="w-full h-12 text-lg shadow-lg shadow-primary/20" asChild>
+                          <Link href="/profile">Go to Profile to Become a Seller</Link>
                         </Button>
                       </CardContent>
                     </Card>
                   ) : (
                     <div className="space-y-6">
                       <Tabs defaultValue="active" className="w-full">
-                        <TabsList className="mb-6 grid w-full max-w-2xl grid-cols-4">
-                          <TabsTrigger value="active" className="gap-2">
-                            <Library className="h-4 w-4" />
-                            My Inventory
+                        <TabsList className="mb-6 grid w-full max-w-2xl grid-cols-2 sm:grid-cols-4 h-auto gap-1 p-1">
+                          <TabsTrigger value="active" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 py-2">
+                            <Library className="h-4 w-4 shrink-0" />
+                            <span className="truncate">Inventory</span>
                           </TabsTrigger>
-                          <TabsTrigger value="new" className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Sell New
+                          <TabsTrigger value="new" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 py-2">
+                            <Plus className="h-4 w-4 shrink-0" />
+                            <span className="truncate">Sell New</span>
                           </TabsTrigger>
-                          <TabsTrigger value="to-ship" className="gap-2">
-                            <Package className="h-4 w-4" />
-                            To Ship
+                          <TabsTrigger value="to-ship" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 py-2">
+                            <Package className="h-4 w-4 shrink-0" />
+                            <span className="truncate">To Ship</span>
                           </TabsTrigger>
-                          <TabsTrigger value="history" className="gap-2">
-                            <History className="h-4 w-4" />
-                            History
+                          <TabsTrigger value="history" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 py-2">
+                            <History className="h-4 w-4 shrink-0" />
+                            <span className="truncate">History</span>
                           </TabsTrigger>
                         </TabsList>
 
@@ -1769,50 +1665,50 @@ export default function MarketplacePage() {
                                     <p className="text-muted-foreground">Loading your listings...</p>
                                   </div>
                                 ) : userSales.length > 0 ? (
-                                    userSales.map((listing) => (
-                                      <div key={listing.id} className="group flex items-center gap-6 rounded-xl border border-border bg-card p-5 hover:border-primary/50 transition-all shadow-sm hover:shadow-lg">
-                                        <div className="aspect-[3/4] h-24 bg-muted rounded-lg overflow-hidden flex items-center justify-center p-1 bg-white shadow-inner">
-                                          {listing.cardImage || listing.image || listing.card_image || listing.imageUrl ? (
-                                            <img src={listing.cardImage || listing.image || listing.card_image || listing.imageUrl} alt="" className="h-full w-full object-contain group-hover:scale-110 transition-transform" />
-                                          ) : (
-                                            <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
-                                          )}
+                                  userSales.map((listing) => (
+                                    <div key={listing.id} className="group flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 rounded-xl border border-border bg-card p-4 sm:p-5 hover:border-primary/50 transition-all shadow-sm hover:shadow-lg min-w-0 overflow-hidden">
+                                      <div className="aspect-[3/4] h-20 sm:h-24 w-16 shrink-0 bg-muted rounded-lg overflow-hidden flex items-center justify-center p-1 mx-auto sm:mx-0 shadow-inner">
+                                        {getListingCardThumbnail(listing) ? (
+                                          <img src={getListingCardThumbnail(listing)} alt="" className="h-full w-full object-contain group-hover:scale-110 transition-transform" loading="lazy" />
+                                        ) : (
+                                          <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                                        )}
+                                      </div>
+                                      <div className="flex-1 min-w-0 w-full">
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                          <Link href={`/marketplace/card/${listing.tcgId || listing.cardId}`} className="font-black text-base sm:text-xl hover:text-primary transition-colors truncate max-w-full">
+                                            {listing.cardName}
+                                          </Link>
+                                          <Badge className={`${getConditionColor(listing.condition)} border-none font-bold text-xs px-2 py-0.5 rounded-full`}>
+                                            {listing.condition}
+                                          </Badge>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-3 mb-2">
-                                            <Link href={`/marketplace/card/${listing.tcgId || listing.cardId}`} className="font-black text-xl hover:text-primary transition-colors truncate">
-                                              {listing.cardName}
-                                            </Link>
-                                            <Badge className={`${getConditionColor(listing.condition)} border-none font-bold text-xs px-2 py-0.5 rounded-full`}>
-                                              {listing.condition}
-                                            </Badge>
+                                        <p className="text-sm text-muted-foreground font-medium mb-3">{listing.cardSet}</p>
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                                          <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md shrink-0">
+                                            <span className="text-lg">{getLanguageFlag(listing.language)}</span>
+                                            <span className="text-xs font-bold uppercase">{listing.language}</span>
                                           </div>
-                                          <p className="text-sm text-muted-foreground font-medium mb-3">{listing.cardSet}</p>
-                                          <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-1.5 bg-secondary/50 px-2 py-1 rounded-md">
-                                              <span className="text-lg">{getLanguageFlag(listing.language)}</span>
-                                              <span className="text-xs font-bold uppercase">{listing.language}</span>
-                                            </div>
-                                            {listing.extras?.reverseHolo && <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-500/30 text-[10px] font-bold">REVERSE</Badge>}
-                                            {listing.extras?.firstEdition && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[10px] font-bold">1ST ED</Badge>}
-                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-muted px-2 py-1 rounded">
-                                              Stock: {listing.amount}
-                                            </div>
-                                          </div>
-                                        </div>
-                                        <div className="text-right flex flex-col items-end gap-3">
-                                          <p className="font-black text-3xl tracking-tighter text-foreground">{listing.price.toFixed(2)}€</p>
-                                          <div className="flex gap-2">
-                                            <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditListing(listing); }}>
-                                              <Edit3 className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 border-red-100" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteSale(listing.id); }}>
-                                              <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                          {listing.extras?.reverseHolo && <Badge variant="outline" className="bg-purple-500/10 text-purple-700 border-purple-500/30 text-[10px] font-bold shrink-0">REVERSE</Badge>}
+                                          {listing.extras?.firstEdition && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-[10px] font-bold shrink-0">1ST ED</Badge>}
+                                          <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest bg-muted px-2 py-1 rounded shrink-0">
+                                            Stock: {listing.amount}
                                           </div>
                                         </div>
                                       </div>
-                                    ))
+                                      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 w-full sm:w-auto shrink-0">
+                                        <p className="font-black text-2xl sm:text-3xl tracking-tighter text-foreground">{listing.price.toFixed(2)}€</p>
+                                        <div className="flex gap-2">
+                                          <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditListing(listing); }}>
+                                            <Edit3 className="h-4 w-4" />
+                                          </Button>
+                                          <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-full text-red-500 hover:text-red-600 hover:bg-red-50 border-red-100" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteSale(listing.id); }}>
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
                                 ) : (
                                   <div className="py-20 text-center text-muted-foreground border-2 border-dashed border-border rounded-xl">
                                     <Tag className="h-12 w-12 mx-auto mb-4 opacity-20" />
@@ -1843,7 +1739,7 @@ export default function MarketplacePage() {
                                 <div className="space-y-6">
                                   <div className="space-y-2 relative">
                                     <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Step 1: Search Card</label>
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col sm:flex-row gap-2">
                                       <div className="relative flex-1">
                                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
@@ -1854,7 +1750,7 @@ export default function MarketplacePage() {
                                         />
                                       </div>
                                       <Select value={sellSelectedSet} onValueChange={setSellSelectedSet}>
-                                        <SelectTrigger className="w-[180px] h-11">
+                                        <SelectTrigger className="w-full sm:w-[180px] h-11">
                                           <SelectValue placeholder="All Sets" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -1938,7 +1834,7 @@ export default function MarketplacePage() {
                                     )}
                                   </div>
 
-                                  <div className="grid grid-cols-2 gap-4">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                       <label className="text-xs font-black uppercase text-muted-foreground tracking-wider">Condition</label>
                                       <Select value={selectedCondition} onValueChange={setSelectedCondition}>
@@ -2229,8 +2125,8 @@ export default function MarketplacePage() {
                             <div className="grid gap-6 md:grid-cols-2 py-4">
                               <div className="space-y-4">
                                 <div className="aspect-[3/4] max-h-[300px] bg-muted rounded-2xl overflow-hidden flex items-center justify-center p-4 bg-white shadow-inner border border-border/50">
-                                  {editingListing.cardImage || editingListing.image || editingListing.card_image || editingListing.imageUrl ? (
-                                    <img src={editingListing.cardImage || editingListing.image || editingListing.card_image || editingListing.imageUrl} alt="" className="h-full w-full object-contain" />
+                                  {getListingCardThumbnail(editingListing) ? (
+                                    <img src={getListingCardThumbnail(editingListing)} alt="" className="h-full w-full object-contain" />
                                   ) : (
                                     <ImageIcon className="h-12 w-12 text-muted-foreground/20" />
                                   )}
@@ -2244,21 +2140,21 @@ export default function MarketplacePage() {
                                 <div className="grid grid-cols-2 gap-4">
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Price (€)</label>
-                                    <Input 
-                                      type="number" 
-                                      step="0.01" 
-                                      value={editPrice} 
-                                      onChange={(e) => setEditPrice(e.target.value)} 
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editPrice}
+                                      onChange={(e) => setEditPrice(e.target.value)}
                                       className="font-bold"
                                     />
                                   </div>
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Quantity</label>
-                                    <Input 
-                                      type="number" 
-                                      min="1" 
-                                      value={editQuantity} 
-                                      onChange={(e) => setEditQuantity(e.target.value)} 
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      value={editQuantity}
+                                      onChange={(e) => setEditQuantity(e.target.value)}
                                       className="font-bold"
                                     />
                                   </div>
@@ -2309,7 +2205,7 @@ export default function MarketplacePage() {
                                 </div>
                                 <div className="space-y-2">
                                   <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Observations</label>
-                                  <textarea 
+                                  <textarea
                                     className="w-full h-24 rounded-lg border border-border bg-background p-3 text-sm resize-none focus:ring-2 focus:ring-primary/20"
                                     value={editDescription}
                                     onChange={(e) => setEditDescription(e.target.value)}
@@ -2437,8 +2333,8 @@ export default function MarketplacePage() {
                 </TabsContent>
 
                 {/* Wants List Tab */}
-                <TabsContent value="wants">
-                  <div className="grid gap-6 lg:grid-cols-3">
+                <TabsContent value="wants" className="overflow-x-hidden">
+                  <div className="grid gap-6 lg:grid-cols-3 min-w-0">
                     {/* Lists Sidebar */}
                     <div className="lg:col-span-1">
                       <Card>
@@ -2501,7 +2397,6 @@ export default function MarketplacePage() {
                                     <SelectContent>
                                       <SelectItem value="EN">🇺🇸 English</SelectItem>
                                       <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
-                                      <SelectItem value="JP">🇯🇵 Japanese</SelectItem>
                                       <SelectItem value="DE">🇩🇪 German</SelectItem>
                                       <SelectItem value="FR">🇫🇷 French</SelectItem>
                                       <SelectItem value="IT">🇮🇹 Italian</SelectItem>
@@ -2736,7 +2631,7 @@ export default function MarketplacePage() {
                                 }).map((item: any) => (
                                   <div
                                     key={item.id}
-                                    className={`flex items-center gap-4 rounded-lg border p-4 transition-all ${item.owned ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
+                                    className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-lg border p-3 sm:p-4 transition-all min-w-0 overflow-hidden ${item.owned ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
                                   >
                                     <button
                                       onClick={() => handleToggleOwned(selectedList.id.toString(), item.id.toString())}
@@ -2744,16 +2639,16 @@ export default function MarketplacePage() {
                                     >
                                       {item.owned && <Check className="h-3 w-3" />}
                                     </button>
-                                    <div className="aspect-[3/4] h-16 bg-muted rounded overflow-hidden flex items-center justify-center p-0.5 bg-white shadow-inner">
+                                    <div className="aspect-[2.5/3.5] h-16 sm:h-20 bg-secondary/20 rounded-xl overflow-hidden flex items-center justify-center p-0.5 shadow-inner">
                                       {item.imageUrl || item.image ? (
                                         <img src={item.imageUrl || item.image} alt="" className="h-full w-full object-contain" />
                                       ) : (
                                         <ImageIcon className="h-6 w-6 text-muted-foreground/20" />
                                       )}
                                     </div>
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-3">
-                                        <h4 className={`font-black text-lg ${item.owned ? 'line-through text-muted-foreground' : ''}`}>{item.name}</h4>
+                                    <div className="flex-1 min-w-0 w-full">
+                                      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                        <h4 className={`font-black text-base sm:text-lg truncate max-w-full ${item.owned ? 'line-through text-muted-foreground' : ''}`}>{item.name}</h4>
                                         <Badge variant="outline" className="text-[10px] font-bold">{item.number}</Badge>
                                         <span className="text-sm font-black text-primary bg-primary/5 px-2 py-0.5 rounded">x{item.count}</span>
                                       </div>
@@ -2762,10 +2657,10 @@ export default function MarketplacePage() {
                                         <span className="bg-secondary/80 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{item.condition}</span>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                                       <Dialog>
                                         <DialogTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
                                             <Edit3 className="h-3 w-3 text-muted-foreground" />
                                           </Button>
                                         </DialogTrigger>
@@ -2881,7 +2776,7 @@ export default function MarketplacePage() {
                           const sellerSubtotal = sellerGroup.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
                           const shippingInfo = shippingPrices[sellerGroup.country] || shippingPrices['ES'];
                           const isCertifiedForced = sellerSubtotal > 50;
-                          
+
                           return (
                             <Card key={sellerGroup.sellerId} className="overflow-hidden border-none shadow-md bg-card/50">
                               <CardHeader className="bg-secondary/20 py-3 flex flex-row items-center justify-between">
@@ -2897,9 +2792,9 @@ export default function MarketplacePage() {
                                     <p className="text-xs font-bold text-muted-foreground uppercase">Seller Subtotal</p>
                                     <p className="text-lg font-black text-primary">{sellerSubtotal.toFixed(2)}€</p>
                                   </div>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0"
                                     onClick={() => handleClearSellerCart(sellerGroup.sellerId)}
                                     title="Remove all items from this seller"
@@ -2913,8 +2808,8 @@ export default function MarketplacePage() {
                                   {sellerGroup.items.map((item) => (
                                     <div key={item.id} className="flex gap-4 p-4 hover:bg-secondary/5 transition-colors">
                                       <div className="aspect-[3/4] h-20 bg-white rounded-md shadow-sm overflow-hidden p-0.5 flex items-center justify-center">
-                                        {item.image || item.cardImage || item.card_image || item.imageUrl ? (
-                                          <img src={item.image || item.cardImage || item.card_image || item.imageUrl} alt={item.name} className="h-full w-full object-contain" />
+                                        {(item.cardImage || item.image || item.card_image || item.imageUrl) ? (
+                                          <img src={item.cardImage || item.image || item.card_image || item.imageUrl} alt={item.name} className="h-full w-full object-contain" loading="lazy" />
                                         ) : (
                                           <ImageIcon className="h-6 w-6 text-muted-foreground/20" />
                                         )}
@@ -2940,18 +2835,18 @@ export default function MarketplacePage() {
                                         </div>
                                         <div className="flex items-center justify-between mt-3">
                                           <div className="flex items-center gap-3 bg-background/50 rounded-full border border-border p-1">
-                                            <Button 
-                                              variant="ghost" 
-                                              size="icon" 
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
                                               className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary"
                                               onClick={() => handleUpdateCartQuantity(item.id, -1)}
                                             >
                                               <Minus className="h-3 w-3" />
                                             </Button>
                                             <span className="w-6 text-center text-xs font-black">{item.quantity}</span>
-                                            <Button 
-                                              variant="ghost" 
-                                              size="icon" 
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
                                               className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary"
                                               onClick={() => handleUpdateCartQuantity(item.id, 1)}
                                             >
@@ -3023,9 +2918,9 @@ export default function MarketplacePage() {
                         <CardHeader>
                           <CardTitle className="font-black uppercase tracking-tighter text-xl italic flex justify-between items-center">
                             Checkout Summary
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="text-destructive hover:bg-destructive/10 hover:text-destructive text-[10px] h-6 px-2"
                               onClick={handleClearCart}
                             >
@@ -3044,22 +2939,22 @@ export default function MarketplacePage() {
                               <span className="text-muted-foreground uppercase tracking-widest text-[10px] font-black">Total Shipping</span>
                               <span className="font-bold">
                                 {(() => {
-                                   const grouped: Record<string, string> = {};
-                                   cartItems.forEach(item => { grouped[item.sellerId || 'unknown'] = item.sellerCountry || 'ES'; });
-                                   return Object.entries(grouped).reduce((total, [sid, country]) => {
-                                     const sellerItems = cartItems.filter(i => (i.sellerId || 'unknown') === sid);
-                                     const subtotal = sellerItems.reduce((s, i) => s + i.price * i.quantity, 0);
-                                     const sinfo = shippingPrices[country] || shippingPrices['ES'];
-                                     const isCertified = subtotal > 50 || sellerShippingMethod[sid] === 'certified';
-                                     return total + (isCertified ? sinfo.max : sinfo.min);
-                                   }, 0).toFixed(2);
-                                 })()}€
+                                  const grouped: Record<string, string> = {};
+                                  cartItems.forEach(item => { grouped[item.sellerId || 'unknown'] = item.sellerCountry || 'ES'; });
+                                  return Object.entries(grouped).reduce((total, [sid, country]) => {
+                                    const sellerItems = cartItems.filter(i => (i.sellerId || 'unknown') === sid);
+                                    const subtotal = sellerItems.reduce((s, i) => s + i.price * i.quantity, 0);
+                                    const sinfo = shippingPrices[country] || shippingPrices['ES'];
+                                    const isCertified = subtotal > 50 || sellerShippingMethod[sid] === 'certified';
+                                    return total + (isCertified ? sinfo.max : sinfo.min);
+                                  }, 0).toFixed(2);
+                                })()}€
                               </span>
                             </div>
                           </div>
-                          
+
                           <Separator className="bg-border/50" />
-                          
+
                           <div className="flex justify-between items-end">
                             <span className="text-lg font-black uppercase tracking-tighter italic">Total Payable</span>
                             <span className="text-4xl font-black text-primary tracking-tighter">
@@ -3077,7 +2972,7 @@ export default function MarketplacePage() {
                               })()}€
                             </span>
                           </div>
-                          
+
                           <div className="pt-4 space-y-3">
                             <Button className="w-full h-14 text-lg font-black uppercase tracking-widest shadow-xl shadow-primary/20 group relative overflow-hidden" size="lg">
                               <span className="relative z-10 flex items-center gap-2">

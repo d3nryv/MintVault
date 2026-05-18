@@ -5,16 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Users, Calendar, Globe, Layers, Search, Filter, ChevronRight, Share2, MoreHorizontal, ChevronDown, Plus, X, Loader2, BookOpen } from "lucide-react"
+import { Users, Calendar, Layers, Search, Filter, ChevronRight, Share2, Plus, X, Loader2, BookOpen, Check } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
-import { Binder, BinderSize } from "@/lib/types/binder"
-import { binders } from "@/lib/mocks/binders"
+import { BinderSize } from "@/lib/types/binder"
 
 interface CollectedSet {
   id: string
@@ -24,7 +24,40 @@ interface CollectedSet {
   image: string
   symbol: string
   era: string
-  lang: string
+  eraLabel: string
+}
+
+const ERA_MAP: Record<string, string> = {
+  'scarlet & violet': 'sv',
+  'sword & shield': 'swsh',
+  'sun & moon': 'sun-moon',
+  'xy': 'xy',
+  'black & white': 'bw',
+  'heartgold & soulsilver': 'hgss',
+  'platinum': 'platinum',
+  'diamond & pearl': 'dp',
+  'ex': 'ex',
+  'e-card': 'e-card',
+  'neo': 'neo',
+  'gym': 'gym',
+  'base': 'base',
+}
+
+const ERA_LABELS: Record<string, string> = {
+  'all-eras': 'All Eras',
+  'sv': 'Scarlet & Violet',
+  'swsh': 'Sword & Shield',
+  'sun-moon': 'Sun & Moon',
+  'xy': 'XY',
+  'bw': 'Black & White',
+  'hgss': 'HeartGold & SoulSilver',
+  'platinum': 'Platinum',
+  'dp': 'Diamond & Pearl',
+  'ex': 'EX',
+  'e-card': 'E-Card',
+  'neo': 'Neo',
+  'gym': 'Gym',
+  'base': 'Base',
 }
 
 interface CollectedPokemon {
@@ -38,11 +71,18 @@ interface CollectedPokemon {
 export function ProfileSection() {
   const { user, updateUser } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+  
   const [bindersList, setBindersList] = useState<any[]>([])
   const [userSets, setUserSets] = useState<CollectedSet[]>([])
   const [userPokemons, setUserPokemons] = useState<CollectedPokemon[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  
+
+  const sellerInfo = user?.bannerUrl && user.bannerUrl.startsWith('{"isSeller"')
+    ? JSON.parse(user.bannerUrl)
+    : null;
+
   useEffect(() => {
     if (!user) return
     fetchCollectionData()
@@ -53,7 +93,7 @@ export function ProfileSection() {
     setIsLoading(true)
     try {
       // 1. Fetch Binders from DB
-      const bindersRes = await fetch(`http://127.0.0.1:3000/api/albums`)
+      const bindersRes = await fetch(`${apiBaseUrl}/api/albums`)
       if (bindersRes.ok) {
         const allBinders = await bindersRes.json()
         setBindersList(allBinders.filter((b: any) => b.ownerId === user.id))
@@ -63,26 +103,30 @@ export function ProfileSection() {
       const ownedEnglishCards = (user.ownedEnglishCards || []).filter(id => !!id)
       if (ownedEnglishCards.length) {
         const setIds = Array.from(new Set(ownedEnglishCards.map(id => id.split('-')[0])))
-        
-        const idsQuery = setIds.slice(0, 20).join(' OR id:')
-        const res = await fetch(`https://api.pokemontcg.io/v2/sets?q=id:${idsQuery}`)
+
+        const res = await fetch('https://api.pokemontcg.io/v2/sets')
         const data = await res.json()
-        const setsData = data.data || []
- 
-        const processedSets: CollectedSet[] = setsData
-          .filter(Boolean)
-          .map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            owned: ownedEnglishCards.filter(id => id.startsWith(s.id + '-')).length || 0,
-            total: s.total,
-            image: s.images.logo,
-            symbol: s.images.symbol,
-            era: s.series.toLowerCase(),
-            lang: 'en'
-          }))
-        
+        const allSetsData = data.data || []
+
+        const processedSets: CollectedSet[] = allSetsData
+          .filter((s: any) => setIds.includes(s.id))
+          .map((s: any) => {
+            const eraKey = ERA_MAP[s.series.toLowerCase()] || s.series.toLowerCase()
+            return {
+              id: s.id,
+              name: s.name,
+              owned: ownedEnglishCards.filter(id => id.startsWith(s.id + '-')).length || 0,
+              total: s.total,
+              image: s.images.logo,
+              symbol: s.images.symbol,
+              era: eraKey,
+              eraLabel: ERA_LABELS[eraKey] || s.series,
+            }
+          })
+
         setUserSets(processedSets)
+      } else {
+        setUserSets([])
       }
 
       // 3. Process Pokemons from ownedPokemon
@@ -160,8 +204,6 @@ export function ProfileSection() {
   const [hoveredBinder, setHoveredBinder] = useState<number | string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [eraFilter, setEraFilter] = useState("all-eras")
-  const [langFilter, setLangFilter] = useState("all")
-  const [expandedLang, setExpandedLang] = useState<string | null>(null)
 
   const handleCreateBinder = async () => {
     if (!newBinderName || !newBinderSize || !user) return
@@ -192,7 +234,7 @@ export function ProfileSection() {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/albums`, {
+      const response = await fetch(`${apiBaseUrl}/api/albums`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newBinderData)
@@ -235,7 +277,7 @@ export function ProfileSection() {
       const cards = await Promise.all(
         user.showcase.map(async (id) => {
           try {
-            const res = await fetch(`http://127.0.0.1:3000/api/cards/${id}`)
+            const res = await fetch(`${apiBaseUrl}/api/cards/${id}`)
             if (res.ok) return await res.json()
             return null
           } catch { return null }
@@ -250,11 +292,12 @@ export function ProfileSection() {
   const totalCards = Array.from(new Set((user?.ownedEnglishCards || []).filter(id => !!id))).length + 
                      Array.from(new Set((user?.ownedPokemon || []).filter(id => id && id.includes('-')))).length
 
+  const availableEras = Array.from(new Set(userSets.map(s => s.era))).sort()
+
   const filteredSets = userSets.filter(set => {
     const matchesSearch = set.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesEra = eraFilter === "all-eras" || set.era === eraFilter
-    const matchesLang = langFilter === "all" || set.lang === langFilter
-    return matchesSearch && matchesEra && matchesLang
+    return matchesSearch && matchesEra
   })
 
   const [isShowcaseModalOpen, setIsShowcaseModalOpen] = useState(false)
@@ -299,7 +342,7 @@ export function ProfileSection() {
     if (!user) return
     const newShowcase = [...(user.showcase || []), cardId].slice(0, 5)
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ showcase: newShowcase })
@@ -341,7 +384,14 @@ export function ProfileSection() {
                 <h3 className="text-4xl font-black text-foreground tracking-tight font-sans italic">
                   {user?.username || "Trainer Collector"}
                 </h3>
-                <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-4 py-1 uppercase tracking-widest text-[10px]">Elite Trainer</Badge>
+                <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                  <Badge className="bg-primary/10 text-primary border-primary/20 font-black px-4 py-1 uppercase tracking-widest text-[10px]">Elite Trainer</Badge>
+                  {sellerInfo?.isSeller && (
+                    <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-black px-4 py-1 uppercase tracking-widest text-[10px] flex items-center gap-1">
+                      <Check className="h-3 w-3" /> Verified Seller
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div className="flex flex-wrap justify-center md:justify-start gap-4 text-xs font-bold text-muted-foreground/80 font-sans uppercase tracking-[0.1em]">
                 <span className="flex items-center gap-2 bg-secondary/80 px-4 py-1.5 rounded-full border border-border/50 shadow-sm">
@@ -364,6 +414,7 @@ export function ProfileSection() {
           </div>
         </CardContent>
       </Card>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Showcase - Full Width */}
@@ -438,7 +489,7 @@ export function ProfileSection() {
                         const newShowcase = (user?.showcase || []).filter(id => id !== card.id)
                         updateUser({ showcase: newShowcase })
                         // Update in DB too
-                        fetch(`http://127.0.0.1:3000/api/users/${user?.id}`, {
+                        fetch(`${apiBaseUrl}/api/users/${user?.id}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ showcase: newShowcase })
@@ -480,7 +531,7 @@ export function ProfileSection() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between mb-2 items-baseline px-1">
-                        <span className="text-sm font-black text-foreground uppercase tracking-wider">{pk.name}</span>
+                        <span className="text-sm font-black text-foreground uppercase tracking-wider truncate block max-w-[120px] sm:max-w-none mr-2" title={pk.name}>{pk.name}</span>
                         <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{pk.owned} / {pk.total} cards</span>
                       </div>
                       <Progress value={(pk.owned / pk.total) * 100} className="h-2.5 bg-secondary shadow-inner" />
@@ -710,13 +761,11 @@ export function ProfileSection() {
         </Card>
 
         {/* Your Sets - Full Grid */}
-        <Card className="bg-card shadow-sm border-border/50 lg:col-span-2 overflow-hidden rounded-[3rem]">
-          <CardHeader className="p-10 pb-8 flex flex-col space-y-8">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-3xl font-black uppercase tracking-tight italic">Your Collected Sets</CardTitle>
-            </div>
+        <Card className="bg-card shadow-sm border-border/50 lg:col-span-2 overflow-hidden rounded-2xl sm:rounded-[3rem]">
+          <CardHeader className="p-5 sm:p-8 lg:p-10 pb-4 sm:pb-8 flex flex-col space-y-4 sm:space-y-8">
+            <CardTitle className="text-xl sm:text-2xl lg:text-3xl font-black uppercase tracking-tight italic">Your Collected Sets</CardTitle>
 
-            <div className="flex flex-col md:flex-row gap-5">
+            <div className="flex flex-col md:flex-row gap-3 sm:gap-5">
               <div className="relative flex-1 group">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                 <Input
@@ -726,35 +775,24 @@ export function ProfileSection() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <div className="flex gap-3">
-                <Select value={eraFilter} onValueChange={setEraFilter}>
-                  <SelectTrigger className="w-[180px] h-14 bg-secondary/50 border-border/50 rounded-2xl font-black uppercase text-[10px] tracking-widest focus:ring-primary/20">
-                    <Filter className="h-4 w-4 mr-2 text-primary" />
-                    <SelectValue placeholder="ERA" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border/50 shadow-2xl p-2 font-bold">
-                    <SelectItem value="all-eras" className="rounded-xl">All Eras</SelectItem>
-                    <SelectItem value="sv" className="rounded-xl">Scarlet & Violet</SelectItem>
-                    <SelectItem value="swsh" className="rounded-xl">Sword & Shield</SelectItem>
-                    <SelectItem value="sun-moon" className="rounded-xl">Sun & Moon</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={langFilter} onValueChange={setLangFilter}>
-                  <SelectTrigger className="w-[150px] h-14 bg-secondary/50 border-border/50 rounded-2xl font-black uppercase text-[10px] tracking-widest focus:ring-primary/20">
-                    <Globe className="h-4 w-4 mr-2 text-primary" />
-                    <SelectValue placeholder="LANG" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-border/50 shadow-2xl p-2 font-bold">
-                    <SelectItem value="all" className="rounded-xl">All Langs</SelectItem>
-                    <SelectItem value="en" className="rounded-xl">English</SelectItem>
-                    <SelectItem value="jp" className="rounded-xl">Japanese</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={eraFilter} onValueChange={setEraFilter}>
+                <SelectTrigger className="w-full md:w-[200px] h-12 sm:h-14 bg-secondary/50 border-border/50 rounded-2xl font-black uppercase text-[10px] tracking-widest focus:ring-primary/20">
+                  <Filter className="h-4 w-4 mr-2 text-primary shrink-0" />
+                  <SelectValue placeholder="ERA" />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-border/50 shadow-2xl p-2 font-bold max-h-[280px]">
+                  <SelectItem value="all-eras" className="rounded-xl">All Eras</SelectItem>
+                  {availableEras.map(era => (
+                    <SelectItem key={era} value={era} className="rounded-xl">
+                      {ERA_LABELS[era] || era}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
-          <CardContent className="p-10 pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-8 pb-4">
+          <CardContent className="p-5 sm:p-8 lg:p-10 pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 pb-4">
               {isLoading ? (
                 <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
                   <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -765,10 +803,10 @@ export function ProfileSection() {
                   <div
                     key={set.id}
                     onClick={() => router.push(`/collection?tab=sets&set=${set.id}`)}
-                    className="group relative h-72 rounded-[2.5rem] overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-700 border border-border/10 ring-1 ring-white/5"
+                    className="group relative h-52 sm:h-64 lg:h-72 rounded-2xl sm:rounded-[2.5rem] overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-700 border border-border/10 ring-1 ring-white/5"
                   >
                     {/* Background Decoration */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 to-background/50 flex items-center justify-center p-16 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 to-background/50 flex items-center justify-center p-8 sm:p-12 lg:p-16 overflow-hidden">
                       <img
                         src={set.image}
                         alt={set.name}
@@ -778,18 +816,15 @@ export function ProfileSection() {
                     </div>
 
                     {/* Info Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-8 space-y-6">
-                      <div className="flex justify-between items-end">
-                        <div className="min-w-0 space-y-1">
-                          <img src={set.symbol} alt={set.name} className="h-10 object-contain mb-4 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transition-transform duration-500 group-hover:translate-x-2" />
-                          <h4 className="text-white font-black text-2xl leading-tight truncate drop-shadow-2xl tracking-tight italic uppercase">{set.name}</h4>
-                          <div className="flex items-center gap-3 mt-3">
-                            <Badge variant="outline" className="text-[9px] font-black text-white/40 border-white/5 bg-white/5 uppercase tracking-[0.25em] py-0.5 px-3 rounded-full">{set.era}</Badge>
-                            <Badge variant="outline" className="text-[9px] font-black text-primary/60 border-primary/10 bg-primary/5 uppercase tracking-[0.25em] py-0.5 px-3 rounded-full">{set.lang}</Badge>
-                          </div>
+                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6 lg:p-8 space-y-3 sm:space-y-6">
+                      <div className="flex justify-between items-end gap-2">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <img src={set.symbol} alt={set.name} className="h-6 sm:h-8 lg:h-10 object-contain mb-2 sm:mb-4 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transition-transform duration-500 group-hover:translate-x-2" />
+                          <h4 className="text-white font-black text-base sm:text-xl lg:text-2xl leading-tight truncate drop-shadow-2xl tracking-tight italic uppercase">{set.name}</h4>
+                          <Badge variant="outline" className="text-[8px] sm:text-[9px] font-black text-white/40 border-white/5 bg-white/5 uppercase tracking-[0.25em] py-0.5 px-2 sm:px-3 rounded-full mt-1 sm:mt-3">{set.eraLabel}</Badge>
                         </div>
-                        <div className="text-right">
-                          <p className="text-white font-black text-3xl leading-none tracking-tighter drop-shadow-xl">
+                        <div className="text-right shrink-0">
+                          <p className="text-white font-black text-xl sm:text-2xl lg:text-3xl leading-none tracking-tighter drop-shadow-xl">
                             {set.owned}<span className="text-white/30 text-xs font-bold ml-1 tracking-normal italic"> / {set.total}</span>
                           </p>
                           <p className="text-[10px] font-black text-primary leading-none mt-3 uppercase tracking-[0.3em] drop-shadow-md">Master Set</p>

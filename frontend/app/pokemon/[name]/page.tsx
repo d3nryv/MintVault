@@ -57,6 +57,7 @@ export default function PokemonPage() {
   const params = useParams()
   const pokemonName = params.name as string
   const decodedName = decodeURIComponent(pokemonName)
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
 
   const [cards, setCards] = useState<CardInfo[]>([])
   const [pokemon, setPokemon] = useState<PokemonData | null>(null)
@@ -93,7 +94,7 @@ export default function PokemonPage() {
     try {
       setCardsLoading(true)
       setError(null)
-      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(decodedName)}`)
+      const response = await fetch(`${apiBaseUrl}/api/cards/search/${encodeURIComponent(decodedName)}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -253,34 +254,6 @@ export default function PokemonPage() {
                       </p>
                     )}
                   </div>
-                  {user && (
-                    <Button 
-                      variant={user?.ownedPokemon?.includes(decodedName) ? "default" : "outline"}
-                      className="rounded-xl font-black uppercase tracking-widest text-xs h-10 px-4"
-                      onClick={async () => {
-                        const current = [...(user.ownedPokemon || [])]
-                        const isTracking = current.includes(decodedName)
-                        const newValue = isTracking 
-                          ? current.filter(n => n !== decodedName)
-                          : [...current, decodedName]
-                        
-                        try {
-                          const res = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ owned_pokemon: newValue })
-                          })
-                          if (res.ok) {
-                            updateUser({ ownedPokemon: newValue })
-                          }
-                        } catch (err) {
-                          console.error("Failed to update tracking", err)
-                        }
-                      }}
-                    >
-                      {user?.ownedPokemon?.includes(decodedName) ? "Tracking Species" : "Track Species"}
-                    </Button>
-                  )}
                 </div>
 
                 {/* Types */}
@@ -407,7 +380,7 @@ export default function PokemonPage() {
             </div>
 
             {cardsLoading && cards.length === 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {Array.from({ length: 15 }).map((_, i) => (
                   <div key={i} className="space-y-3">
                     <Skeleton className="h-72 w-full rounded-2xl" />
@@ -418,7 +391,7 @@ export default function PokemonPage() {
               </div>
             ) : cards.length > 0 ? (
               <div className="space-y-10">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {lazyCards.map((card) => (
                     <Card
                       key={card.id}

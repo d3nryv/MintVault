@@ -221,7 +221,8 @@ export default function DeckBuilderPage() {
       setDeckId(idParam)
       const fetchDeck = async () => {
         try {
-          const response = await fetch(`http://127.0.0.1:3000/api/decks/${idParam}`)
+          const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+          const response = await fetch(`${apiBaseUrl}/api/decks/${idParam}`)
           if (response.ok) {
             const data = await response.json()
             setDeckName(data.name)
@@ -245,8 +246,9 @@ export default function DeckBuilderPage() {
   }, [])
 
   const getSetCode = (card: TCGCard) => {
-    if (card.set.ptcgoCode) return card.set.ptcgoCode
-    const setName = card.set.name
+    if (card.set?.ptcgoCode) return card.set.ptcgoCode
+    const setName = card.set?.name || ""
+    if (!setName) return ""
     if (SET_ABBREVIATIONS[setName]) return SET_ABBREVIATIONS[setName]
     if (setName.includes("McDonald's")) return "MCD"
     const parts = setName.split(/\s+/).filter(p => p.toLowerCase() !== '&' && p.toLowerCase() !== '—')
@@ -268,7 +270,8 @@ export default function DeckBuilderPage() {
           finalQuery = `"${finalQuery}"`
         }
 
-        const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(finalQuery)}`)
+        const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+        const response = await fetch(`${apiBaseUrl}/api/cards/search/${encodeURIComponent(finalQuery)}`)
         const data = await response.json()
         if (Array.isArray(data)) {
           const sorted = [...data].sort((a, b) => {
@@ -307,82 +310,104 @@ export default function DeckBuilderPage() {
     }
 
     for (const line of lines) {
-      const parts = line.split(/\s+/).filter(p => p.length > 0)
-      if (parts.length >= 4) {
-        const count = parseInt(parts[0])
-        if (isNaN(count)) continue
+      // Robust regex to parse quantities like: "4 Iono PAL 185" -> count: 4, rest: "Iono PAL 185"
+      const match = line.match(/^(\d+)\s+(.+)$/);
+      if (!match) continue;
 
-        const number = parts[parts.length - 1]
-        const setCode = parts[parts.length - 2]
-        let fullName = parts.slice(1, parts.length - 2).join(" ")
+      const count = parseInt(match[1]);
+      if (isNaN(count)) continue;
 
-        // Translate symbols like {G} to names like Grass
-        Object.entries(ENERGY_MAP).forEach(([symbol, name]) => {
-          fullName = fullName.replace(symbol, name)
-        })
+      const rest = match[2];
+      const parts = rest.split(/\s+/);
+      
+      let fullName = rest;
+      let setCode = "";
+      let number = "";
 
-        const isEnergy = fullName.toLowerCase().includes("energy")
-        const isBasicEnergy = isEnergy && (
-          fullName.toLowerCase().includes("basic") ||
-          ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'].includes(fullName.toLowerCase().replace(/energy/g, '').trim())
-        )
+      if (parts.length >= 2) {
+        number = parts[parts.length - 1];
+        setCode = parts[parts.length - 2];
+        fullName = parts.slice(0, parts.length - 2).join(" ");
+      } else {
+        fullName = rest;
+      }
 
-        // Exact match with quotes for everything
-        let searchTerm = `\"${fullName}\"`
+      // Translate symbols like {G} to names like Grass
+      Object.entries(ENERGY_MAP).forEach(([symbol, name]) => {
+        fullName = fullName.replace(symbol, name)
+      })
 
-        if (isBasicEnergy) {
-          const type = fullName.toLowerCase().replace(/basic/g, '').replace(/energy/g, '').trim()
-          searchTerm = `\"basic ${type} energy\"`
+      const isEnergy = fullName.toLowerCase().includes("energy")
+      const isBasicEnergy = isEnergy && (
+        fullName.toLowerCase().includes("basic") ||
+        ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'].includes(fullName.toLowerCase().replace(/energy/g, '').trim())
+      )
+
+      // Exact match with quotes for everything
+      let searchTerm = `\"${fullName}\"`
+
+      if (isBasicEnergy) {
+        const type = fullName.toLowerCase().replace(/basic/g, '').replace(/energy/g, '').trim()
+        searchTerm = `\"basic ${type} energy\"`
+      }
+
+      try {
+        const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+        const apiUrl = `${apiBaseUrl}/api/cards/search/${encodeURIComponent(searchTerm)}`
+
+        await new Promise(r => setTimeout(r, 50))
+        const response = await fetch(apiUrl)
+        if (!response.ok) continue
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          console.warn("API did not return valid JSON for:", searchTerm);
+          continue;
         }
 
-        try {
-          const apiUrl = `http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`
+        if (Array.isArray(data) && data.length > 0) {
+          let found = null
 
-          await new Promise(r => setTimeout(r, 50))
-          const response = await fetch(apiUrl)
-          if (!response.ok) continue
+          // 1. Try strict match first for EVERYTHING (including Energy Switch)
+          const targetName = normalize(fullName)
+          let finalSetCode = setCode
 
-          const data = await response.json()
+          // Energy rule: convert MEE to SVE
+          if (isEnergy && setCode.toUpperCase() === 'MEE') {
+            finalSetCode = 'SVE'
+          }
 
-          if (Array.isArray(data) && data.length > 0) {
-            let found = null
+          found = data.find(c => {
+            const cSetCode = getSetCode(c) || "";
+            const cNumber = c.id?.includes('-') ? c.id.split('-')[1] : c.number;
+            return normalize(c.name || "") === targetName &&
+              cSetCode.toLowerCase() === finalSetCode.toLowerCase() &&
+              cNumber === number
+          })
 
-            // 1. Try strict match first for EVERYTHING (including Energy Switch)
-            const targetName = normalize(fullName)
-            let finalSetCode = setCode
-
-            // Energy rule: convert MEE to SVE
-            if (isEnergy && setCode.toUpperCase() === 'MEE') {
-              finalSetCode = 'SVE'
-            }
-
-            found = data.find(c => {
-              const cSetCode = getSetCode(c)
-              const cNumber = c.id.includes('-') ? c.id.split('-')[1] : c.number
-              return normalize(c.name) === targetName &&
-                cSetCode.toLowerCase() === finalSetCode.toLowerCase() &&
-                cNumber === number
-            })
-
-            // 2. Fallback logic only for Basic Energies or if no strict match found
-            if (!found) {
-              if (isBasicEnergy) {
-                found = data.find(c => c.set.name === 'Scarlet & Violet Energies') || data[0]
-              } else if (isEnergy && !fullName.toLowerCase().includes("switch") && !fullName.toLowerCase().includes("retrieval")) {
-                // Only fallback if it's likely a real energy card, not a trainer like Energy Switch or Energy Retrieval
-                found = data[0]
-              }
-            }
-
-            if (found) {
-              setSelectedCard(found)
-              newDeck.push({ card: found, count })
+          // 2. Fallback logic only for Basic Energies or if no strict match found
+          if (!found) {
+            if (isBasicEnergy) {
+              found = data.find(c => c.set?.name === 'Scarlet & Violet Energies') || data[0]
+            } else if (isEnergy && !fullName.toLowerCase().includes("switch") && !fullName.toLowerCase().includes("retrieval")) {
+              // Only fallback if it's likely a real energy card, not a trainer like Energy Switch or Energy Retrieval
+              found = data[0]
+            } else if (!setCode || !number) {
+              // If there was no set code or number provided, just pick the first exact name match
+              found = data.find(c => normalize(c.name || "") === targetName) || data[0];
             }
           }
-        } catch (error) {
-          console.error(`Skipping card due to error:`, error)
-          continue
+
+          if (found) {
+            setSelectedCard(found)
+            newDeck.push({ card: found, count })
+          }
         }
+      } catch (error) {
+        console.error(`Skipping card due to error:`, error)
+        continue
       }
     }
 
@@ -408,7 +433,8 @@ export default function DeckBuilderPage() {
       const cleanName = card.name.split('(')[0].trim()
       const searchTerm = `\"${cleanName}\"`
 
-      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`)
+      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const response = await fetch(`${apiBaseUrl}/api/cards/search/${encodeURIComponent(searchTerm)}`)
       const data = await response.json()
 
       if (Array.isArray(data)) {
@@ -528,7 +554,8 @@ export default function DeckBuilderPage() {
     }
 
     try {
-      const url = deckId ? `http://127.0.0.1:3000/api/decks/${deckId}` : 'http://127.0.0.1:3000/api/decks'
+      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const url = deckId ? `${apiBaseUrl}/api/decks/${deckId}` : `${apiBaseUrl}/api/decks`
       const method = deckId ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
@@ -550,7 +577,7 @@ export default function DeckBuilderPage() {
         if (user && user.wantList) {
           const updatedWantList = syncWantsListWithDeckUpdate(user.wantList, savedDeck.id.toString(), deck)
           if (updatedWantList !== user.wantList) {
-            const userUpdateResponse = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+            const userUpdateResponse = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ wantList: updatedWantList })
@@ -648,9 +675,9 @@ export default function DeckBuilderPage() {
         </div>
       )}
 
-      <main className="pt-24 flex h-[calc(100vh-64px)] overflow-hidden">
-        {/* Detail Panel */}
-        <div className="w-[420px] border-r border-border bg-card/20 p-8 overflow-y-auto">
+      <main className="pt-24 flex flex-col lg:flex-row lg:h-[calc(100vh-64px)] overflow-y-auto lg:overflow-hidden">
+        {/* Detail Panel (Ordered Last on Mobile) */}
+        <div className="w-full lg:w-[420px] border-t lg:border-t-0 lg:border-r border-border bg-card/20 p-4 sm:p-8 order-3 lg:order-none h-fit lg:h-auto overflow-y-auto">
           {selectedCard ? (
             <div className="space-y-8">
               <div className="rounded-2xl overflow-hidden shadow-xl border bg-background"><img src={selectedCard.images.large} className="w-full h-auto" /></div>
@@ -695,38 +722,39 @@ export default function DeckBuilderPage() {
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-40"><Info className="h-16 w-16 mb-4" /><p className="font-serif text-2xl">Select a card</p></div>
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-40 py-12"><Info className="h-16 w-16 mb-4" /><p className="font-serif text-2xl">Select a card</p></div>
           )}
         </div>
 
-        <div className="flex-1 flex flex-col bg-background" onDrop={(e) => { e.preventDefault(); const d = e.dataTransfer.getData("card"); if (d) addToDeck(JSON.parse(d)) }} onDragOver={(e) => e.preventDefault()}>
-          <div className="p-8 border-b border-border flex items-center justify-between gap-6 bg-card/5">
-            <div className="flex items-center gap-6">
+        {/* Visual Deck Panel (Ordered First on Mobile) */}
+        <div className="w-full lg:flex-1 flex flex-col bg-background order-1 lg:order-none min-h-[400px] lg:min-h-0" onDrop={(e) => { e.preventDefault(); const d = e.dataTransfer.getData("card"); if (d) addToDeck(JSON.parse(d)) }} onDragOver={(e) => e.preventDefault()}>
+          <div className="p-4 sm:p-8 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 bg-card/5">
+            <div className="flex items-center gap-4 sm:gap-6">
               <Button variant="ghost" size="icon" onClick={() => router.push("/gameplay")} className="h-12 w-12"><ArrowLeft className="h-6 w-6" /></Button>
-              <div>
-                <Input value={deckName} onChange={(e) => setDeckName(e.target.value)} className="font-serif text-4xl font-bold bg-transparent border-none p-0 h-auto focus-visible:ring-0" />
+              <div className="flex-1">
+                <Input value={deckName} onChange={(e) => setDeckName(e.target.value)} className="font-serif text-2xl sm:text-4xl font-bold bg-transparent border-none p-0 h-auto focus-visible:ring-0 w-full" />
                 <div className="flex gap-6 mt-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <span className={totalCards > 60 ? 'text-destructive font-black' : ''}>{totalCards} / 60 Cards</span>
                   <span>{pokemonCount} P • {trainerCount} T • {energyCount} E</span>
                 </div>
               </div>
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline" size="icon" onClick={sortDeck} title="Sort Deck" className="h-14 w-14"><ArrowUpDown className="h-6 w-6" /></Button>
-              <Button variant="outline" size="icon" onClick={() => setIsImportModalOpen(true)} title="Import Deck" className="h-14 w-14"><FileUp className="h-6 w-6" /></Button>
-              <Button onClick={handleSave} className="h-14 px-8 font-bold text-lg shadow-lg">Save</Button>
-              <Button variant="outline" onClick={handleShare} className="h-14 px-8 font-bold text-lg">Share</Button>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
+              <Button variant="outline" size="icon" onClick={sortDeck} title="Sort Deck" className="h-12 w-12 sm:h-14 sm:w-14"><ArrowUpDown className="h-5 w-5 sm:h-6 sm:w-6" /></Button>
+              <Button variant="outline" size="icon" onClick={() => setIsImportModalOpen(true)} title="Import Deck" className="h-12 w-12 sm:h-14 sm:w-14"><FileUp className="h-5 w-5 sm:h-6 sm:w-6" /></Button>
+              <Button onClick={handleSave} className="h-12 sm:h-14 px-6 sm:px-8 font-bold text-base sm:text-lg shadow-lg">Save</Button>
+              <Button variant="outline" onClick={handleShare} className="h-12 sm:h-14 px-6 sm:px-8 font-bold text-base sm:text-lg">Share</Button>
             </div>
           </div>
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
+          <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-4">
               {deck.map(item => (
                 <div key={item.card.id} className="relative group">
                   <img src={item.card.images.small} className="w-full h-auto cursor-pointer rounded-lg shadow-md transition-all group-hover:scale-105" onClick={() => setSelectedCard(item.card)} />
                   <div className="absolute -bottom-1 -right-1 bg-primary text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs border-2 border-background shadow-lg z-20">{item.count}</div>
-                  <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 px-1">
-                    <Button size="icon" className="h-10 w-10 rounded-full shadow-2xl bg-emerald-500 hover:bg-emerald-600 border-2 border-background" onClick={(e) => { e.stopPropagation(); addToDeck(item.card); }}><Plus className="h-6 w-6 text-white" /></Button>
-                    <Button size="icon" variant="destructive" className="h-10 w-10 rounded-full shadow-2xl border-2 border-background" onClick={(e) => { e.stopPropagation(); removeFromDeck(item.card.id); }}><Minus className="h-6 w-6 text-white" /></Button>
+                  <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-1 sm:gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-30 px-1">
+                    <Button size="icon" className="h-8 w-8 sm:h-10 sm:w-10 rounded-full shadow-2xl bg-emerald-500 hover:bg-emerald-600 border-2 border-background" onClick={(e) => { e.stopPropagation(); addToDeck(item.card); }}><Plus className="h-4 w-4 sm:h-6 sm:w-6 text-white" /></Button>
+                    <Button size="icon" variant="destructive" className="h-8 w-8 sm:h-10 sm:w-10 rounded-full shadow-2xl border-2 border-background" onClick={(e) => { e.stopPropagation(); removeFromDeck(item.card.id); }}><Minus className="h-4 w-4 sm:h-6 sm:w-6 text-white" /></Button>
                   </div>
                 </div>
               ))}
@@ -734,8 +762,9 @@ export default function DeckBuilderPage() {
           </div>
         </div>
 
-        <div className="w-[420px] border-l border-border bg-card/20 flex flex-col">
-          <div className="p-8 border-b border-border">
+        {/* Search Panel (Ordered Second on Mobile) */}
+        <div className="w-full lg:w-[420px] border-t lg:border-t-0 lg:border-l border-border bg-card/20 flex flex-col order-2 lg:order-none h-[500px] lg:h-auto">
+          <div className="p-4 sm:p-8 border-b border-border">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input placeholder="Search database..." className="pl-12 h-12 rounded-xl bg-background text-lg" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
@@ -743,7 +772,7 @@ export default function DeckBuilderPage() {
           </div>
           <div className="flex-1 p-4 overflow-y-auto">
             {isSearching ? <div className="flex justify-center py-12"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div> : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 lg:grid-cols-2 gap-2 sm:gap-4">
                 {searchResults.map(card => (
                   <div key={card.id} className="relative group cursor-grab active:cursor-grabbing" draggable onDragStart={(e) => e.dataTransfer.setData("card", JSON.stringify(card))} onClick={() => setSelectedCard(card)}>
                     <img src={card.images.small} className="w-full h-auto rounded-xl shadow-md hover:ring-4 ring-primary/30 transition-all" />

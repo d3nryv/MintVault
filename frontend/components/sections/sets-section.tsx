@@ -178,6 +178,7 @@ export function SetsSection() {
   const handleSeriesClick = (series: SeriesData) => {
     setSelectedSeries(series)
     setSelectedSet(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleSetClick = (set: TcgSet) => {
@@ -186,6 +187,7 @@ export function SetsSection() {
     setPage(1)
     setHasMore(true)
     fetchCards(set.id, 1)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleBack = () => {
@@ -201,6 +203,7 @@ export function SetsSection() {
     } else {
       setSelectedSeries(null)
     }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const getCardId = (set: TcgSet, card: any) => {
@@ -250,7 +253,7 @@ export function SetsSection() {
       </div>
       
       {!selectedSeries ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {seriesList.map((series) => (
             <Card 
               key={series.name} 
@@ -284,7 +287,7 @@ export function SetsSection() {
           ))}
         </div>
       ) : !selectedSet ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {selectedSeries.sets.map((set) => (
             <Card 
               key={set.id} 
@@ -364,7 +367,7 @@ export function SetsSection() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
             {cards
               .filter(card => {
                 const matchesSearch = card.name.toLowerCase().includes(cardSearch.toLowerCase())
