@@ -21,6 +21,10 @@ export class App {
     this.errorHandling();
   }
 
+  public getApp(): Application {
+    return this.app;
+  }
+
   private middlewares(): void {
     this.app.use(cors());
 
