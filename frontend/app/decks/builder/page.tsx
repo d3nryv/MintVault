@@ -221,7 +221,7 @@ export default function DeckBuilderPage() {
       setDeckId(idParam)
       const fetchDeck = async () => {
         try {
-          const response = await fetch(`http://127.0.0.1:3000/api/decks/${idParam}`)
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/${idParam}`)
           if (response.ok) {
             const data = await response.json()
             setDeckName(data.name)
@@ -268,7 +268,7 @@ export default function DeckBuilderPage() {
           finalQuery = `"${finalQuery}"`
         }
 
-        const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(finalQuery)}`)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search/${encodeURIComponent(finalQuery)}`)
         const data = await response.json()
         if (Array.isArray(data)) {
           const sorted = [...data].sort((a, b) => {
@@ -336,7 +336,7 @@ export default function DeckBuilderPage() {
         }
 
         try {
-          const apiUrl = `http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`
+          const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search/${encodeURIComponent(searchTerm)}`
 
           await new Promise(r => setTimeout(r, 50))
           const response = await fetch(apiUrl)
@@ -408,7 +408,7 @@ export default function DeckBuilderPage() {
       const cleanName = card.name.split('(')[0].trim()
       const searchTerm = `\"${cleanName}\"`
 
-      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(searchTerm)}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search/${encodeURIComponent(searchTerm)}`)
       const data = await response.json()
 
       if (Array.isArray(data)) {
@@ -528,7 +528,7 @@ export default function DeckBuilderPage() {
     }
 
     try {
-      const url = deckId ? `http://127.0.0.1:3000/api/decks/${deckId}` : 'http://127.0.0.1:3000/api/decks'
+      const url = deckId ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/${deckId}` : `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}/decks`
       const method = deckId ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
@@ -550,7 +550,7 @@ export default function DeckBuilderPage() {
         if (user && user.wantList) {
           const updatedWantList = syncWantsListWithDeckUpdate(user.wantList, savedDeck.id.toString(), deck)
           if (updatedWantList !== user.wantList) {
-            const userUpdateResponse = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+            const userUpdateResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${user.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ wantList: updatedWantList })

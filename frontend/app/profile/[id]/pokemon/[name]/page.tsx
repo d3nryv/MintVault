@@ -73,7 +73,7 @@ export default function ProfilePokemonPage() {
   const fetchProfile = useCallback(async () => {
     try {
       setProfileLoading(true)
-      const res = await fetch(`http://127.0.0.1:3000/api/users/${profileId}`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${profileId}`)
       if (res.ok) {
         const data = await res.json()
         setProfileUser(data)
@@ -104,7 +104,7 @@ export default function ProfilePokemonPage() {
     try {
       setCardsLoading(true)
       setError(null)
-      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(decodedName)}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search/${encodeURIComponent(decodedName)}`)
       if (response.ok) {
         const data = await response.json()
         setCards(Array.isArray(data) ? data : [])

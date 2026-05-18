@@ -53,7 +53,7 @@ export function ProfileSection() {
     setIsLoading(true)
     try {
       // 1. Fetch Binders from DB
-      const bindersRes = await fetch(`http://127.0.0.1:3000/api/albums`)
+      const bindersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums`)
       if (bindersRes.ok) {
         const allBinders = await bindersRes.json()
         setBindersList(allBinders.filter((b: any) => b.ownerId === user.id))
@@ -192,7 +192,7 @@ export function ProfileSection() {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/albums`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newBinderData)
@@ -235,7 +235,7 @@ export function ProfileSection() {
       const cards = await Promise.all(
         user.showcase.map(async (id) => {
           try {
-            const res = await fetch(`http://127.0.0.1:3000/api/cards/${id}`)
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/${id}`)
             if (res.ok) return await res.json()
             return null
           } catch { return null }
@@ -299,7 +299,7 @@ export function ProfileSection() {
     if (!user) return
     const newShowcase = [...(user.showcase || []), cardId].slice(0, 5)
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ showcase: newShowcase })
@@ -438,7 +438,7 @@ export function ProfileSection() {
                         const newShowcase = (user?.showcase || []).filter(id => id !== card.id)
                         updateUser({ showcase: newShowcase })
                         // Update in DB too
-                        fetch(`http://127.0.0.1:3000/api/users/${user?.id}`, {
+                        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${user?.id}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ showcase: newShowcase })

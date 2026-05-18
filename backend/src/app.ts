@@ -62,7 +62,3 @@ export class App {
     });
   }
 }
-
-// Exportación por defecto para la integración de Express de Vercel
-const appInstance = new App();
-export default appInstance.getApp();

@@ -262,7 +262,7 @@ export default function CardDetailPage() {
         return list
       })
 
-      const res = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wantList: updatedLists.map(l => JSON.stringify(l)) })
@@ -331,9 +331,9 @@ export default function CardDetailPage() {
     setIsLoading(true)
     try {
       const [cardRes, salesRes, historyRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/${id}`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/sales`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/transactions/card/${id}/history`)
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/cards/${id}`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/sales`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/transactions/card/${id}/history`)
       ]);
 
       if (!cardRes.ok) throw new Error(`HTTP error! status: ${cardRes.status}`)
@@ -362,7 +362,7 @@ export default function CardDetailPage() {
     setIsLoadingReprints(true)
     setIsReprintsOpen(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/advanced-search?name=${encodeURIComponent(card.name)}`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/cards/advanced-search?name=${encodeURIComponent(card.name)}`)
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
       const data = await res.json()
       setReprints(data.filter((c: any) => c.id !== card.id))

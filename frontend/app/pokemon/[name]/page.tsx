@@ -93,7 +93,7 @@ export default function PokemonPage() {
     try {
       setCardsLoading(true)
       setError(null)
-      const response = await fetch(`http://127.0.0.1:3000/api/cards/search/${encodeURIComponent(decodedName)}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search/${encodeURIComponent(decodedName)}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -265,7 +265,7 @@ export default function PokemonPage() {
                           : [...current, decodedName]
                         
                         try {
-                          const res = await fetch(`http://127.0.0.1:3000/api/users/${user.id}`, {
+                          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${user.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ owned_pokemon: newValue })

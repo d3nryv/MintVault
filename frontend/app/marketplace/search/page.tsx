@@ -123,7 +123,7 @@ function SearchContent() {
       if (number) params.append('number', number)
       if (globalLanguage && globalLanguage !== 'all') params.append('language', globalLanguage)
 
-      let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/advanced-search?${params.toString()}`
+      let url = `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/cards/advanced-search?${params.toString()}`
       const response = await fetch(url)
       if (!response.ok) {
           const text = await response.text()

@@ -106,7 +106,7 @@ export default function PublicProfilePage() {
       setLoading(true)
       try {
         // Fetch User
-        const userRes = await fetch(`http://127.0.0.1:3000/api/users/${id}`)
+        const userRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${id}`)
         if (userRes.ok) {
           const userData = await userRes.json()
           setProfileUser(userData)
@@ -123,16 +123,16 @@ export default function PublicProfilePage() {
           }
 
           // Fetch Decks
-          const decksRes = await fetch(`http://127.0.0.1:3000/api/decks/owner/${id}`)
+          const decksRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/owner/${id}`)
           const decksData = await decksRes.json()
           setDecks(decksData)
 
           // Fetch Sales
-          const salesRes = await fetch(`http://127.0.0.1:3000/api/sales/user/${id}`)
+          const salesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/sales/user/${id}`)
           if (salesRes.ok) setSales(await salesRes.json())
 
           // Fetch All Pokemon for Pokedex mapping
-          const pokeRes = await fetch(`http://127.0.0.1:3000/api/pokedex/all`)
+          const pokeRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pokedex/all`)
           if (pokeRes.ok) setAllPokemon(await pokeRes.json())
 
           // Fetch Collection Details
@@ -151,7 +151,7 @@ export default function PublicProfilePage() {
       // 1. Fetch Binders
       const fetchBinders = async () => {
         try {
-          const bindersRes = await fetch(`http://127.0.0.1:3000/api/albums`, { cache: 'no-store' })
+          const bindersRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums`, { cache: 'no-store' })
           if (bindersRes.ok) {
             const allBinders = await bindersRes.json()
             setBindersList(allBinders.filter((b: any) => b.ownerId === user.id))
@@ -220,7 +220,7 @@ export default function PublicProfilePage() {
             const cards = await Promise.all(
               pokemonCardIds.map(async (cardId: string) => {
                 try {
-                  const cardRes = await fetch(`http://127.0.0.1:3000/api/cards/${cardId}`)
+                  const cardRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/${cardId}`)
                   if (cardRes.ok) return await cardRes.json()
                 } catch { return null }
               })
@@ -302,7 +302,7 @@ export default function PublicProfilePage() {
             const cards = await Promise.all(
               user.showcase.map(async (id: string) => {
                 try {
-                  const res = await fetch(`http://127.0.0.1:3000/api/cards/${id}`)
+                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/${id}`)
                   if (res.ok) return await res.json()
                   return null
                 } catch { return null }
@@ -390,14 +390,14 @@ export default function PublicProfilePage() {
     setFollowLoading(true)
     try {
       if (relationship === "none") {
-        const res = await fetch(`http://127.0.0.1:3000/api/users/${id}/follow`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${id}/follow`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ followerId: currentUser.id })
         })
         if (res.ok) setRelationship("pending")
       } else {
-        const res = await fetch(`http://127.0.0.1:3000/api/users/${id}/unfollow`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${id}/unfollow`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ followerId: currentUser.id })
@@ -424,7 +424,7 @@ export default function PublicProfilePage() {
 
     setCartLoading(saleId)
     try {
-      const response = await fetch(`http://localhost:3000/api/users/${currentUser.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${currentUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cart: [...(currentUser.cart || []), saleId] })
@@ -449,7 +449,7 @@ export default function PublicProfilePage() {
     setCartLoading("bulk")
     try {
       const newCart = [...(currentUser.cart || []), ...filteredSales.map(s => s.id)]
-      const response = await fetch(`http://localhost:3000/api/users/${currentUser.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${currentUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cart: newCart })

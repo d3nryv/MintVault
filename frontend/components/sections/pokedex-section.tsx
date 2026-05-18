@@ -39,7 +39,7 @@ export function PokedexSection() {
       setLoading(true)
       try {
         // Fetching from our backend instead of directly from PokeAPI
-        const response = await fetch(`http://127.0.0.1:3000/api/pokedex/all`)
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pokedex/all`)
         if (!response.ok) throw new Error('Failed to fetch from backend')
         const data = await response.json()
 

@@ -33,7 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 // Mock card search function
 const searchCards = async (query: string) => {
   // Correct endpoint is /api/cards/search?name=...
-  const response = await fetch(`http://127.0.0.1:3000/api/cards/search?name=${encodeURIComponent(query)}`)
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search?name=${encodeURIComponent(query)}`)
   if (!response.ok) throw new Error('Search failed')
   return response.json()
 }
@@ -129,12 +129,12 @@ export default function BinderDetailPage() {
       setIsLoading(true)
       try {
         // 1. Fetch Album details
-        const albumRes = await fetch(`http://127.0.0.1:3000/api/albums/${binderId}`, { cache: 'no-store' })
+        const albumRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums/${binderId}`, { cache: 'no-store' })
         if (!albumRes.ok) throw new Error('Album not found')
         const albumData = await albumRes.json()
 
         // 2. Fetch Pages for this album
-        const pagesRes = await fetch(`http://127.0.0.1:3000/api/pages/album/${binderId}`, { cache: 'no-store' })
+        const pagesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages/album/${binderId}`, { cache: 'no-store' })
         let pagesData = await pagesRes.json()
 
         // 2.5 Self-healing: Check if any pages are missing up to totalPages, and auto-create them in parallel
@@ -157,7 +157,7 @@ export default function BinderDetailPage() {
           const createdResults = await Promise.all(
             missingPageNumbers.map(async (pNum) => {
               try {
-                const createRes = await fetch(`http://127.0.0.1:3000/api/pages`, {
+                const createRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ albumId: binderId, pageNumber: pNum })
@@ -203,7 +203,7 @@ export default function BinderDetailPage() {
             idsArray.map(async (id) => {
               try {
                 // Fetch from our local backend wrapper
-                const cardRes = await fetch(`http://127.0.0.1:3000/api/cards/${id}`, { cache: 'no-store' })
+                const cardRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/${id}`, { cache: 'no-store' })
                 if (cardRes.ok) {
                   const cardData = await cardRes.json()
                   cardDetailsMap.set(id, cardData)
@@ -322,7 +322,7 @@ export default function BinderDetailPage() {
     // If the page does not exist yet (e.g. for legacy binders), create it on-demand!
     if (!page) {
       try {
-        const createRes = await fetch(`http://127.0.0.1:3000/api/pages`, {
+        const createRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ albumId: binder.id, pageNumber: pageIdx + 1 })
@@ -342,7 +342,7 @@ export default function BinderDetailPage() {
 
     try {
       const newSlots = { ...page.slots, [slotIdx]: card.id }
-      const response = await fetch(`http://127.0.0.1:3000/api/pages/${page.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages/${page.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slots: newSlots })
@@ -403,7 +403,7 @@ export default function BinderDetailPage() {
     if (!fromPage || !toPage) return
 
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/albums/move-card`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums/move-card`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -452,7 +452,7 @@ export default function BinderDetailPage() {
     if (!confirm('Are you sure you want to delete this album?')) return;
     
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/albums/${binder.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums/${binder.id}`, {
         method: 'DELETE'
       })
       if (response.ok) {
@@ -485,7 +485,7 @@ export default function BinderDetailPage() {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/albums/${binder.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums/${binder.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -525,7 +525,7 @@ export default function BinderDetailPage() {
       const newSlots = { ...page.slots }
       delete newSlots[slotIdx]
       
-      const response = await fetch(`http://127.0.0.1:3000/api/pages/${page.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages/${page.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slots: newSlots })
@@ -557,7 +557,7 @@ export default function BinderDetailPage() {
     setIsSaving(true)
     try {
       for (const page of pages) {
-        const response = await fetch(`http://127.0.0.1:3000/api/pages/${page.id}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages/${page.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slots: page.slots })

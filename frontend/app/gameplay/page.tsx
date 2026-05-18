@@ -239,7 +239,7 @@ export default function GameplayPage() {
     if (!user) return
     setIsLoadingDecks(true)
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/decks/owner/${user.id}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/owner/${user.id}`)
       const data = await response.json()
       if (Array.isArray(data)) {
         setUserDecks(data)
@@ -261,7 +261,7 @@ export default function GameplayPage() {
     if (!confirm("Are you sure you want to delete this deck?")) return
 
     try {
-      const response = await fetch(`http://127.0.0.1:3000/api/decks/${deckId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/${deckId}`, {
         method: 'DELETE',
       })
 
