@@ -28,6 +28,11 @@ const mockCards = [
   { id: 51, name: "Charizard", set: "Paldean Fates", setCode: "PAF", number: "51/091", price: 15.00, image: null },
 ]
 
+/**
+ * SearchResultsPage wrapper component wrapped in Next.js Suspense boundary to safely read URL query parameters.
+ *
+ * @returns React functional component rendering the search results view.
+ */
 export default function SearchResultsPage() {
   return (
     <Suspense fallback={
@@ -40,6 +45,12 @@ export default function SearchResultsPage() {
   )
 }
 
+/**
+ * SearchContent component performing advanced Pokémon TCG SDK API queries,
+ * filtering by card names, set codes, and collectors' preferred language options.
+ *
+ * @returns React functional component rendering search query inputs and card result grids.
+ */
 function SearchContent() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get("q") || ""
@@ -183,7 +194,7 @@ function SearchContent() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <h1 className="font-serif text-3xl font-bold">Search Results</h1>
+            <h1 className="font-sans text-3xl font-bold tracking-tight">Search Results</h1>
           </div>
 
           <div className="mb-8 grid gap-4 lg:grid-cols-4">

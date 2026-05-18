@@ -6,6 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Layers, Swords, ShoppingBag, ArrowRight, BookOpen, Trophy, Tag } from "lucide-react"
 
+/**
+ * Metadata definitions for main platform feature pillars (Collection, Gameplay, Marketplace)
+ * displayed on the homepage with descriptions, icons, and bullet point highlights.
+ */
 const features = [
   {
     title: "Collection",
@@ -30,12 +34,21 @@ const features = [
   },
 ]
 
+/**
+ * Navigation shortcut definitions providing quick access to high-frequency pages from the homepage bottom bar.
+ */
 const quickLinks = [
   { title: "Browse Sets", description: "Explore all Pokémon TCG sets", href: "/collection", icon: BookOpen },
   { title: "Meta Decks", description: "See what&apos;s winning", href: "/gameplay", icon: Trophy },
   { title: "Sell Cards", description: "List your cards for sale", href: "/marketplace", icon: Tag },
 ]
 
+/**
+ * Home component representing the primary landing page of MintVault / TCG-Temple.
+ * Composed of the global navigation header, dynamic hero section, core feature cards, quick links bar, and footer.
+ *
+ * @returns React functional component rendering the homepage layout.
+ */
 export default function Home() {
   return (
     <div className="min-h-screen bg-background">
@@ -44,7 +57,7 @@ export default function Home() {
       <main>
         <HeroSection />
         
-        {/* Features Section */}
+        {/* Features Exploration Grid */}
         <section className="mx-auto max-w-[1700px] px-6 py-24 lg:px-8">
           <div className="mb-12 text-center">
             <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
@@ -88,7 +101,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Quick Links */}
+        {/* Quick Links Navigation Banner */}
         <section className="border-t border-border bg-secondary/30">
           <div className="mx-auto max-w-[1700px] px-6 py-16 lg:px-8">
             <h3 className="mb-8 text-center text-2xl font-bold text-foreground">

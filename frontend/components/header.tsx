@@ -252,9 +252,46 @@ export function Header() {
                 {item.name}
               </Link>
             ))}
-            <div className="mt-4 flex flex-col gap-2">
-              <Button 
-                variant="outline" 
+
+            {/* Profile section — same options as desktop dropdown */}
+            {mounted && user && (
+              <>
+                <div className="border-t border-border/50 my-3" />
+                {/* User info banner */}
+                <div className="flex items-center gap-3 px-3 py-2 mb-1">
+                  {user.profilePicUrl ? (
+                    <img src={user.profilePicUrl} alt={user.username} className="h-9 w-9 rounded-full object-cover" />
+                  ) : (
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-bold leading-none">{user.username}</p>
+                    <p className="text-xs text-muted-foreground leading-none mt-0.5">{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
+                  onClick={() => { router.push("/profile"); setMobileMenuOpen(false) }}
+                >
+                  <User className="h-5 w-5" />
+                  Profile
+                </button>
+                <button
+                  className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-foreground/80 hover:bg-secondary hover:text-foreground transition-colors"
+                  onClick={() => { router.push("/friends"); setMobileMenuOpen(false) }}
+                >
+                  <Users className="h-5 w-5" />
+                  Friends & Requests
+                </button>
+                <div className="border-t border-border/50 my-3" />
+              </>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
                 className="w-full justify-start"
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               >
@@ -271,14 +308,14 @@ export function Header() {
               </Button>
               {mounted && (
                 user ? (
-                  <Button variant="destructive" className="w-full justify-start" onClick={logout}>
+                  <Button variant="destructive" className="w-full justify-start" onClick={() => { logout(); setMobileMenuOpen(false) }}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Logout ({user.username})
+                    Logout
                   </Button>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <Button className="w-full" onClick={() => router.push("/login")}>Sign In</Button>
-                    <Button variant="outline" className="w-full" onClick={() => router.push("/register")}>Sign Up</Button>
+                    <Button className="w-full" onClick={() => { router.push("/login"); setMobileMenuOpen(false) }}>Sign In</Button>
+                    <Button variant="outline" className="w-full" onClick={() => { router.push("/register"); setMobileMenuOpen(false) }}>Sign Up</Button>
                   </div>
                 )
               )}

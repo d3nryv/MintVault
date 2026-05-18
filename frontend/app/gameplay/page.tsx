@@ -11,9 +11,13 @@ import { Trophy, Swords, FolderOpen, Plus, Edit, Trash2, Download, Calendar, Map
 import { useAuth } from "@/context/auth-context"
 import { useRouter } from "next/navigation"
 
+/** Limitless TCG Public API endpoint for tournament metrics and standings. */
 const BASE_URL = "https://play.limitlesstcg.com/api"
 
-// We'll use a dynamic state for meta decks now.
+/**
+ * Representation of a competitive TCG meta deck archetype scraped from Limitless TCG.
+ * Contains tournament usage metrics, win rates, and categorized card export structures.
+ */
 export interface MetaDeck {
   id: string;
   name: string;
@@ -31,13 +35,13 @@ export interface MetaDeck {
   };
 }
 
-// --- Your Decks (Static) ---
-// const yourDecks = [
-//   { name: "My Charizard Deck", format: "Standard", cards: 60, lastEdited: "2 days ago" },
-//   { name: "Budget Gardevoir", format: "Standard", cards: 60, lastEdited: "1 week ago" },
-//   { name: "Fun Mew VMAX", format: "Expanded", cards: 60, lastEdited: "2 weeks ago" },
-// ]
-
+/**
+ * GameplayPage component serving as the competitive gameplay hub.
+ * Features live meta deck scraping from Limitless TCG, tournament pairings and standings browsers,
+ * and user deck management with export/import capabilities.
+ *
+ * @returns React functional component rendering the gameplay module.
+ */
 export default function GameplayPage() {
   const [activeTab, setActiveTab] = useState("meta")
   const { user } = useAuth()

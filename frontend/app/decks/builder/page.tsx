@@ -181,6 +181,13 @@ interface DeckItem {
   count: number
 }
 
+/**
+ * DeckBuilderPage component serving as the interactive drag-and-drop deck creator.
+ * Features an integrated PTCGL format importer, live database searching, and 
+ * automatic synchronization with the user's want list.
+ *
+ * @returns React functional component rendering the deck builder application.
+ */
 export default function DeckBuilderPage() {
   const [deckName, setDeckName] = useState("New Deck")
   const [deckId, setDeckId] = useState<string | null>(null)
@@ -350,12 +357,12 @@ export default function DeckBuilderPage() {
         ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'].includes(fullName.toLowerCase().replace(/energy/g, '').trim())
       )
 
-      // Exact match with quotes for everything
-      let searchTerm = `\"${fullName}\"`
+      // Exact match for search query with double quotes for precision matching
+      let searchTerm = `"${fullName.trim()}"`
 
       if (isBasicEnergy) {
         const type = fullName.toLowerCase().replace(/basic/g, '').replace(/energy/g, '').trim()
-        searchTerm = `\"basic ${type} energy\"`
+        searchTerm = `"basic ${type} energy"`
       }
 
       try {
@@ -392,10 +399,12 @@ export default function DeckBuilderPage() {
 
           found = data.find(c => {
             const cSetCode = getSetCode(c) || "";
-            const cNumber = c.id?.includes('-') ? c.id.split('-')[1] : c.number;
+            const cNumber = c.id?.includes('-') ? c.id.split('-')[1] : (c.number || "");
+            const cleanCNum = cNumber.replace(/^0+/, '');
+            const cleanTargetNum = number.replace(/^0+/, '');
             return normalize(c.name || "") === targetName &&
               cSetCode.toLowerCase() === finalSetCode.toLowerCase() &&
-              cNumber === number
+              cleanCNum === cleanTargetNum
           })
 
           // 2. Fallback logic only for Basic Energies or if no strict match found
@@ -440,9 +449,9 @@ export default function DeckBuilderPage() {
     const normalize = (name: string) => name.split('(')[0].replace(/['’]/g, '').trim().toLowerCase()
 
     try {
-      // Use clean full name with quotes for exact matching
+      // Use clean full name for exact matching
       const cleanName = card.name.split('(')[0].trim()
-      const searchTerm = `\"${cleanName}\"`
+      const searchTerm = cleanName
 
       const apiBaseUrl = typeof window !== 'undefined'
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -636,7 +645,7 @@ export default function DeckBuilderPage() {
           <Card className="w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200">
             <CardHeader className="flex flex-row items-center justify-between border-b p-6">
               <div>
-                <CardTitle className="text-2xl font-serif">Import Deck</CardTitle>
+                <CardTitle className="text-2xl font-sans font-black tracking-tight">Import Deck</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">Paste your deck list below (TCG Live format)</p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setIsImportModalOpen(false)} disabled={isImporting}><X className="h-6 w-6" /></Button>
@@ -731,7 +740,7 @@ export default function DeckBuilderPage() {
                 )}
 
                 <div className="space-y-2">
-                  <h2 className="font-serif text-3xl font-bold">{selectedCard.name}</h2>
+                  <h2 className="font-sans text-3xl font-black tracking-tight">{selectedCard.name}</h2>
                   <p className="text-base text-muted-foreground">{selectedCard.set.name} • {selectedCard.number}</p>
                 </div>
                 <div className="text-sm bg-muted/60 p-6 rounded-2xl border border-border/60 space-y-4 shadow-inner">
@@ -741,7 +750,7 @@ export default function DeckBuilderPage() {
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-40 py-12"><Info className="h-16 w-16 mb-4" /><p className="font-serif text-2xl">Select a card</p></div>
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-40 py-12"><Info className="h-16 w-16 mb-4" /><p className="font-sans font-black tracking-tight text-2xl">Select a card</p></div>
           )}
         </div>
 
@@ -751,7 +760,7 @@ export default function DeckBuilderPage() {
             <div className="flex items-center gap-4 sm:gap-6">
               <Button variant="ghost" size="icon" onClick={() => router.push("/gameplay")} className="h-12 w-12"><ArrowLeft className="h-6 w-6" /></Button>
               <div className="flex-1">
-                <Input value={deckName} onChange={(e) => setDeckName(e.target.value)} className="font-serif text-2xl sm:text-4xl font-bold bg-transparent border-none p-0 h-auto focus-visible:ring-0 w-full" />
+                <Input value={deckName} onChange={(e) => setDeckName(e.target.value)} className="font-sans text-2xl sm:text-4xl font-black tracking-tight bg-transparent border-none p-0 h-auto focus-visible:ring-0 w-full" />
                 <div className="flex gap-6 mt-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <span className={totalCards > 60 ? 'text-destructive font-black' : ''}>{totalCards} / 60 Cards</span>
                   <span>{pokemonCount} P • {trainerCount} T • {energyCount} E</span>

@@ -11,6 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Layers, BookOpen, User } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 
+/**
+ * CollectionTabs component managing navigation between the three primary collection views:
+ * Expansion Sets, Pokédex explorer, and Collector Profile. Reads URL query parameters (`?tab=`) for initial routing.
+ *
+ * @returns React functional component rendering the tabs interface.
+ */
 function CollectionTabs() {
     const searchParams = useSearchParams()
     const [activeTab, setActiveTab] = useState("sets")
@@ -24,18 +30,18 @@ function CollectionTabs() {
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-8 grid w-full max-w-md grid-cols-3">
-                <TabsTrigger value="sets" className="gap-2">
+            <TabsList className="mb-8 grid w-full max-w-md grid-cols-3 font-bold">
+                <TabsTrigger value="sets" className="gap-2 font-bold">
                     <Layers className="h-4 w-4" />
-                    <span className="hidden sm:inline">Sets</span>
+                    Sets
                 </TabsTrigger>
-                <TabsTrigger value="pokedex" className="gap-2">
+                <TabsTrigger value="pokedex" className="gap-2 font-bold">
                     <BookOpen className="h-4 w-4" />
-                    <span className="hidden sm:inline">Pokédex</span>
+                    Pokédex
                 </TabsTrigger>
-                <TabsTrigger value="profile" className="gap-2">
+                <TabsTrigger value="profile" className="gap-2 font-bold">
                     <User className="h-4 w-4" />
-                    <span className="hidden sm:inline">Profile</span>
+                    Profile
                 </TabsTrigger>
             </TabsList>
 
@@ -54,6 +60,12 @@ function CollectionTabs() {
     )
 }
 
+/**
+ * CollectionPage component serving as the layout wrapper for the collection dashboard.
+ * Encapsulates the tabbed navigation inside a Next.js suspense boundary to handle client search parameters safely.
+ *
+ * @returns React functional component rendering the full collection page.
+ */
 export default function CollectionPage() {
     const { user } = useAuth()
     
@@ -66,12 +78,12 @@ export default function CollectionPage() {
                         <h1 className="font-sans text-4xl font-bold tracking-tight text-foreground">
                             Your Collection
                         </h1>
-                        <p className="mt-2 text-muted-foreground">
+                        <p className="mt-2 text-muted-foreground font-medium">
                             Browse sets, explore the Pokédex, and manage your profile
                         </p>
                     </div>
 
-                    <Suspense fallback={<div className="h-96 flex items-center justify-center">Loading...</div>}>
+                    <Suspense fallback={<div className="h-96 flex items-center justify-center font-bold">Loading...</div>}>
                         <CollectionTabs />
                     </Suspense>
                 </div>

@@ -73,11 +73,14 @@ import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/context/auth-context"
 import { useMarketplace } from "@/context/marketplace-context"
 
-/** Official TCG card art for listing thumbnails (not seller-uploaded photos) */
+/** Helper function extracting official TCG card art thumbnail URLs across multiple schema conventions. */
 const getListingCardThumbnail = (listing: { cardImage?: string; image?: string; card_image?: string }) =>
   listing.cardImage || listing.image || listing.card_image || ''
 
+/** Allowed source types when initializing a collector want list. */
 type WantsListType = "empty" | "deck" | "collection"
+
+/** Structure of an individual card entry contained within a collector want list. */
 type WantsListItem = {
   id: string | number
   name: string
@@ -88,6 +91,8 @@ type WantsListItem = {
   owned: boolean
   imageUrl?: string
 }
+
+/** Complete structure of a collector's want list, including metadata and card item lists. */
 export interface WantsList {
   id: string
   name: string
@@ -99,6 +104,7 @@ export interface WantsList {
   createdAt: string
 }
 
+/** Estimated baseline and express shipping fee matrices categorized by European country codes. */
 const shippingPrices: Record<string, { name: string, min: number, max: number, flag: string }> = {
   ES: { name: "España", min: 1.33, max: 8.00, flag: "🇪🇸" },
   DE: { name: "Alemania", min: 1.55, max: 1.55, flag: "🇩🇪" },
@@ -132,6 +138,13 @@ const shippingPrices: Record<string, { name: string, min: number, max: number, f
   AT: { name: "Austria", min: 6.75, max: 6.75, flag: "🇦🇹" },
 }
 
+/**
+ * MarketplacePage component serving as the centralized peer-to-peer trading hub.
+ * Features card purchasing workflows, want list wizards, seller inventory management,
+ * wallet transactions, and multi-country shipping estimation calculations.
+ *
+ * @returns React functional component rendering the marketplace dashboard.
+ */
 export default function MarketplacePage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("buy")
@@ -1527,7 +1540,7 @@ export default function MarketplacePage() {
 
               <section>
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
+                  <h2 className="flex items-center gap-2 font-sans font-black tracking-tight text-2xl">
                     <Clock className="h-6 w-6 text-primary" />
                     Recent Listings
                   </h2>
@@ -1622,7 +1635,7 @@ export default function MarketplacePage() {
                         <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
                           <Tag className="h-8 w-8 text-primary" />
                         </div>
-                        <CardTitle className="text-2xl sm:text-3xl font-serif">Become a Seller</CardTitle>
+                        <CardTitle className="text-2xl sm:text-3xl font-sans font-black tracking-tight">Become a Seller</CardTitle>
                         <CardDescription className="text-base mt-2">
                           Complete seller verification in your profile. Terms and shipping address are configured there.
                         </CardDescription>

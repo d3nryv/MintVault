@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Search } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
+/**
+ * Generation navigation metadata used to partition Pokémon species by their original release eras.
+ */
 const GENERATIONS = [
   { id: 1, name: "Gen I", offset: 0, limit: 151 },
   { id: 2, name: "Gen II", offset: 151, limit: 100 },
@@ -20,6 +23,9 @@ const GENERATIONS = [
   { id: 9, name: "Gen IX", offset: 905, limit: 120 },
 ]
 
+/**
+ * Summarized Pokémon metadata structure returned by the pokedex API endpoint.
+ */
 interface PokemonInfo {
   id: number
   name: string
@@ -27,6 +33,12 @@ interface PokemonInfo {
   sprite: string
 }
 
+/**
+ * PokedexSection component displaying an interactive grid of Pokémon species.
+ * Features multi-generation tab filtering, real-time client-side name/ID search, and dynamic routing to individual species detail views.
+ *
+ * @returns React functional component rendering the Pokédex explorer UI.
+ */
 export function PokedexSection() {
   const router = useRouter()
   const [selectedGen, setSelectedGen] = useState(1)
@@ -35,6 +47,9 @@ export function PokedexSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    /**
+     * Asynchronously retrieves the full catalog of Pokémon species from the backend service.
+     */
     async function fetchAllPokemon() {
       setLoading(true)
       try {
@@ -44,12 +59,12 @@ export function PokedexSection() {
         : `${window.location.protocol}//${window.location.hostname}/_/backend`)
     : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
         const response = await fetch(`${apiBaseUrl}/api/pokedex/all`)
-        if (!response.ok) throw new Error('Failed to fetch from backend')
+        if (!response.ok) throw new Error('Failed to fetch Pokédex data from backend service')
         const data = await response.json()
 
         setAllPokemon(data)
       } catch (error) {
-        console.error("Error fetching all pokemon:", error)
+        console.error("Error fetching all Pokémon species:", error)
       } finally {
         setLoading(false)
       }
@@ -58,15 +73,19 @@ export function PokedexSection() {
     fetchAllPokemon()
   }, [])
 
+  /**
+   * Memoized computation determining the active subset of Pokémon species to render.
+   * If a search query is active, filters across all generations. Otherwise, slices by active generation limits.
+   */
   const displayedPokemon = useMemo(() => {
     if (searchQuery.trim() !== "") {
-      // Global Search
+      // Global Search across all available generations
       return allPokemon.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.number.includes(searchQuery)
       )
     } else {
-      // Generation View
+      // Generation View filtered by active tab
       const gen = GENERATIONS.find(g => g.id === selectedGen)
       if (!gen) return []
       return allPokemon.slice(gen.offset, gen.offset + gen.limit)
@@ -75,6 +94,7 @@ export function PokedexSection() {
 
   return (
     <section className="py-8">
+      {/* Explorer Header & Search Bar Input */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
         <div className="space-y-1">
           <h2 className="text-3xl font-bold text-foreground tracking-tight">
@@ -98,7 +118,7 @@ export function PokedexSection() {
         </div>
       </div>
 
-      {/* Generation Bar - Hidden when searching for clarity */}
+      {/* Generation Bar Tabs - Hidden when searching for clarity */}
       {!searchQuery && (
         <div className="flex flex-wrap gap-2 mb-8 p-1 bg-secondary/20 rounded-2xl w-fit">
           {GENERATIONS.map((gen) => (
@@ -115,6 +135,7 @@ export function PokedexSection() {
         </div>
       )}
 
+      {/* Main Grid View displaying Loading Skeletons or Pokémon Cards */}
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
           {Array.from({ length: 16 }).map((_, i) => (

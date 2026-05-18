@@ -9,13 +9,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, AlertCircle, CheckCircle2, Loader2, User, Mail, Save, ArrowLeft, Camera, Upload, Link as LinkIcon, Globe, Check } from "lucide-react"
+import { MapPin, AlertCircle, CheckCircle2, Loader2, User, Mail, Save, ArrowLeft, Camera, Upload, Link as LinkIcon, Globe, Check, Image as ImageIcon } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { COUNTRIES } from "@/lib/countries"
 
+/** Mapping of legacy street types to standard English street designations. */
 const LEGACY_STREET_TYPE_MAP: Record<string, string> = {
   Calle: "Street",
   Avenida: "Avenue",
@@ -24,6 +25,12 @@ const LEGACY_STREET_TYPE_MAP: Record<string, string> = {
   Bulevar: "Boulevard",
 }
 
+/**
+ * ProfilePage component handling user profile settings, avatar/banner image customization, and verified seller onboarding.
+ * Integrates overloaded JSON/string handling for `bannerUrl` to maintain seller verification status while supporting custom banners.
+ *
+ * @returns React functional component rendering the profile customization and seller portal.
+ */
 export default function ProfilePage() {
   const { user, updateUser, isLoading: isAuthLoading } = useAuth()
   const router = useRouter()
@@ -33,6 +40,7 @@ export default function ProfilePage() {
         : `${window.location.protocol}//${window.location.hostname}/_/backend`)
     : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
   
+  // Basic Profile State
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [country, setCountry] = useState("ES")
@@ -43,11 +51,15 @@ export default function ProfilePage() {
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
   const [photoInputUrl, setPhotoInputUrl] = useState("")
 
+  // Custom Banner State
+  const [bannerPicUrl, setBannerPicUrl] = useState("")
+  const [bannerInputUrl, setBannerInputUrl] = useState("")
+  const [isBannerDialogOpen, setIsBannerDialogOpen] = useState(false)
+
   // Become Seller Form State
   const [nombre, setNombre] = useState("")
   const [apellidos, setApellidos] = useState("")
   const [tipoCalle, setTipoCalle] = useState("Street")
-
   const [nombreCalle, setNombreCalle] = useState("")
   const [numero, setNumero] = useState("")
   const [piso, setPiso] = useState("")
@@ -81,6 +93,29 @@ export default function ProfilePage() {
     }
   }, [user])
 
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      router.push("/login")
+    }
+    if (user) {
+      setUsername(user.username)
+      setEmail(user.email)
+      setCountry(user.country || "ES")
+      setProfilePicUrl(user.profilePicUrl || "")
+      setPhotoInputUrl(user.profilePicUrl || "")
+
+      // Parse custom banner URL cleanly whether it's JSON or a direct URL string
+      const existingBanner = user.bannerUrl 
+        ? (user.bannerUrl.startsWith('{"isSeller"') ? (JSON.parse(user.bannerUrl).bannerImage || "") : (user.bannerUrl.startsWith('{') ? "" : user.bannerUrl))
+        : "";
+      setBannerPicUrl(existingBanner)
+      setBannerInputUrl(existingBanner)
+    }
+  }, [user, isAuthLoading, router])
+
+  /**
+   * Handles seller registration by serializing business address and existing banner image into a single JSON payload.
+   */
   const handleBecomeSeller = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -108,7 +143,8 @@ export default function ProfilePage() {
       
       const serialized = JSON.stringify({
         isSeller: true,
-        address: addressData
+        address: addressData,
+        bannerImage: bannerPicUrl
       });
       
       const res = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
@@ -131,19 +167,7 @@ export default function ProfilePage() {
     }
   };
 
-  useEffect(() => {
-    if (!isAuthLoading && !user) {
-      router.push("/login")
-    }
-    if (user) {
-      setUsername(user.username)
-      setEmail(user.email)
-      setCountry(user.country || "ES")
-      setProfilePicUrl(user.profilePicUrl || "")
-      setPhotoInputUrl(user.profilePicUrl || "")
-    }
-  }, [user, isAuthLoading, router])
-
+  /** Handles profile picture file selection and converts to base64 DataURL. */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -160,6 +184,7 @@ export default function ProfilePage() {
     }
   }
 
+  /** Applies direct URL string for profile avatar. */
   const handleUrlSubmit = () => {
     if (photoInputUrl) {
       setProfilePicUrl(photoInputUrl)
@@ -167,6 +192,34 @@ export default function ProfilePage() {
     }
   }
 
+  /** Handles banner file upload and converts to base64 DataURL. */
+  const handleBannerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 4 * 1024 * 1024) {
+        setError("Banner file is too large. Max 4MB.")
+        return
+      }
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setBannerPicUrl(reader.result as string)
+        setIsBannerDialogOpen(false)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  /** Applies direct URL string for profile banner. */
+  const handleBannerUrlSubmit = () => {
+    if (bannerInputUrl) {
+      setBannerPicUrl(bannerInputUrl)
+      setIsBannerDialogOpen(false)
+    }
+  }
+
+  /**
+   * Submits profile updates to backend API, maintaining seller JSON integrity when saving the banner.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -176,18 +229,22 @@ export default function ProfilePage() {
     setSuccess(null)
 
     try {
+      const newBannerUrl = sellerInfo 
+        ? JSON.stringify({ ...sellerInfo, bannerImage: bannerPicUrl }) 
+        : bannerPicUrl;
+
       const response = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, email, country, profilePicUrl }),
+        body: JSON.stringify({ username, email, country, profilePicUrl, bannerUrl: newBannerUrl }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        updateUser({ username, email, country, profilePicUrl })
+        updateUser({ username, email, country, profilePicUrl, bannerUrl: newBannerUrl })
         setSuccess("Profile updated successfully!")
       } else {
         setError(data.error || "Failed to update profile")
@@ -222,15 +279,87 @@ export default function ProfilePage() {
             variant="ghost"
             size="sm"
             onClick={() => router.back()}
-            className="mb-6 gap-2 hover:bg-secondary/50"
+            className="mb-6 gap-2 hover:bg-secondary/50 font-bold"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
 
+          {/* Profile Banner Customization Header */}
+          <Card className="mb-6 border-border/50 bg-card/50 backdrop-blur-xl shadow-xl overflow-hidden relative h-48 sm:h-64 w-full group rounded-3xl">
+            {bannerPicUrl ? (
+              <img src={bannerPicUrl} alt="Profile Banner" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 flex flex-col items-center justify-center text-muted-foreground font-bold gap-2">
+                <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
+                <span>No custom banner uploaded</span>
+              </div>
+            )}
+            <Dialog open={isBannerDialogOpen} onOpenChange={setIsBannerDialogOpen}>
+              <DialogTrigger asChild>
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-sm">
+                  <Button variant="outline" className="gap-2 font-bold bg-background/80 hover:bg-background text-foreground border-white/20 shadow-2xl rounded-xl">
+                    <Camera className="h-5 w-5" /> Change Banner Image
+                  </Button>
+                </div>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Update Profile Banner</DialogTitle>
+                  <DialogDescription>
+                    Select a background image to display at the top of your profile and showcase page.
+                  </DialogDescription>
+                </DialogHeader>
+                <Tabs defaultValue="upload" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="upload" className="gap-2 font-bold">
+                      <Upload className="h-4 w-4" /> Upload
+                    </TabsTrigger>
+                    <TabsTrigger value="url" className="gap-2 font-bold">
+                      <LinkIcon className="h-4 w-4" /> URL
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="upload" className="py-6 space-y-4">
+                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-8 bg-secondary/20 hover:bg-secondary/30 transition-colors cursor-pointer relative">
+                      <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                      <p className="text-sm font-bold">Click to upload file</p>
+                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP (max 4MB, 16:9 aspect ratio recommended)</p>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleBannerFileChange}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="url" className="py-6 space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="banner-url" className="font-bold">Image URL</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          id="banner-url"
+                          placeholder="https://example.com/banner.jpg"
+                          className="bg-background/50 border-border/50 font-semibold"
+                          value={bannerInputUrl}
+                          onChange={(e) => setBannerInputUrl(e.target.value)}
+                        />
+                        <Button onClick={handleBannerUrlSubmit} className="font-bold">Apply</Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </DialogContent>
+            </Dialog>
+            <div className="absolute top-4 right-4">
+              <Badge className="bg-background/80 backdrop-blur text-foreground font-black px-3 py-1.5 shadow-lg border border-white/10 uppercase text-[10px] tracking-widest">
+                Profile Header Banner
+              </Badge>
+            </div>
+          </Card>
+
           <div className="grid gap-6 lg:grid-cols-[minmax(220px,280px)_1fr]">
             {/* Avatar sidebar */}
-            <Card className="border-border/50 bg-card/50 backdrop-blur-xl shadow-xl h-fit lg:sticky lg:top-28">
+            <Card className="border-border/50 bg-card/50 backdrop-blur-xl shadow-xl h-fit lg:sticky lg:top-28 rounded-3xl">
               <CardContent className="pt-10 flex flex-col items-center">
                 <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
                   <DialogTrigger asChild>
@@ -259,17 +388,17 @@ export default function ProfilePage() {
                     </DialogHeader>
                     <Tabs defaultValue="upload" className="w-full">
                       <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="upload" className="gap-2">
+                        <TabsTrigger value="upload" className="gap-2 font-bold">
                           <Upload className="h-4 w-4" /> Upload
                         </TabsTrigger>
-                        <TabsTrigger value="url" className="gap-2">
+                        <TabsTrigger value="url" className="gap-2 font-bold">
                           <LinkIcon className="h-4 w-4" /> URL
                         </TabsTrigger>
                       </TabsList>
                       <TabsContent value="upload" className="py-6 space-y-4">
                         <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-8 bg-secondary/20 hover:bg-secondary/30 transition-colors cursor-pointer relative">
                           <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                          <p className="text-sm font-medium">Click to upload file</p>
+                          <p className="text-sm font-bold">Click to upload file</p>
                           <p className="text-xs text-muted-foreground mt-1">PNG, JPG or GIF (max 2MB)</p>
                           <input 
                             type="file" 
@@ -281,15 +410,16 @@ export default function ProfilePage() {
                       </TabsContent>
                       <TabsContent value="url" className="py-6 space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="photo-url">Image URL</Label>
+                          <Label htmlFor="photo-url" className="font-bold">Image URL</Label>
                           <div className="flex gap-2">
                             <Input 
                               id="photo-url"
                               placeholder="https://example.com/photo.jpg"
+                              className="bg-background/50 border-border/50 font-semibold"
                               value={photoInputUrl}
                               onChange={(e) => setPhotoInputUrl(e.target.value)}
                             />
-                            <Button onClick={handleUrlSubmit}>Apply</Button>
+                            <Button onClick={handleUrlSubmit} className="font-bold">Apply</Button>
                           </div>
                         </div>
                       </TabsContent>
@@ -297,9 +427,9 @@ export default function ProfilePage() {
                   </DialogContent>
                 </Dialog>
                 <h3 className="mt-4 text-xl font-bold">{user.username}</h3>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
+                <p className="text-sm text-muted-foreground font-medium">{user.email}</p>
                 
-                <div className="w-full border-t border-border/50 mt-6 pt-6 space-y-2">
+                <div className="w-full border-t border-border/50 mt-6 pt-6 space-y-2 font-medium">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <User className="h-4 w-4" />
                     <span>Member since April 2026</span>
@@ -314,20 +444,20 @@ export default function ProfilePage() {
                 <div className="h-2 w-full bg-gradient-to-r from-primary via-accent to-primary" />
                 <CardHeader className="pb-4">
                   <CardTitle className="text-2xl font-bold">Edit Profile</CardTitle>
-                  <CardDescription>
+                  <CardDescription className="font-medium">
                     Update your personal information and how others see you
                   </CardDescription>
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
-                  <CardContent className="space-y-6">
+                  <CardContent className="space-y-6 font-medium">
                     {error && (
-                      <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center gap-3 text-sm text-destructive animate-in fade-in slide-in-from-top-2">
+                      <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center gap-3 text-sm text-destructive animate-in fade-in slide-in-from-top-2 font-bold">
                         <AlertCircle className="h-5 w-5" />
                         {error}
                       </div>
                     )}
                     {success && (
-                      <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-sm text-emerald-600 animate-in fade-in slide-in-from-top-2">
+                      <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-sm text-emerald-600 animate-in fade-in slide-in-from-top-2 font-bold">
                         <CheckCircle2 className="h-5 w-5" />
                         {success}
                       </div>
@@ -335,7 +465,7 @@ export default function ProfilePage() {
                     
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="username" className="text-sm font-semibold flex items-center gap-2">
+                        <Label htmlFor="username" className="text-sm font-bold flex items-center gap-2">
                           <User className="h-4 w-4 text-muted-foreground" />
                           Username
                         </Label>
@@ -345,12 +475,12 @@ export default function ProfilePage() {
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           required
-                          className="bg-background/50 border-border/50 focus:ring-primary h-11"
+                          className="bg-background/50 border-border/50 focus:ring-primary h-11 font-semibold"
                         />
                       </div>
                       
                       <div className="space-y-2">
-                        <Label htmlFor="email" className="text-sm font-semibold flex items-center gap-2">
+                        <Label htmlFor="email" className="text-sm font-bold flex items-center gap-2">
                           <Mail className="h-4 w-4 text-muted-foreground" />
                           Email Address
                         </Label>
@@ -361,34 +491,34 @@ export default function ProfilePage() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required
-                          className="bg-background/50 border-border/50 focus:ring-primary h-11"
+                          className="bg-background/50 border-border/50 focus:ring-primary h-11 font-semibold"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold flex items-center gap-2">
+                        <Label className="text-sm font-bold flex items-center gap-2">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
                           Location / Country
                         </Label>
                         <Select value={country} onValueChange={setCountry}>
-                          <SelectTrigger className="bg-background/50 border-border/50 focus:ring-primary h-11">
+                          <SelectTrigger className="bg-background/50 border-border/50 focus:ring-primary h-11 font-semibold">
                             <SelectValue placeholder="Select your country" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[300px]">
                             {COUNTRIES.map((c) => (
-                              <SelectItem key={c.code} value={c.code}>
+                              <SelectItem key={c.code} value={c.code} className="font-semibold">
                                 {c.name} ({c.code})
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="text-[10px] text-muted-foreground">Used to calculate shipping rates for your buyers.</p>
+                        <p className="text-[10px] text-muted-foreground font-bold">Used to calculate shipping rates for your buyers.</p>
                       </div>
                     </div>
                   </CardContent>
                   <CardFooter className="flex flex-col gap-4 pt-2 pb-8 px-6">
                     <Button 
-                      className="w-full h-11 text-base font-semibold shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all rounded-xl" 
+                      className="w-full h-11 text-base font-bold shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all rounded-xl" 
                       type="submit" 
                       disabled={isLoading}
                     >
@@ -415,19 +545,19 @@ export default function ProfilePage() {
                     <Globe className="h-6 w-6 text-emerald-500" />
                     MintVault Seller Portal
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="font-medium">
                     Fill out your business and street address below to unlock public selling and start earning!
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-6 font-medium">
                   {sellerError && (
-                    <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center gap-3 text-sm text-destructive animate-in fade-in slide-in-from-top-2">
+                    <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center gap-3 text-sm text-destructive animate-in fade-in slide-in-from-top-2 font-bold">
                       <AlertCircle className="h-5 w-5" />
                       {sellerError}
                     </div>
                   )}
                   {sellerSuccess && (
-                    <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-sm text-emerald-600 animate-in fade-in slide-in-from-top-2">
+                    <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3 text-sm text-emerald-600 animate-in fade-in slide-in-from-top-2 font-bold">
                       <CheckCircle2 className="h-5 w-5" />
                       {sellerSuccess}
                     </div>
@@ -481,12 +611,12 @@ export default function ProfilePage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border-border/50 font-semibold">
-                            <SelectItem value="Street" className="rounded-xl">Street</SelectItem>
-                            <SelectItem value="Avenue" className="rounded-xl">Avenue</SelectItem>
-                            <SelectItem value="Square" className="rounded-xl">Square</SelectItem>
-                            <SelectItem value="Promenade" className="rounded-xl">Promenade</SelectItem>
-                            <SelectItem value="Boulevard" className="rounded-xl">Boulevard</SelectItem>
-                            <SelectItem value="Lane" className="rounded-xl">Lane</SelectItem>
+                            <SelectItem value="Street" className="rounded-xl font-semibold">Street</SelectItem>
+                            <SelectItem value="Avenue" className="rounded-xl font-semibold">Avenue</SelectItem>
+                            <SelectItem value="Square" className="rounded-xl font-semibold">Square</SelectItem>
+                            <SelectItem value="Promenade" className="rounded-xl font-semibold">Promenade</SelectItem>
+                            <SelectItem value="Boulevard" className="rounded-xl font-semibold">Boulevard</SelectItem>
+                            <SelectItem value="Lane" className="rounded-xl font-semibold">Lane</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -534,7 +664,7 @@ export default function ProfilePage() {
                         checked={acceptTerms}
                         onChange={e => setAcceptTerms(e.target.checked)}
                       />
-                      <Label htmlFor="acceptTerms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none">
+                      <Label htmlFor="acceptTerms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none font-bold">
                         I accept the MintVault Marketplace Seller Terms & Conditions, and agree that all listed cards must be authentic and accurately graded.
                       </Label>
                     </div>

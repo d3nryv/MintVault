@@ -16,6 +16,9 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import { BinderSize } from "@/lib/types/binder"
 
+/**
+ * Summarized statistics representing a collector's completion progress within a specific TCG expansion set.
+ */
 interface CollectedSet {
   id: string
   name: string
@@ -27,6 +30,7 @@ interface CollectedSet {
   eraLabel: string
 }
 
+/** Mapping of series names to internal era identifiers. */
 const ERA_MAP: Record<string, string> = {
   'scarlet & violet': 'sv',
   'sword & shield': 'swsh',
@@ -43,6 +47,7 @@ const ERA_MAP: Record<string, string> = {
   'base': 'base',
 }
 
+/** Human-readable display labels for TCG eras. */
 const ERA_LABELS: Record<string, string> = {
   'all-eras': 'All Eras',
   'sv': 'Scarlet & Violet',
@@ -60,6 +65,9 @@ const ERA_LABELS: Record<string, string> = {
   'base': 'Base',
 }
 
+/**
+ * Statistics container for a collector's completion progress across specific Pokémon species.
+ */
 interface CollectedPokemon {
   name: string
   owned: number
@@ -67,7 +75,13 @@ interface CollectedPokemon {
   sprite: string
 }
 
-
+/**
+ * ProfileSection component rendering the collector dashboard within the Collection module.
+ * Displays user identity, showcase cards, created binders, set completion stats, and Pokémon species completion stats.
+ * Enables creating new binders, editing profile info, and managing showcase displays.
+ *
+ * @returns React functional component rendering the collector profile dashboard.
+ */
 export function ProfileSection() {
   const { user, updateUser } = useAuth()
   const router = useRouter()

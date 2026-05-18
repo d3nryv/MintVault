@@ -11,6 +11,9 @@ import { useAuth } from "@/context/auth-context"
 import { format } from "date-fns"
 import { CardDetailModal } from "@/components/card-detail-modal"
 
+/**
+ * Structure of a Pokémon TCG expansion set object as returned by the pokemontcg API.
+ */
 interface TcgSet {
   id: string
   name: string
@@ -25,6 +28,9 @@ interface TcgSet {
   total: number
 }
 
+/**
+ * Grouped metadata container representing a TCG Series (e.g. Scarlet & Violet, Sword & Shield) and all its constituent expansion sets.
+ */
 interface SeriesData {
   name: string
   logo: string
@@ -33,6 +39,12 @@ interface SeriesData {
   sets: TcgSet[]
 }
 
+/**
+ * SetsSection component providing a hierarchical browser for Pokémon TCG expansion series and individual sets.
+ * Manages infinite scrolling card pagination, ownership filtering, sorting, and grayscale missing-card visualizer.
+ *
+ * @returns React functional component rendering the expansion sets browser.
+ */
 export function SetsSection() {
   const [allSets, setAllSets] = useState<TcgSet[]>([])
   const [selectedSeries, setSelectedSeries] = useState<SeriesData | null>(null)
@@ -47,7 +59,7 @@ export function SetsSection() {
   const router = useRouter()
   const { user } = useAuth()
 
-  // Filters and Sorts
+  // State controls for filtering and sorting card displays within a set
   const [cardSearch, setCardSearch] = useState("")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [collectionFilter, setCollectionFilter] = useState<"all" | "owned" | "not-owned">("all")

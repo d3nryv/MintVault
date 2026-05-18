@@ -75,7 +75,13 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { ChevronDown, ChevronUp, History, Info, MapPin } from "lucide-react"
 
-// Reputation tiers based on delivery ratio
+/**
+ * Calculates a seller's tiered reputation badge based on successful delivery ratios and cumulative sales volume.
+ *
+ * @param deliveredRatio - Percentage of orders successfully completed without disputes.
+ * @param totalSales - Total historical sales count.
+ * @returns Object containing matching Lucide icon, human-readable label, and styling color class.
+ */
 const getReputationTier = (deliveredRatio: number, totalSales: number) => {
   if (totalSales < 10) return { icon: Star, label: "New", color: "text-muted-foreground" }
   if (deliveredRatio >= 0.99) return { icon: Crown, label: "Elite", color: "text-amber-500" }
@@ -85,13 +91,24 @@ const getReputationTier = (deliveredRatio: number, totalSales: number) => {
   return { icon: Star, label: "Standard", color: "text-muted-foreground" }
 }
 
-// Format sales count with abbreviation for 1000+
+/**
+ * Formats large numerical sales counts into concise abbreviated strings (e.g., 1.5k, 2.3M).
+ *
+ * @param count - Raw integer sales count.
+ * @returns Formatted shorthand string representation.
+ */
 const formatSalesCount = (count: number): string => {
   if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
   if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}k`
   return count.toString()
 }
 
+/**
+ * Maps standard TCG grading condition codes (MT, NM, EX, etc.) to visual styling metadata and condition descriptions.
+ *
+ * @param condition - Standard condition code abbreviation string.
+ * @returns Structure containing longform label, badge background colors, and detailed descriptions.
+ */
 const getConditionInfo = (condition: string) => {
   const conditions: Record<string, { abbr: string; label: string; color: string; description: string }> = {
     MT: {
@@ -140,7 +157,7 @@ const getConditionInfo = (condition: string) => {
   return conditions[condition] || conditions.LP
 }
 
-// Country flags (simplified with emoji)
+/** Country code to emoji flag representation mapping. */
 const countryFlags: Record<string, string> = {
   US: "🇺🇸",
   ES: "🇪🇸",
@@ -156,6 +173,7 @@ const countryFlags: Record<string, string> = {
   DO: "🇩🇴",
 }
 
+/** Numerical ranking values assigned to card grading conditions for sorting comparisons. */
 const CONDITION_VALUES: Record<string, number> = {
   "PO": 0,
   "HP": 1,
@@ -166,6 +184,13 @@ const CONDITION_VALUES: Record<string, number> = {
   "M": 6
 };
 
+/**
+ * CardDetailPage component providing the comprehensive trading view for a specific card.
+ * Displays card artwork, price history charts, available peer listings with filtering,
+ * seller reputation indicators, and want-list dialog integration.
+ *
+ * @returns React functional component rendering the marketplace card detail page.
+ */
 export default function CardDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -484,7 +509,7 @@ export default function CardDetailPage() {
                   )}
                 </div>
                 <div className="mt-4 space-y-2 text-center">
-                  <h1 className="font-serif text-2xl font-bold">{card.name}</h1>
+                  <h1 className="font-sans font-black tracking-tight text-2xl">{card.name}</h1>
                   <div className="flex items-center justify-center gap-2">
                     <Badge variant="outline">{card.set?.name}</Badge>
                     <Badge variant="outline">{card.number}</Badge>
@@ -708,7 +733,7 @@ export default function CardDetailPage() {
 
           <Card className="overflow-hidden border-none shadow-none bg-transparent">
             <CardHeader className="px-0 pb-4">
-              <CardTitle className="flex items-center gap-2 text-xl font-serif">
+              <CardTitle className="flex items-center gap-2 text-xl font-sans font-black tracking-tight">
                 <ShoppingBag className="h-6 w-6 text-accent" />
                 Marketplace Listings
                 <Badge variant="secondary" className="ml-2 bg-accent/10 text-accent border-none">

@@ -26,13 +26,19 @@ const navigation = {
   ],
 }
 
+/**
+ * Footer component providing site-wide navigation links categorized across Collection, Gameplay, Marketplace, and Company modules.
+ * Standardizes branding typography and legal copyright notices.
+ *
+ * @returns React functional component rendering the global footer.
+ */
 export function Footer() {
   return (
     <footer className="border-t border-border bg-card">
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           <div className="space-y-4">
-            <Link href="/" className="font-serif text-2xl font-bold text-foreground">
+            <Link href="/" className="font-sans font-black tracking-tight text-2xl text-foreground">
               MintVault
             </Link>
             <p className="text-sm text-muted-foreground max-w-xs">

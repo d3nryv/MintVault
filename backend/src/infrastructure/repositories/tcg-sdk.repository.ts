@@ -66,7 +66,8 @@ export class TcgSdkRepository implements TcgRepository {
         }
 
         try {
-            const query = `name:*${name.trim()}*`;
+            const cleanName = name.trim().replace(/^["']|["']$/g, '');
+            const query = cleanName.includes(' ') ? `name:"${cleanName}"` : `name:*${cleanName}*`;
             console.log(`[DEBUG] Buscando en API con query: ${query}`);
             const cards = await PokemonTCG.findCardsByQueries({ q: query });
             if (!cards) return [];
@@ -126,7 +127,10 @@ export class TcgSdkRepository implements TcgRepository {
 
         try {
             const queries: string[] = [];
-            if (filters.name) queries.push(`name:*${filters.name.trim()}*`);
+            if (filters.name) {
+                const cleanName = filters.name.trim().replace(/^["']|["']$/g, '');
+                queries.push(cleanName.includes(' ') ? `name:"${cleanName}"` : `name:*${cleanName}*`);
+            }
             if (filters.set) queries.push(`set.id:${filters.set.trim()}`);
             if (filters.number) queries.push(`number:${filters.number.trim()}`);
 

@@ -514,11 +514,17 @@ export default function PublicProfilePage() {
         <div className="relative mb-12">
           {/* Banner */}
           <div className="h-48 md:h-64 w-full rounded-3xl overflow-hidden bg-secondary/30 relative">
-            {profileUser.bannerUrl ? (
-              <img src={profileUser.bannerUrl} alt="Banner" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-r from-primary/10 to-secondary/30" />
-            )}
+            {(() => {
+              const sellerInfo = parseSellerInfo(profileUser.bannerUrl);
+              // If bannerUrl is a real image URL (not seller JSON), show it
+              const realBannerUrl = !sellerInfo && profileUser.bannerUrl && profileUser.bannerUrl.startsWith('http')
+                ? profileUser.bannerUrl
+                : null;
+              if (realBannerUrl) {
+                return <img src={realBannerUrl} alt="Banner" className="w-full h-full object-cover" />;
+              }
+              return <div className="w-full h-full bg-gradient-to-r from-primary/10 to-secondary/30" />;
+            })()}
           </div>
 
           {/* User Info Bar */}
