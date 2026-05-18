@@ -1022,7 +1022,7 @@ export default function MarketplacePage() {
         <div className="mx-auto max-w-[1700px] px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
+              <h1 className="font-sans text-4xl font-bold tracking-tight text-foreground">
                 Marketplace
               </h1>
               <p className="mt-2 text-muted-foreground">
@@ -1226,7 +1226,7 @@ export default function MarketplacePage() {
               {/* Most Purchased Sets */}
               <section>
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
+                  <h2 className="flex items-center gap-2 font-sans text-2xl font-semibold">
                     <Flame className="h-6 w-6 text-orange-500" />
                     Most Purchased Sets
                   </h2>
@@ -1282,7 +1282,7 @@ export default function MarketplacePage() {
               {/* Most Purchased Cards */}
               <section>
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 font-serif text-2xl font-semibold">
+                  <h2 className="flex items-center gap-2 font-sans text-2xl font-semibold">
                     <Star className="h-6 w-6 text-yellow-500" />
                     Most Purchased Cards
                   </h2>
@@ -1344,7 +1344,7 @@ export default function MarketplacePage() {
                 <section className={risingCards.length === 0 ? "hidden" : ""}>
                   <div className="mb-4 flex items-center gap-2">
                     <TrendingUp className="h-6 w-6 text-emerald-500" />
-                    <h2 className="font-serif text-2xl font-semibold">Rising Prices</h2>
+                    <h2 className="font-sans text-2xl font-semibold">Rising Prices</h2>
                   </div>
                   <Card>
                     <CardContent className="p-0">
@@ -1391,7 +1391,7 @@ export default function MarketplacePage() {
                 <section className={fallingCards.length === 0 ? "hidden" : ""}>
                   <div className="mb-4 flex items-center gap-2">
                     <TrendingDown className="h-6 w-6 text-red-500" />
-                    <h2 className="font-serif text-2xl font-semibold">Falling Prices</h2>
+                    <h2 className="font-sans text-2xl font-semibold">Falling Prices</h2>
                   </div>
                   <Card>
                     <CardContent className="p-0">
@@ -1442,7 +1442,7 @@ export default function MarketplacePage() {
                 <section>
                   <div className="mb-4 flex items-center gap-2">
                     <Sparkles className="h-6 w-6 text-amber-500" />
-                    <h2 className="font-serif text-2xl font-semibold">All-Time High Prices</h2>
+                    <h2 className="font-sans text-2xl font-semibold">All-Time High Prices</h2>
                   </div>
                   <Card>
                     <CardContent className="p-0">
@@ -1483,7 +1483,7 @@ export default function MarketplacePage() {
                 <section>
                   <div className="mb-4 flex items-center gap-2">
                     <BarChart3 className="h-6 w-6 text-blue-500" />
-                    <h2 className="font-serif text-2xl font-semibold">All-Time Low Prices</h2>
+                    <h2 className="font-sans text-2xl font-semibold">All-Time Low Prices</h2>
                   </div>
                   <Card>
                     <CardContent className="p-0">

@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Sparkles } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/context/auth-context"
 
 export function HeroSection() {
+  const { user } = useAuth();
   return (
     <section className="relative pt-32 pb-20 px-6 lg:px-8">
       <div className="mx-auto max-w-4xl text-center">
@@ -14,7 +16,7 @@ export function HeroSection() {
         </div>
         
         {/* Headline */}
-        <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-foreground text-balance">
+        <h1 className="font-sans text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-foreground text-balance">
           Collect, trade, and
           <br />
           master the game
@@ -27,27 +29,23 @@ export function HeroSection() {
         
         {/* CTAs */}
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button size="lg" className="gap-2 px-8 py-6 text-base">
-            Start Collecting
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="lg" className="px-8 py-6 text-base">
-            Explore Sets
+          <Button asChild size="lg" className="gap-2 px-8 py-6 text-base">
+            <Link href={user ? "/collection" : "/login"}>Start Collecting</Link>
           </Button>
         </div>
         
         {/* Stats */}
         <div className="mt-16 grid grid-cols-3 gap-8 border-t border-border pt-8">
           <div>
-            <p className="font-serif text-3xl sm:text-4xl font-bold text-foreground">15K+</p>
+            <p className="font-sans text-3xl sm:text-4xl font-bold text-foreground">15K+</p>
             <p className="text-sm text-muted-foreground mt-1">Cards Catalogued</p>
           </div>
           <div>
-            <p className="font-serif text-3xl sm:text-4xl font-bold text-foreground">250+</p>
+            <p className="font-sans text-3xl sm:text-4xl font-bold text-foreground">250+</p>
             <p className="text-sm text-muted-foreground mt-1">Sets Available</p>
           </div>
           <div>
-            <p className="font-serif text-3xl sm:text-4xl font-bold text-foreground">10K+</p>
+            <p className="font-sans text-3xl sm:text-4xl font-bold text-foreground">10K+</p>
             <p className="text-sm text-muted-foreground mt-1">Active Collectors</p>
           </div>
         </div>

@@ -233,7 +233,7 @@ export function SetsSection() {
                 <ChevronLeft className="h-6 w-6" />
               </Button>
             )}
-            <h2 className="font-serif text-4xl font-bold text-foreground">
+            <h2 className="font-sans text-4xl font-bold text-foreground">
               {selectedSet ? selectedSet.name : (selectedSeries ? selectedSeries.name : "Expansion Series")}
             </h2>
           </div>

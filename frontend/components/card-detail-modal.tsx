@@ -182,7 +182,7 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
       role="presentation"
     >
       <div
-        className="relative w-full max-w-7xl max-h-[95vh] overflow-hidden rounded-3xl shadow-2xl flex flex-col md:flex-row bg-[#1f232d]"
+        className="relative w-full max-w-7xl max-h-[95vh] overflow-hidden rounded-3xl shadow-2xl flex flex-col md:flex-row bg-white dark:bg-[#1f232d]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"

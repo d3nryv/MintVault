@@ -37,14 +37,6 @@ export function Header() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const { user, logout } = useAuth()
-  const sellerInfo = user?.bannerUrl && user.bannerUrl.startsWith('{"isSeller"')
-    ? JSON.parse(user.bannerUrl)
-    : null;
-
-  const currentNav = [
-    ...navigation,
-    ...(sellerInfo?.isSeller ? [{ name: "Sell", href: "/marketplace?tab=sell" }] : [])
-  ]
 
   const { language, setLanguage } = useMarketplace()
   const router = useRouter()
@@ -73,7 +65,7 @@ export function Header() {
       <nav className="mx-auto flex max-w-[1700px] items-center justify-between px-6 py-4 lg:px-8">
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
-            <span className="text-2xl font-bold tracking-tight text-foreground">
+            <span className="text-2xl font-bold tracking-tight text-foreground" style={{ fontFamily: 'Georgia, serif' }}>
               MintVault
             </span>
           </Link>
@@ -95,7 +87,7 @@ export function Header() {
         </div>
 
         <div className="hidden lg:flex lg:gap-x-12 items-center">
-          {currentNav.map((item) => (
+          {navigation.map((item) => (
             <Link
               key={item.name}
               href={item.href}
@@ -250,7 +242,7 @@ export function Header() {
               <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </form>
 
-            {currentNav.map((item) => (
+            {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}

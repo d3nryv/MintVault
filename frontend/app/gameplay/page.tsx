@@ -347,7 +347,7 @@ export default function GameplayPage() {
       <main className="pt-20">
         <div className="mx-auto max-w-[1700px] px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
+            <h1 className="font-sans text-4xl font-bold tracking-tight text-foreground">
               Gameplay
             </h1>
             <p className="mt-2 text-muted-foreground font-medium italic">
