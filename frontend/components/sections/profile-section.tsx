@@ -72,7 +72,11 @@ export function ProfileSection() {
   const { user, updateUser } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
-  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+  const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
   
   const [bindersList, setBindersList] = useState<any[]>([])
   const [userSets, setUserSets] = useState<CollectedSet[]>([])

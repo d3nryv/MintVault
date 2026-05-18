@@ -221,7 +221,11 @@ export default function DeckBuilderPage() {
       setDeckId(idParam)
       const fetchDeck = async () => {
         try {
-          const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+          const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
           const response = await fetch(`${apiBaseUrl}/api/decks/${idParam}`)
           if (response.ok) {
             const data = await response.json()
@@ -269,7 +273,11 @@ export default function DeckBuilderPage() {
         if (finalQuery.includes(' ') && !finalQuery.startsWith('"')) {
           finalQuery = `"${finalQuery}"`
         }
-        const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+        const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
         const response = await fetch(`${apiBaseUrl}/api/cards/search/${encodeURIComponent(finalQuery)}`)
         const data = await response.json()
         if (Array.isArray(data)) {
@@ -348,9 +356,14 @@ export default function DeckBuilderPage() {
       if (isBasicEnergy) {
         const type = fullName.toLowerCase().replace(/basic/g, '').replace(/energy/g, '').trim()
         searchTerm = `\"basic ${type} energy\"`
+      }
 
       try {
-        const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+        const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
         const apiUrl = `${apiBaseUrl}/api/cards/search/${encodeURIComponent(searchTerm)}`
 
         await new Promise(r => setTimeout(r, 50))
@@ -431,7 +444,11 @@ export default function DeckBuilderPage() {
       const cleanName = card.name.split('(')[0].trim()
       const searchTerm = `\"${cleanName}\"`
 
-      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
       const response = await fetch(`${apiBaseUrl}/api/cards/search/${encodeURIComponent(searchTerm)}`)
       const data = await response.json()
 
@@ -552,7 +569,11 @@ export default function DeckBuilderPage() {
     }
 
     try {
-      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
       const url = deckId ? `${apiBaseUrl}/api/decks/${deckId}` : `${apiBaseUrl}/api/decks`
       const method = deckId ? 'PUT' : 'POST'
 

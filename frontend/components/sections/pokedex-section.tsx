@@ -38,7 +38,11 @@ export function PokedexSection() {
     async function fetchAllPokemon() {
       setLoading(true)
       try {
-        const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+        const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
         const response = await fetch(`${apiBaseUrl}/api/pokedex/all`)
         if (!response.ok) throw new Error('Failed to fetch from backend')
         const data = await response.json()

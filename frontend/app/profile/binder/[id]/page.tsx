@@ -31,7 +31,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // Mock card search function
 const searchCards = async (query: string) => {
-  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+  const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
   const response = await fetch(`${apiBaseUrl}/api/cards/search?name=${encodeURIComponent(query)}`)
   if (!response.ok) throw new Error('Search failed')
   return response.json()
@@ -57,7 +61,11 @@ export default function BinderDetailPage() {
   const [viewMode, setViewMode] = useState<"pages" | "cover">("pages")
   const [isMobile, setIsMobile] = useState(false)
 
-  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+  const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
 
   useEffect(() => {
     const checkMobile = () => {

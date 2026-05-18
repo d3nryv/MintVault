@@ -239,7 +239,11 @@ export default function GameplayPage() {
     if (!user) return
     setIsLoadingDecks(true)
     try {
-      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
       const response = await fetch(`${apiBaseUrl}/api/decks/owner/${user.id}`)
       const data = await response.json()
       if (Array.isArray(data)) {
@@ -262,7 +266,11 @@ export default function GameplayPage() {
     if (!confirm("Are you sure you want to delete this deck?")) return
 
     try {
-      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
       const response = await fetch(`${apiBaseUrl}/api/decks/${deckId}`, {
         method: 'DELETE',
       })

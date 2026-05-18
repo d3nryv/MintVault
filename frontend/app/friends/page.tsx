@@ -13,7 +13,11 @@ import { Loader2, UserCheck, UserPlus, X, Check, Users } from "lucide-react"
 export default function FriendsPage() {
   const { user, login } = useAuth()
   const router = useRouter()
-  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+  const apiBaseUrl = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:3000`
+        : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
   
   const [following, setFollowing] = useState<any[]>([])
   const [followers, setFollowers] = useState<any[]>([])
