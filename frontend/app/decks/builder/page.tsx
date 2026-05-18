@@ -528,7 +528,7 @@ export default function DeckBuilderPage() {
     }
 
     try {
-      const url = deckId ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/${deckId}` : `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}/decks`
+      const url = deckId ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/${deckId}` : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks`
       const method = deckId ? 'PUT' : 'POST'
 
       const response = await fetch(url, {

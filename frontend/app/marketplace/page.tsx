@@ -241,7 +241,7 @@ export default function MarketplacePage() {
 
       setIsSearchingSellCards(true)
       try {
-        let url = `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/cards/search?name=${encodeURIComponent(sellSearchQuery)}`
+        let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search?name=${encodeURIComponent(sellSearchQuery)}`
         if (sellSelectedSet !== 'all') {
           url += `&set=${encodeURIComponent(sellSelectedSet)}`
         }
@@ -278,7 +278,7 @@ export default function MarketplacePage() {
 
       setIsSearchingWantsCards(true)
       try {
-        let url = `${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/cards/search?name=${encodeURIComponent(wantsSearchQuery)}`
+        let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search?name=${encodeURIComponent(wantsSearchQuery)}`
         if (wantsSelectedSet !== 'all') {
           url += `&set=${encodeURIComponent(wantsSelectedSet)}`
         }
@@ -324,7 +324,7 @@ export default function MarketplacePage() {
   const fetchUserDecks = async () => {
     if (!user) return
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/decks/owner/${user.id}`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/owner/${user.id}`)
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
       const data = await res.json()
       setUserDecks(data)
@@ -336,7 +336,7 @@ export default function MarketplacePage() {
   const fetchUserCollections = async () => {
     if (!user) return
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/albums`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums`)
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
       const data = await res.json()
       // Filter by owner since backend doesn't have findByOwner route yet
@@ -349,12 +349,12 @@ export default function MarketplacePage() {
   const fetchUserOrders = async () => {
     if (!user) return
     try {
-      const pRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/transactions/buyer/${user.id}`)
+      const pRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/transactions/buyer/${user.id}`)
       if (!pRes.ok) throw new Error(`HTTP error! status: ${pRes.status}`)
       const pData = await pRes.json()
       setUserOrders(pData)
 
-      const sRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/transactions/seller/${user.id}`)
+      const sRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/transactions/seller/${user.id}`)
       if (!sRes.ok) throw new Error(`HTTP error! status: ${sRes.status}`)
       const sData = await sRes.json()
       setUserSalesHistory(sData)
@@ -376,7 +376,7 @@ export default function MarketplacePage() {
   const syncUserWithBackend = async (updates: { wantList?: string[], cart?: string[] }) => {
     if (!user) return
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/users/${user.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
@@ -391,7 +391,7 @@ export default function MarketplacePage() {
   const fetchSales = async () => {
     setIsLoadingSales(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/sales`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/sales`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
       setRealSales(data)
@@ -408,7 +408,7 @@ export default function MarketplacePage() {
     setIsLoadingTrending(true)
     try {
       const langParam = language !== 'all' ? `?language=${language}` : ''
-      const statsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/statistics${langParam}`)
+      const statsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/statistics${langParam}`)
       if (!statsRes.ok) {
         const text = await statsRes.text()
         console.error("Stats fetch failed:", statsRes.status, text.slice(0, 100))
@@ -435,7 +435,7 @@ export default function MarketplacePage() {
     if (!user) return
     setIsLoadingUserSales(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/sales/user/${user.id}`)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/sales/user/${user.id}`)
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
       setUserSales(data)
@@ -505,7 +505,7 @@ export default function MarketplacePage() {
     if (!editingListing || !user) return
     setIsUpdating(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/sales/${editingListing.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/sales/${editingListing.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -539,7 +539,7 @@ export default function MarketplacePage() {
   const handleDeleteSale = async (id: string) => {
     if (!confirm("Are you sure you want to delete this listing?")) return
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/sales/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/sales/${id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user?.id })
@@ -563,7 +563,7 @@ export default function MarketplacePage() {
     setIsListing(true)
     try {
       // 1. Create Card Entity
-      const cardRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/cards`, {
+      const cardRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -589,7 +589,7 @@ export default function MarketplacePage() {
       if (!cardRes.ok) throw new Error(cardData.error || cardData.message || "Error creating card")
 
       // 2. Create Sale Entity
-      const saleRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || `${process.env.NEXT_PUBLIC_API_URL || '${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}'}`}/sales`, {
+      const saleRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/sales`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
