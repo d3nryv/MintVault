@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { AlertCircle, X, Plus, Minus, Loader2 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { syncWantsListWithSetUpdate } from "@/utils/wants-sync"
+import { Badge } from "@/components/ui/badge"
 
 export interface Attack {
   name: string
@@ -59,6 +60,28 @@ export interface CardInfo {
   nationalPokedexNumbers?: number[]
   regulationMark?: string
   releaseDate?: string
+  legalities?: {
+    standard?: string
+    expanded?: string
+    unlimited?: string
+  }
+  tcgplayer?: {
+    url?: string
+    updatedAt?: string
+    prices?: {
+      normal?: { market?: number }
+      holofoil?: { market?: number }
+      reverseHolofoil?: { market?: number }
+    }
+  }
+  cardmarket?: {
+    url?: string
+    updatedAt?: string
+    prices?: {
+      averageSellPrice?: number
+      trendPrice?: number
+    }
+  }
 }
 
 export const tcgTypeColors: Record<string, string> = {
@@ -114,7 +137,8 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
         wantList: updatedWantList
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${user.id}`, {
+      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const response = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
@@ -158,7 +182,7 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
       role="presentation"
     >
       <div
-        className="relative w-full max-w-7xl max-h-[95vh] overflow-hidden rounded-3xl shadow-2xl flex flex-col md:flex-row bg-[#1f232d]"
+        className="relative w-full max-w-7xl max-h-[95vh] overflow-hidden rounded-3xl shadow-2xl flex flex-col md:flex-row bg-white dark:bg-[#1f232d]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -182,7 +206,7 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
 
         {/* Left: Card image */}
         <div
-          className="flex items-center justify-center p-2 sm:p-4 md:w-2/5 lg:w-1/2 flex-shrink-0 bg-black/20"
+          className="flex items-center justify-center p-4 md:w-2/5 lg:w-1/2 flex-shrink-0 bg-black/20 max-h-[35vh] md:max-h-none h-[35vh] md:h-auto"
           style={{
             background: `linear-gradient(135deg, ${typeAccent}44 0%, transparent 100%)`,
           }}
@@ -191,7 +215,7 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
             <img
               src={card.images.large || card.images.small}
               alt={`Carta de ${card.name}`}
-              className="w-full h-full max-h-[85vh] object-contain drop-shadow-2xl rounded-lg"
+              className="w-full h-full max-h-[30vh] md:max-h-[85vh] object-contain drop-shadow-2xl rounded-lg"
             />
           ) : (
             <div className="w-64 h-80 flex items-center justify-center bg-muted/30 rounded-2xl border border-muted">
@@ -221,9 +245,25 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
                 <span key={s} className="before:content-['•'] before:mr-2 before:text-muted-foreground/50">{s}</span>
               ))}
               {card.number && card.set?.name && (
-                <span className="before:content-['•'] before:mr-2 before:text-muted-foreground/50">
+                <span className="before:content-['•'] before:mr-2 before:text-muted-foreground/50 inline-flex items-center gap-2">
                   #{card.number} — {card.set.name}
+                  {card.set?.images?.symbol && (
+                    <img src={card.set.images.symbol} alt="" className="h-4 w-auto object-contain inline-block filter invert dark:invert-0" />
+                  )}
                 </span>
+              )}
+            </div>
+
+            {/* Legality Badges */}
+            <div className="flex gap-2 mt-4 flex-wrap">
+              {card.legalities?.standard === "Legal" && (
+                <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-bold uppercase tracking-widest text-[9px] px-2.5 py-0.5 rounded-full">Standard</Badge>
+              )}
+              {card.legalities?.expanded === "Legal" && (
+                <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 font-bold uppercase tracking-widest text-[9px] px-2.5 py-0.5 rounded-full">Expanded</Badge>
+              )}
+              {card.legalities?.unlimited === "Legal" && (
+                <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20 font-bold uppercase tracking-widest text-[9px] px-2.5 py-0.5 rounded-full">Unlimited</Badge>
               )}
             </div>
           </div>
@@ -371,6 +411,35 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
                 <span className="font-bold text-foreground">{card.regulationMark}</span>
               </InfoRow>
             )}
+          </div>
+
+          {/* Real-time Pricing Info */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Market Price Guide</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-secondary/40 p-4 rounded-2xl border border-border/50">
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">TCGPlayer Market</p>
+                <p className="text-lg font-black text-emerald-500 mt-1">
+                  {card.tcgplayer?.prices?.normal?.market 
+                    ? `$${card.tcgplayer.prices.normal.market.toFixed(2)}` 
+                    : (card.tcgplayer?.prices?.holofoil?.market 
+                      ? `$${card.tcgplayer.prices.holofoil.market.toFixed(2)}` 
+                      : (card.tcgplayer?.prices?.reverseHolofoil?.market
+                        ? `$${card.tcgplayer.prices.reverseHolofoil.market.toFixed(2)}`
+                        : "N/A"))}
+                </p>
+              </div>
+              <div className="bg-secondary/40 p-4 rounded-2xl border border-border/50">
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Cardmarket Trend</p>
+                <p className="text-lg font-black text-blue-500 mt-1">
+                  {card.cardmarket?.prices?.trendPrice 
+                    ? `${card.cardmarket.prices.trendPrice.toFixed(2)}€` 
+                    : (card.cardmarket?.prices?.averageSellPrice 
+                      ? `${card.cardmarket.prices.averageSellPrice.toFixed(2)}€` 
+                      : "N/A")}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Collection Management */}

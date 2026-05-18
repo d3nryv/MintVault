@@ -2,28 +2,27 @@ import Link from "next/link"
 
 const navigation = {
   collection: [
-    { name: "All Sets", href: "#" },
-    { name: "Pokédex", href: "#" },
-    { name: "Your Collection", href: "#" },
-    { name: "Binders", href: "#" },
+    { name: "All Sets", href: "/collection?tab=sets" },
+    { name: "Pokédex", href: "/collection?tab=pokedex" },
+    { name: "Your Collection", href: "/collection?tab=profile" },
   ],
   gameplay: [
-    { name: "Meta Decks", href: "#" },
-    { name: "Tournaments", href: "#" },
-    { name: "Deck Builder", href: "#" },
-    { name: "Rules", href: "#" },
+    { name: "Meta Decks", href: "/gameplay?tab=meta" },
+    { name: "Tournaments", href: "/gameplay?tab=tournaments" },
+    { name: "Deck Builder", href: "/decks/builder" },
   ],
   marketplace: [
-    { name: "Browse Cards", href: "#" },
-    { name: "Sell Cards", href: "#" },
-    { name: "Price Guide", href: "#" },
-    { name: "Sellers", href: "#" },
+    { name: "Buy Cards", href: "/marketplace?tab=buy" },
+    { name: "Sell Cards", href: "/marketplace?tab=sell" },
+    { name: "Orders", href: "/marketplace?tab=orders" },
+    { name: "Wantslists", href: "/marketplace?tab=wants" },
+    { name: "Cart", href: "/marketplace?tab=cart" },
   ],
   company: [
-    { name: "About", href: "#" },
-    { name: "Blog", href: "#" },
-    { name: "Contact", href: "#" },
-    { name: "Privacy", href: "#" },
+    { name: "About", href: "/" },
+    { name: "Blog", href: "/" },
+    { name: "Contact", href: "/" },
+    { name: "Privacy", href: "/" },
   ],
 }
 
@@ -34,7 +33,7 @@ export function Footer() {
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           <div className="space-y-4">
             <Link href="/" className="font-serif text-2xl font-bold text-foreground">
-              PokéVault
+              MintVault
             </Link>
             <p className="text-sm text-muted-foreground max-w-xs">
               Your ultimate companion for collecting, trading, and mastering the Pokémon Trading Card Game.
@@ -97,7 +96,7 @@ export function Footer() {
         </div>
         <div className="mt-12 border-t border-border pt-8">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} PokéVault. All rights reserved. Pokémon and Pokémon character names are trademarks of Nintendo.
+            &copy; {new Date().getFullYear()} MintVault. All rights reserved. Pokémon and Pokémon character names are trademarks of Nintendo.
           </p>
         </div>
       </div>

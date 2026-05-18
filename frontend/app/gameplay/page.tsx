@@ -239,7 +239,8 @@ export default function GameplayPage() {
     if (!user) return
     setIsLoadingDecks(true)
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/owner/${user.id}`)
+      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const response = await fetch(`${apiBaseUrl}/api/decks/owner/${user.id}`)
       const data = await response.json()
       if (Array.isArray(data)) {
         setUserDecks(data)
@@ -261,7 +262,8 @@ export default function GameplayPage() {
     if (!confirm("Are you sure you want to delete this deck?")) return
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/decks/${deckId}`, {
+      const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+      const response = await fetch(`${apiBaseUrl}/api/decks/${deckId}`, {
         method: 'DELETE',
       })
 
@@ -345,7 +347,7 @@ export default function GameplayPage() {
       <main className="pt-20">
         <div className="mx-auto max-w-[1700px] px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="font-serif text-4xl font-bold tracking-tight text-foreground">
+            <h1 className="font-sans text-4xl font-bold tracking-tight text-foreground">
               Gameplay
             </h1>
             <p className="mt-2 text-muted-foreground font-medium italic">
@@ -737,14 +739,14 @@ export default function GameplayPage() {
                             <div className="space-y-1">
                               <h4 className="font-bold text-lg uppercase italic">{deck.name}</h4>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground font-bold italic">
-                                <Badge variant="outline" className="font-bold text-[10px]">Standard</Badge>
+                                <Badge variant="outline" className="font-bold text-[10px] hidden sm:inline-block">Standard</Badge>
                                 <span>{deck.cards?.reduce((acc: number, i: any) => acc + i.count, 0) || 0} cards</span>
-                                <span>Created: {new Date(deck.createdAt).toLocaleDateString()}</span>
+                                <span className="hidden sm:inline">Created: {new Date(deck.createdAt).toLocaleDateString()}</span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => router.push(`/decks/builder?id=${deck.id}`)}><Edit className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" onClick={() => {
+                            <div className="flex items-center gap-1.5">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={() => router.push(`/decks/builder?id=${deck.id}`)}><Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={() => {
                                 const ENERGY_SYMBOLS: Record<string, string> = {
                                   'Grass': '{G}', 'Fire': '{R}', 'Water': '{W}', 'Lightning': '{L}',
                                   'Psychic': '{P}', 'Fighting': '{F}', 'Darkness': '{D}', 'Metal': '{M}',
@@ -776,17 +778,17 @@ export default function GameplayPage() {
                                 const exportText = `Pokémon: ${pCount}\n${p.map(formatLine).join('\n')}\n\nTrainer: ${tCount}\n${t.map(formatLine).join('\n')}\n\nEnergy: ${eCount}\n${e.map(formatLine).join('\n')}`
                                 navigator.clipboard.writeText(exportText)
                                 showNotification("Decklist copied to clipboard!")
-                              }}><Download className="h-4 w-4" /></Button>
+                              }}><Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></Button>
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="text-destructive"
+                                  className="h-8 w-8 sm:h-10 sm:w-10 text-destructive"
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     handleDeleteDeck(deck.id)
                                   }}
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                 </Button>
                             </div>
                           </div>

@@ -22,7 +22,8 @@ function SearchResults() {
     const fetchResults = async () => {
       setLoading(true)
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/search?q=${encodeURIComponent(query)}`)
+        const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+        const res = await fetch(`${apiBaseUrl}/api/users/search?q=${encodeURIComponent(query)}`)
         if (res.ok) {
           const data = await res.json()
           setResults(data)

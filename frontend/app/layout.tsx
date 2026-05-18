@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Outfit } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/context/auth-context"
@@ -9,7 +8,7 @@ import { MarketplaceProvider } from "@/context/marketplace-context"
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
 export const metadata: Metadata = {
-  title: 'PokéVault | Your Pokémon TCG Collection',
+  title: 'MintVault | Your Pokémon TCG Collection',
   description: 'Manage your Pokémon TCG collection, track your cards, build decks, and connect with other collectors.',
   generator: 'v0.app',
   icons: {
@@ -51,7 +50,6 @@ export default function RootLayout({
             <MarketplaceProvider>
               {children}
             </MarketplaceProvider>
-            {process.env.NODE_ENV === 'production' && <Analytics />}
           </AuthProvider>
           <Toaster />
         </ThemeProvider>

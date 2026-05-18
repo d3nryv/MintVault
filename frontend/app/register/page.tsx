@@ -13,6 +13,7 @@ import { AlertCircle, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 
 export default function RegisterPage() {
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -35,7 +36,7 @@ export default function RegisterPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users`, {
+      const response = await fetch(`${apiBaseUrl}/api/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -83,7 +84,7 @@ export default function RegisterPage() {
           <Card className="border-border/50 bg-card/50 backdrop-blur-xl shadow-2xl overflow-hidden">
             <div className="h-2 w-full bg-gradient-to-r from-accent via-primary to-accent animate-gradient-x" />
             <CardHeader className="space-y-1 pb-8">
-              <CardTitle className="text-3xl font-bold tracking-tight">Join PokéVault</CardTitle>
+              <CardTitle className="text-3xl font-bold tracking-tight">Join MintVault</CardTitle>
               <CardDescription className="text-base">
                 Create your account to manage your collection and decks
               </CardDescription>

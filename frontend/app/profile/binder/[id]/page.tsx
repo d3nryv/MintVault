@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -27,13 +27,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { binders as mockBinders } from "@/lib/mocks/binders"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // Mock card search function
 const searchCards = async (query: string) => {
-  // Correct endpoint is /api/cards/search?name=...
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search?name=${encodeURIComponent(query)}`)
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+  const response = await fetch(`${apiBaseUrl}/api/cards/search?name=${encodeURIComponent(query)}`)
   if (!response.ok) throw new Error('Search failed')
   return response.json()
 }
@@ -56,6 +55,18 @@ export default function BinderDetailPage() {
   const [currentSpread, setCurrentSpread] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<"pages" | "cover">("pages")
+  const [isMobile, setIsMobile] = useState(false)
+
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
   const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
@@ -81,6 +92,9 @@ export default function BinderDetailPage() {
   const [editCoverValue2, setEditCoverValue2] = useState("#333333")
   const [allSets, setAllSets] = useState<{id: string, name: string}[]>([])
   const [filteredSets, setFilteredSets] = useState<{id: string, name: string}[]>([])
+  const [slotCardIds, setSlotCardIds] = useState<(string | null)[]>([])
+  const [loadingSlots, setLoadingSlots] = useState<Set<number>>(new Set())
+  const cardDetailsCache = useRef<Map<string, BinderCard>>(new Map())
 
   useEffect(() => {
     const fetchSets = async () => {
@@ -129,12 +143,12 @@ export default function BinderDetailPage() {
       setIsLoading(true)
       try {
         // 1. Fetch Album details
-        const albumRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums/${binderId}`, { cache: 'no-store' })
+        const albumRes = await fetch(`${apiBaseUrl}/api/albums/${binderId}`, { cache: 'no-store' })
         if (!albumRes.ok) throw new Error('Album not found')
         const albumData = await albumRes.json()
 
         // 2. Fetch Pages for this album
-        const pagesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages/album/${binderId}`, { cache: 'no-store' })
+        const pagesRes = await fetch(`${apiBaseUrl}/api/pages/album/${binderId}`, { cache: 'no-store' })
         let pagesData = await pagesRes.json()
 
         // 2.5 Self-healing: Check if any pages are missing up to totalPages, and auto-create them in parallel
@@ -157,7 +171,7 @@ export default function BinderDetailPage() {
           const createdResults = await Promise.all(
             missingPageNumbers.map(async (pNum) => {
               try {
-                const createRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages`, {
+                const createRes = await fetch(`${apiBaseUrl}/api/pages`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ albumId: binderId, pageNumber: pNum })
@@ -183,61 +197,28 @@ export default function BinderDetailPage() {
           pagesData = updatedPagesData
         }
 
-        // 3. Reconstruct flat cards array
-        const flatCards = Array(totalSlots).fill(null)
+        // 3. Build slot ID array only (card details loaded per visible page)
+        const flatCardIds: (string | null)[] = Array(totalSlots).fill(null)
         const ownedCards: Record<number, boolean> = {}
-
-        // We need to fetch card details for each ID in the slots
-        const allCardIds = new Set<string>()
-        pagesData.forEach((page: any) => {
-          Object.values(page.slots).forEach((cardId: any) => {
-            if (cardId) allCardIds.add(cardId)
-          })
-        })
-
-        const cardDetailsMap = new Map<string, any>()
-        if (allCardIds.size > 0) {
-          const idsArray = Array.from(allCardIds)
-          
-          await Promise.all(
-            idsArray.map(async (id) => {
-              try {
-                // Fetch from our local backend wrapper
-                const cardRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/${id}`, { cache: 'no-store' })
-                if (cardRes.ok) {
-                  const cardData = await cardRes.json()
-                  cardDetailsMap.set(id, cardData)
-                }
-              } catch (err) {
-                console.warn(`Error fetching card details for ${id}:`, err)
-              }
-            })
-          )
-        }
 
         pagesData.forEach((page: any) => {
           const pageOffset = (page.pageNumber - 1) * cardsPerPage
           Object.entries(page.slots).forEach(([slotIdx, cardId]: [string, any]) => {
             const globalIdx = pageOffset + parseInt(slotIdx, 10)
-            if (globalIdx < totalSlots) {
-              const card = cardDetailsMap.get(cardId)
-              if (card) {
-                flatCards[globalIdx] = {
-                  id: card.id,
-                  name: card.name,
-                  image: card.metadata?.images?.small || card.image || '',
-                  number: card.metadata?.number || card.number || '',
-                  set: card.metadata?.set?.name || card.set || ''
-                }
-                ownedCards[globalIdx] = true
-              }
+            if (globalIdx < totalSlots && cardId) {
+              flatCardIds[globalIdx] = cardId
+              ownedCards[globalIdx] = true
             }
           })
         })
 
+        const flatCards = Array(totalSlots).fill(null)
+
         const metadata = albumData.metadata || {}
         
         setPages(pagesData)
+        setSlotCardIds(flatCardIds)
+        cardDetailsCache.current.clear()
         setBinder({
           id: albumData.id,
           name: albumData.name,
@@ -268,6 +249,95 @@ export default function BinderDetailPage() {
     }
   }, [binderId])
 
+  const getGridConfig = (size: BinderSize) => {
+    switch (size) {
+      case "2x2": return { cols: 2, rows: 2, perPage: 4 }
+      case "3x3": return { cols: 3, rows: 3, perPage: 9 }
+      case "4x3": return { cols: 4, rows: 3, perPage: 12 }
+      case "4x4": return { cols: 4, rows: 4, perPage: 16 }
+      default: return { cols: 3, rows: 3, perPage: 9 }
+    }
+  }
+
+  const fetchCardDetail = useCallback(async (cardId: string): Promise<BinderCard | null> => {
+    if (cardDetailsCache.current.has(cardId)) {
+      return cardDetailsCache.current.get(cardId)!
+    }
+    try {
+      const cardRes = await fetch(`${apiBaseUrl}/api/cards/${cardId}`, { cache: 'no-store' })
+      if (!cardRes.ok) return null
+      const cardData = await cardRes.json()
+      const binderCard: BinderCard = {
+        id: cardData.id,
+        name: cardData.name,
+        image: cardData.metadata?.images?.small || cardData.image || '',
+        number: cardData.metadata?.number || cardData.number || '',
+        set: cardData.metadata?.set?.name || cardData.set || '',
+      }
+      cardDetailsCache.current.set(cardId, binderCard)
+      return binderCard
+    } catch {
+      return null
+    }
+  }, [apiBaseUrl])
+
+  const loadVisibleCards = useCallback(async () => {
+    if (!binder || slotCardIds.length === 0) return
+
+    const grid = getGridConfig(binder.size)
+    const perSpread = grid.perPage * 2
+    const start = isMobile
+      ? (currentSpread - 1) * grid.perPage
+      : (currentSpread - 1) * perSpread
+    const end = isMobile
+      ? start + grid.perPage
+      : start + perSpread
+
+    const indicesToLoad: number[] = []
+    for (let i = start; i < end && i < slotCardIds.length; i++) {
+      const cardId = slotCardIds[i]
+      if (cardId && !cardDetailsCache.current.has(cardId) && !binder.cards[i]) {
+        indicesToLoad.push(i)
+      }
+    }
+
+    if (indicesToLoad.length === 0) return
+
+    setLoadingSlots(prev => {
+      const next = new Set(prev)
+      indicesToLoad.forEach(i => next.add(i))
+      return next
+    })
+
+    await Promise.all(
+      indicesToLoad.map(async (idx) => {
+        const cardId = slotCardIds[idx]
+        if (!cardId) return
+        const detail = await fetchCardDetail(cardId)
+        if (detail) {
+          setBinder(prev => {
+            if (!prev) return prev
+            const newCards = [...prev.cards]
+            newCards[idx] = detail
+            return { ...prev, cards: newCards }
+          })
+        }
+      })
+    )
+
+    setLoadingSlots(prev => {
+      const next = new Set(prev)
+      indicesToLoad.forEach(i => next.delete(i))
+      return next
+    })
+  }, [binder, slotCardIds, currentSpread, isMobile, fetchCardDetail])
+
+  useEffect(() => {
+    if (binder && viewMode === 'pages') {
+      loadVisibleCards()
+    }
+  }, [binder?.id, currentSpread, isMobile, viewMode, slotCardIds, loadVisibleCards])
+
   // Dynamic debounced card search
   useEffect(() => {
     if (!searchQuery) {
@@ -294,19 +364,6 @@ export default function BinderDetailPage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Automatic saving removed in favor of explicit save for styles
-  // Cards are still updated in state locally, but we should update DB on changes
-
-  const getGridConfig = (size: BinderSize) => {
-    switch (size) {
-      case "2x2": return { cols: 2, rows: 2, perPage: 4 }
-      case "3x3": return { cols: 3, rows: 3, perPage: 9 }
-      case "4x3": return { cols: 4, rows: 3, perPage: 12 }
-      case "4x4": return { cols: 4, rows: 4, perPage: 16 }
-      default: return { cols: 3, rows: 3, perPage: 9 }
-    }
-  }
-
   const handleAddCard = async (card: any) => {
     if (selectedSlot === null || !binder) return
     
@@ -322,7 +379,7 @@ export default function BinderDetailPage() {
     // If the page does not exist yet (e.g. for legacy binders), create it on-demand!
     if (!page) {
       try {
-        const createRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages`, {
+        const createRes = await fetch(`${apiBaseUrl}/api/pages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ albumId: binder.id, pageNumber: pageIdx + 1 })
@@ -342,21 +399,26 @@ export default function BinderDetailPage() {
 
     try {
       const newSlots = { ...page.slots, [slotIdx]: card.id }
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages/${page.id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/pages/${page.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slots: newSlots })
       })
 
       if (response.ok) {
-        const newCards = [...binder.cards]
-        newCards[selectedSlot] = {
+        const newCard: BinderCard = {
           id: card.id,
           name: card.name,
           image: card.images.small,
           number: card.number,
           set: card.set.name
         }
+        cardDetailsCache.current.set(card.id, newCard)
+        const newCards = [...binder.cards]
+        newCards[selectedSlot] = newCard
+        const newCardIds = [...slotCardIds]
+        newCardIds[selectedSlot] = card.id
+        setSlotCardIds(newCardIds)
         
         const newOwned = { ...(binder.ownedCards || {}), [selectedSlot]: true }
         setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
@@ -403,7 +465,7 @@ export default function BinderDetailPage() {
     if (!fromPage || !toPage) return
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums/move-card`, {
+      const response = await fetch(`${apiBaseUrl}/api/albums/move-card`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -426,6 +488,11 @@ export default function BinderDetailPage() {
         newOwned[draggedSlot] = !!newOwned[targetIndex]
         newOwned[targetIndex] = tempOwned
         
+        const newCardIds = [...slotCardIds]
+        const tempId = newCardIds[draggedSlot]
+        newCardIds[draggedSlot] = newCardIds[targetIndex]
+        newCardIds[targetIndex] = tempId
+        setSlotCardIds(newCardIds)
         setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
         
         // Update local pages state
@@ -452,7 +519,7 @@ export default function BinderDetailPage() {
     if (!confirm('Are you sure you want to delete this album?')) return;
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums/${binder.id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/albums/${binder.id}`, {
         method: 'DELETE'
       })
       if (response.ok) {
@@ -485,7 +552,7 @@ export default function BinderDetailPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/albums/${binder.id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/albums/${binder.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -525,7 +592,7 @@ export default function BinderDetailPage() {
       const newSlots = { ...page.slots }
       delete newSlots[slotIdx]
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages/${page.id}`, {
+      const response = await fetch(`${apiBaseUrl}/api/pages/${page.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slots: newSlots })
@@ -534,6 +601,12 @@ export default function BinderDetailPage() {
       if (response.ok) {
         const newCards = [...binder.cards]
         newCards[slotIndex] = null
+        const newCardIds = [...slotCardIds]
+        if (newCardIds[slotIndex]) {
+          cardDetailsCache.current.delete(newCardIds[slotIndex]!)
+        }
+        newCardIds[slotIndex] = null
+        setSlotCardIds(newCardIds)
         setBinder({ ...binder, cards: newCards })
         
         const newPages = [...pages]
@@ -557,7 +630,7 @@ export default function BinderDetailPage() {
     setIsSaving(true)
     try {
       for (const page of pages) {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/pages/${page.id}`, {
+        const response = await fetch(`${apiBaseUrl}/api/pages/${page.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ slots: page.slots })
@@ -587,15 +660,19 @@ export default function BinderDetailPage() {
       const cardsPerPage = grid.perPage
       const newPages = [...pages]
 
+      const newCardIds = [...slotCardIds]
       cards.forEach((card: any, index: number) => {
         if (index < newCards.length) {
-          newCards[index] = {
+          const binderCard: BinderCard = {
             id: card.id,
             name: card.name,
             image: card.images.small,
             number: card.number,
             set: card.set.name
           }
+          cardDetailsCache.current.set(card.id, binderCard)
+          newCards[index] = binderCard
+          newCardIds[index] = card.id
           newOwned[index] = true // Mark as owned by default
           
           const pageIdx = Math.floor(index / cardsPerPage)
@@ -608,6 +685,7 @@ export default function BinderDetailPage() {
         }
       })
       
+      setSlotCardIds(newCardIds)
       setBinder({ ...binder, cards: newCards, ownedCards: newOwned })
       setPages(newPages)
       setIsModalOpen(false)
@@ -653,9 +731,13 @@ export default function BinderDetailPage() {
 
   const grid = getGridConfig(binder.size)
   const perSpread = grid.perPage * 2
-  const totalSpreads = Math.ceil(binder.cards.length / perSpread)
+  const totalSpreads = isMobile 
+    ? Math.ceil(binder.cards.length / grid.perPage)
+    : Math.ceil(binder.cards.length / perSpread)
   
-  const leftPageStartIndex = (currentSpread - 1) * perSpread
+  const leftPageStartIndex = isMobile
+    ? (currentSpread - 1) * grid.perPage
+    : (currentSpread - 1) * perSpread
   const rightPageStartIndex = leftPageStartIndex + grid.perPage
   
   const leftPageCards = binder.cards.slice(leftPageStartIndex, leftPageStartIndex + grid.perPage)
@@ -684,7 +766,7 @@ export default function BinderDetailPage() {
                 <div>
                   <h1 className="text-4xl font-black uppercase italic tracking-tighter leading-none mb-1">{binder.name}</h1>
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-                    {binder.size} Binder • {viewMode === "cover" ? "Front Cover" : `Spread ${currentSpread} of ${totalSpreads}`}
+                    {binder.size} Binder • {viewMode === "cover" ? "Front Cover" : (isMobile ? `Page ${currentSpread} of ${totalSpreads}` : `Spread ${currentSpread} of ${totalSpreads}`)}
                   </p>
                 </div>
                 <Button 
@@ -786,10 +868,10 @@ export default function BinderDetailPage() {
           {/* Binder Visual Container */}
           <div className="flex justify-center items-start min-h-[700px] mb-20 perspective-1000">
             {viewMode === "pages" ? (
-              <div className="flex w-full max-w-7xl h-fit bg-card/20 backdrop-blur-xl rounded-[3rem] p-4 border border-border/50 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.4)] relative">
-                {/* Left Page */}
+              <div className="flex flex-col md:flex-row w-full max-w-7xl h-fit bg-card/20 backdrop-blur-xl rounded-[3rem] p-4 border border-border/50 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.4)] relative">
+                {/* Left Page (or Single Page on Mobile) */}
                 <div 
-                  className="flex-1 grid gap-4 p-8 bg-card/40 rounded-[2.5rem] border border-border/20 shadow-inner"
+                  className="flex-1 grid gap-4 p-4 sm:p-8 bg-card/40 rounded-[2.5rem] border border-border/20 shadow-inner"
                   style={{
                     gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
                     gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
@@ -801,7 +883,9 @@ export default function BinderDetailPage() {
                       <BinderSlot 
                         key={globalIndex} 
                         card={card} 
-                        index={globalIndex} 
+                        index={globalIndex}
+                        isLoading={loadingSlots.has(globalIndex)}
+                        hasCardId={!!slotCardIds[globalIndex]}
                         isOwned={binder?.ownedCards?.[globalIndex] ?? !!card}
                         onAdd={() => { setSelectedSlot(globalIndex); setIsModalOpen(true); }}
                         onRemove={() => handleRemoveCard(globalIndex)}
@@ -815,42 +899,48 @@ export default function BinderDetailPage() {
                   })}
                 </div>
 
-                {/* Spine */}
-                <div className="w-16 relative flex items-center justify-center">
-                  <div className="absolute inset-y-0 w-8 bg-gradient-to-r from-black/20 via-black/40 to-black/20 blur-sm shadow-2xl" />
-                  <div className="absolute inset-y-8 w-[2px] bg-white/5" />
-                  <div className="absolute inset-y-12 w-4 flex flex-col justify-between py-10">
-                    {[1,2,3,4].map(i => <div key={i} className="w-full aspect-square rounded-full bg-black/40 border border-white/5 shadow-inner" />)}
-                  </div>
-                </div>
+                {!isMobile && (
+                  <>
+                    {/* Spine */}
+                    <div className="w-16 relative flex items-center justify-center">
+                      <div className="absolute inset-y-0 w-8 bg-gradient-to-r from-black/20 via-black/40 to-black/20 blur-sm shadow-2xl" />
+                      <div className="absolute inset-y-8 w-[2px] bg-white/5" />
+                      <div className="absolute inset-y-12 w-4 flex flex-col justify-between py-10">
+                        {[1,2,3,4].map(i => <div key={i} className="w-full aspect-square rounded-full bg-black/40 border border-white/5 shadow-inner" />)}
+                      </div>
+                    </div>
 
-                {/* Right Page */}
-                <div 
-                  className="flex-1 grid gap-4 p-8 bg-card/40 rounded-[2.5rem] border border-border/20 shadow-inner"
-                  style={{
-                    gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
-                    gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
-                  }}
-                >
-                  {rightPageCards.map((card, idx) => {
-                    const globalIndex = rightPageStartIndex + idx
-                    return (
-                      <BinderSlot 
-                        key={globalIndex} 
-                        card={card} 
-                        index={globalIndex} 
-                        isOwned={binder?.ownedCards?.[globalIndex] ?? !!card}
-                        onAdd={() => { setSelectedSlot(globalIndex); setIsModalOpen(true); }}
-                        onRemove={() => handleRemoveCard(globalIndex)}
-                        onToggleOwned={() => toggleOwned(globalIndex)}
-                        onDragStart={() => handleDragStart(globalIndex)}
-                        onDragOver={handleDragOver}
-                        onDrop={() => handleDrop(globalIndex)}
-                        isDragging={draggedSlot === globalIndex}
-                      />
-                    )
-                  })}
-                </div>
+                    {/* Right Page */}
+                    <div 
+                      className="flex-1 grid gap-4 p-8 bg-card/40 rounded-[2.5rem] border border-border/20 shadow-inner"
+                      style={{
+                        gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
+                        gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
+                      }}
+                    >
+                      {rightPageCards.map((card, idx) => {
+                        const globalIndex = rightPageStartIndex + idx
+                        return (
+                          <BinderSlot 
+                            key={globalIndex} 
+                            card={card} 
+                            index={globalIndex}
+                            isLoading={loadingSlots.has(globalIndex)}
+                            hasCardId={!!slotCardIds[globalIndex]}
+                            isOwned={binder?.ownedCards?.[globalIndex] ?? !!card}
+                            onAdd={() => { setSelectedSlot(globalIndex); setIsModalOpen(true); }}
+                            onRemove={() => handleRemoveCard(globalIndex)}
+                            onToggleOwned={() => toggleOwned(globalIndex)}
+                            onDragStart={() => handleDragStart(globalIndex)}
+                            onDragOver={handleDragOver}
+                            onDrop={() => handleDrop(globalIndex)}
+                            isDragging={draggedSlot === globalIndex}
+                          />
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="w-full max-w-2xl aspect-[3/4] rounded-[3rem] shadow-2xl overflow-hidden border-8 border-black/10 relative transition-all duration-700 animate-in fade-in zoom-in slide-in-from-bottom-10"
@@ -874,52 +964,52 @@ export default function BinderDetailPage() {
 
       {/* Unified Action Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-4xl bg-card/95 backdrop-blur-2xl border-border/50 rounded-[3rem] shadow-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-xl bg-card/95 backdrop-blur-2xl border-border/50 rounded-[3rem] shadow-2xl p-0 overflow-hidden">
           <Tabs defaultValue="search" className="w-full">
-            <div className="p-8 pb-0 flex items-center justify-between border-b border-border/50">
+            <div className="p-6 pb-0 flex flex-col sm:flex-row items-center justify-between border-b border-border/50 gap-4">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black italic uppercase tracking-tight">Add to {binder.name}</DialogTitle>
               </DialogHeader>
-              <TabsList className="bg-secondary/50 p-1 rounded-2xl border border-border/50 mb-6">
-                <TabsTrigger value="search" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Single Card</TabsTrigger>
-                <TabsTrigger value="set" className="rounded-xl px-8 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Fill by Set</TabsTrigger>
+              <TabsList className="bg-secondary/50 p-1 rounded-2xl border border-border/50 mb-4 sm:mb-0">
+                <TabsTrigger value="search" className="rounded-xl px-5 py-2 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Single Card</TabsTrigger>
+                <TabsTrigger value="set" className="rounded-xl px-5 py-2 font-black uppercase text-[10px] tracking-widest data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">Fill by Set</TabsTrigger>
               </TabsList>
             </div>
             
             <TabsContent value="search" className="p-0 m-0">
-              <div className="p-8 border-b border-border/50 bg-secondary/10">
-                <div className="flex gap-4">
+              <div className="p-6 border-b border-border/50 bg-secondary/10">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input 
                       placeholder="Search Pokémon name..." 
-                      className="pl-12 h-16 bg-card border-2 border-border/50 focus-visible:border-primary/50 rounded-2xl font-bold text-xl transition-all"
+                      className="pl-12 h-14 bg-card border-2 border-border/50 focus-visible:border-primary/50 rounded-2xl font-bold text-lg transition-all"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                     />
                   </div>
-                  <Button onClick={handleSearch} disabled={isSearching} className="h-16 rounded-2xl px-10 font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-                    {isSearching ? <Loader2 className="h-6 w-6 animate-spin" /> : "Search Database"}
+                  <Button onClick={handleSearch} disabled={isSearching} className="h-14 rounded-2xl px-6 font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all text-xs">
+                    {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search Database"}
                   </Button>
                 </div>
               </div>
               
-              <div className="p-8 max-h-[55vh] overflow-y-auto custom-scrollbar bg-card/30">
+              <div className="p-6 max-h-[50vh] overflow-y-auto custom-scrollbar bg-card/30">
                 {searchResults.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
+                  <div className="grid grid-cols-3 gap-4">
                     {searchResults.map((card) => (
                       <div 
                         key={card.id} 
                         onClick={() => handleAddCard(card)}
-                        className="group cursor-pointer space-y-4"
+                        className="group cursor-pointer space-y-2"
                       >
-                        <div className="aspect-[2.5/3.5] rounded-2xl overflow-hidden border-2 border-border/50 shadow-lg group-hover:shadow-primary/30 group-hover:shadow-2xl group-hover:ring-4 group-hover:ring-primary/50 group-hover:scale-105 transition-all duration-500 bg-secondary/10">
+                        <div className="aspect-[2.5/3.5] rounded-xl overflow-hidden border-2 border-border/50 shadow-md group-hover:shadow-primary/30 group-hover:shadow-lg group-hover:ring-2 group-hover:ring-primary/50 group-hover:scale-105 transition-all duration-300 bg-secondary/10">
                           <img src={card.images.small} alt={card.name} className="w-full h-full object-cover" />
                         </div>
                         <div className="text-center px-1">
-                          <p className="text-[11px] font-black uppercase tracking-tighter truncate group-hover:text-primary transition-colors leading-none mb-1">{card.name}</p>
-                          <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-50">{card.set.name}</p>
+                          <p className="text-[10px] font-black uppercase tracking-tighter truncate group-hover:text-primary transition-colors leading-none mb-1">{card.name}</p>
+                          <p className="text-[8px] font-bold text-muted-foreground uppercase opacity-50 truncate">{card.set.name}</p>
                         </div>
                       </div>
                     ))}
@@ -986,7 +1076,6 @@ export default function BinderDetailPage() {
                       { id: "sv6", name: "Twilight Masquerade" },
                       { id: "sv1", name: "Scarlet & Violet" },
                       { id: "swsh12", name: "Silver Tempest" },
-                      { id: "meee", name: "151 (Japanese)" },
                       { id: "sv3pt5", name: "151 (English)" }
                     ].map(s => (
                       <Badge 
@@ -1146,7 +1235,7 @@ export default function BinderDetailPage() {
   )
 }
 
-function BinderSlot({ card, index, isOwned, onAdd, onRemove, onToggleOwned, onDragStart, onDragOver, onDrop, isDragging }: any) {
+function BinderSlot({ card, index, isOwned, isLoading, hasCardId, onAdd, onRemove, onToggleOwned, onDragStart, onDragOver, onDrop, isDragging }: any) {
   return (
     <div 
       className={`relative group z-10 w-full aspect-[2.5/3.5] cursor-grab active:cursor-grabbing transition-opacity duration-300 ${isDragging ? "opacity-20" : "opacity-100"}`}
@@ -1157,7 +1246,7 @@ function BinderSlot({ card, index, isOwned, onAdd, onRemove, onToggleOwned, onDr
     >
       {card ? (
         <div className={`w-full h-full rounded-2xl overflow-hidden shadow-xl transition-all duration-700 group-hover:scale-105 group-hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-border/20 relative bg-secondary/10 ${isOwned ? "" : "grayscale-[0.9] opacity-70"}`}>
-          <img src={card.image} alt={card.name} className="w-full h-full object-cover transition-all duration-700" />
+          <img src={card.image} alt={card.name} className="w-full h-full object-cover transition-all duration-700" loading="lazy" />
           
           <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center gap-3 p-4 text-center backdrop-blur-[2px]">
             <p className="text-white font-black text-sm uppercase tracking-tighter leading-tight drop-shadow-lg">{card.name}</p>
@@ -1178,6 +1267,10 @@ function BinderSlot({ card, index, isOwned, onAdd, onRemove, onToggleOwned, onDr
           {!isOwned && (
              <div className="absolute inset-0 bg-black/10 pointer-events-none group-hover:hidden" />
           )}
+        </div>
+      ) : hasCardId || isLoading ? (
+        <div className="w-full h-full rounded-2xl border border-border/20 bg-secondary/20 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
         </div>
       ) : (
         <button 

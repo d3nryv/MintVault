@@ -13,6 +13,7 @@ import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 
 export default function LoginPage() {
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +27,7 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/login`, {
+      const response = await fetch(`${apiBaseUrl}/api/users/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -73,7 +74,7 @@ export default function LoginPage() {
             <CardHeader className="space-y-1 pb-8">
               <CardTitle className="text-3xl font-bold tracking-tight">Welcome Back</CardTitle>
               <CardDescription className="text-base">
-                Enter your credentials to access your PokéVault
+                Enter your credentials to access your MintVault
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>

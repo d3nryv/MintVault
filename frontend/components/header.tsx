@@ -37,6 +37,7 @@ export function Header() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const { user, logout } = useAuth()
+
   const { language, setLanguage } = useMarketplace()
   const router = useRouter()
   const pathname = usePathname()
@@ -64,8 +65,8 @@ export function Header() {
       <nav className="mx-auto flex max-w-[1700px] items-center justify-between px-6 py-4 lg:px-8">
         <div className="flex lg:flex-1">
           <Link href="/" className="-m-1.5 p-1.5">
-            <span className="text-2xl font-bold tracking-tight text-foreground">
-              PokéVault
+            <span className="text-2xl font-bold tracking-tight text-foreground" style={{ fontFamily: 'Georgia, serif' }}>
+              MintVault
             </span>
           </Link>
         </div>
@@ -230,6 +231,17 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="lg:hidden">
           <div className="space-y-1 px-6 pb-6 pt-2">
+            {/* Mobile Friend Search */}
+            <form onSubmit={handleFriendSearch} className="px-3 py-2 relative mb-2">
+              <Input
+                placeholder="Search friends..."
+                value={friendSearchQuery}
+                onChange={(e) => setFriendSearchQuery(e.target.value)}
+                className="w-full h-10 bg-secondary/50 border-none rounded-xl text-sm pl-10 focus-visible:ring-1 focus-visible:ring-primary"
+              />
+              <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            </form>
+
             {navigation.map((item) => (
               <Link
                 key={item.name}

@@ -52,7 +52,7 @@ export default function ProfilePokemonPage() {
   const params = useParams()
   const profileId = params.id as string
   const pokemonName = params.name as string
-  const decodedName = decodeURIComponent(pokemonName)
+  const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
 
   const [profileUser, setProfileUser] = useState<any | null>(null)
   const [pokemon, setPokemon] = useState<PokemonData | null>(null)
@@ -73,7 +73,7 @@ export default function ProfilePokemonPage() {
   const fetchProfile = useCallback(async () => {
     try {
       setProfileLoading(true)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/users/${profileId}`)
+      const res = await fetch(`${apiBaseUrl}/api/users/${profileId}`)
       if (res.ok) {
         const data = await res.json()
         setProfileUser(data)
@@ -83,7 +83,7 @@ export default function ProfilePokemonPage() {
     } finally {
       setProfileLoading(false)
     }
-  }, [profileId])
+  }, [profileId, apiBaseUrl])
 
   const fetchPokemon = useCallback(async () => {
     try {
@@ -104,7 +104,7 @@ export default function ProfilePokemonPage() {
     try {
       setCardsLoading(true)
       setError(null)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'}/cards/search/${encodeURIComponent(decodedName)}`)
+      const response = await fetch(`${apiBaseUrl}/api/cards/search/${encodeURIComponent(decodedName)}`)
       if (response.ok) {
         const data = await response.json()
         setCards(Array.isArray(data) ? data : [])
