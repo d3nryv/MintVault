@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AlbumRepository, CardRepository, PageRepository } from '../../../domain/repositories';
+import { AlbumRepository, CardRepository, PageRepository, UserRepository } from '../../../domain/repositories';
 import { 
     GetAllAlbumsUseCase, 
     GetAlbumByIdUseCase, 
@@ -13,7 +13,8 @@ export class AlbumController {
     constructor(
         private readonly albumRepository: AlbumRepository,
         private readonly cardRepository: CardRepository,
-        private readonly pageRepository: PageRepository
+        private readonly pageRepository: PageRepository,
+        private readonly userRepository: UserRepository
     ) {}
 
     getAll = async (req: Request, res: Response, next: NextFunction) => {
@@ -41,7 +42,7 @@ export class AlbumController {
             if (!req.body || Object.keys(req.body).length === 0) {
                 return res.status(400).json({ error: 'Request body is required' });
             }
-            const album = await new CreateAlbumUseCase(this.albumRepository, this.cardRepository, this.pageRepository).execute(req.body);
+            const album = await new CreateAlbumUseCase(this.albumRepository, this.cardRepository, this.pageRepository, this.userRepository).execute(req.body);
             res.status(201).json(album);
         } catch (error) {
             next(error);
@@ -64,7 +65,7 @@ export class AlbumController {
     delete = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const id = req.params.id as string;
-            await new DeleteAlbumUseCase(this.albumRepository).execute(id);
+            await new DeleteAlbumUseCase(this.albumRepository, this.userRepository).execute(id);
             res.status(204).send();
         } catch (error) {
             next(error);

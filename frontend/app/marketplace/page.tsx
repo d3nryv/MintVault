@@ -198,6 +198,11 @@ export default function MarketplacePage() {
   const [editAltered, setEditAltered] = useState(false)
   const [editFirstEdition, setEditFirstEdition] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3500)
+  }
   const { user, updateUser } = useAuth()
   const { language } = useMarketplace()
 
@@ -479,7 +484,7 @@ export default function MarketplacePage() {
     syncUserWithBackend({ wantList: updatedLists.map(l => JSON.stringify(l)) })
     setWantsSearchQuery("")
     setWantsSearchResults([])
-    alert(`Added ${card.name} to ${selectedList.name}`)
+    showNotification(`Added ${card.name} to ${selectedList.name}`)
   }
 
   const handleEditListing = (listing: any) => {
@@ -522,10 +527,10 @@ export default function MarketplacePage() {
       setIsEditDialogOpen(false)
       fetchUserSales()
       fetchSales()
-      alert("Listing updated successfully")
+      showNotification("Listing updated successfully")
     } catch (e) {
       console.error("Error updating sale", e)
-      alert("Error updating listing")
+      showNotification("Error updating listing", "error")
     } finally {
       setIsUpdating(false)
     }
@@ -545,10 +550,10 @@ export default function MarketplacePage() {
       }
       fetchUserSales()
       fetchSales()
-      alert("Listing deleted successfully")
+      showNotification("Listing deleted successfully")
     } catch (e: any) {
       console.error("Error deleting sale", e)
-      alert(e.message || "Error deleting listing")
+      showNotification(e.message || "Error deleting listing", "error")
     }
   }
 
@@ -622,10 +627,10 @@ export default function MarketplacePage() {
       setSellSearchQuery("")
       fetchSales() // Refresh marketplace
       fetchUserSales() // Refresh inventory
-      alert("Card listed successfully!")
+      showNotification("Card listed successfully!")
     } catch (error: any) {
       console.error("Error listing card:", error)
-      alert(error.message || "Error listing card")
+      showNotification(error.message || "Error listing card", "error")
     } finally {
       setIsListing(false)
     }
@@ -842,7 +847,7 @@ export default function MarketplacePage() {
 
   const handleAddToCart = (listing: any) => {
     if (!user) {
-      alert("Please login to add items to cart")
+      showNotification("Please login to add items to cart", "error")
       return
     }
     const newItem = {
@@ -862,7 +867,7 @@ export default function MarketplacePage() {
     const updatedCart = [...cartItems, newItem]
     setCartItems(updatedCart)
     syncUserWithBackend({ cart: updatedCart.map(i => JSON.stringify(i)) })
-    alert("Added to cart!")
+    showNotification("Added to cart!")
   }
 
   const handleRemoveFromCart = (itemId: string) => {
@@ -977,6 +982,13 @@ export default function MarketplacePage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
+
+      {notification && (
+        <div className={`fixed top-24 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          <span className="text-base font-bold">{notification.message}</span>
+        </div>
+      )}
+
       <main className="pt-20">
         <div className="mx-auto max-w-[1700px] px-4 py-12 sm:px-6 lg:px-8">
           <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
@@ -1131,7 +1143,7 @@ export default function MarketplacePage() {
                       </div>
                       <Button className="w-full mt-4 bg-primary hover:bg-primary/90" onClick={() => {
                         setIsWizardOpen(false);
-                        alert("Added matching items to cart!");
+                        showNotification("Added matching items to cart!");
                         // Add real logic to push items to cart
                       }}>
                         Select Option & Add to Cart

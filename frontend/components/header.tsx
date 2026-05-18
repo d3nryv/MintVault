@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { Menu, X, User, Sun, Moon, LogOut } from "lucide-react"
+import { Menu, X, User, Sun, Moon, LogOut, Search, Users } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "next-themes"
 import { useAuth } from "@/context/auth-context"
@@ -39,6 +40,17 @@ export function Header() {
   const { language, setLanguage } = useMarketplace()
   const router = useRouter()
   const pathname = usePathname()
+  const [friendSearchQuery, setFriendSearchQuery] = useState("")
+  const [isSearchVisible, setIsSearchVisible] = useState(false)
+
+  const handleFriendSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (friendSearchQuery.trim()) {
+      router.push(`/friends/search?q=${encodeURIComponent(friendSearchQuery.trim())}`)
+      setFriendSearchQuery("")
+      setIsSearchVisible(false)
+    }
+  }
 
   const isMarketplace = pathname?.startsWith('/marketplace')
 
@@ -57,7 +69,7 @@ export function Header() {
             </span>
           </Link>
         </div>
-        
+
         <div className="flex lg:hidden">
           <button
             type="button"
@@ -72,8 +84,8 @@ export function Header() {
             )}
           </button>
         </div>
-        
-        <div className="hidden lg:flex lg:gap-x-12">
+
+        <div className="hidden lg:flex lg:gap-x-12 items-center">
           {navigation.map((item) => (
             <Link
               key={item.name}
@@ -83,6 +95,39 @@ export function Header() {
               {item.name}
             </Link>
           ))}
+          
+          <div className="relative flex items-center ml-4">
+            {isSearchVisible ? (
+              <form onSubmit={handleFriendSearch} className="flex items-center animate-in slide-in-from-right-4 duration-300">
+                <Input
+                  autoFocus
+                  placeholder="Search friends..."
+                  value={friendSearchQuery}
+                  onChange={(e) => setFriendSearchQuery(e.target.value)}
+                  className="w-40 h-8 bg-secondary/50 border-none rounded-full text-xs pl-8"
+                />
+                <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 ml-1" 
+                  onClick={() => setIsSearchVisible(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </form>
+            ) : (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 rounded-full hover:bg-secondary transition-all"
+                onClick={() => setIsSearchVisible(true)}
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+            )}
+          </div>
         </div>
         
         <div className="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4 items-center">
@@ -147,6 +192,10 @@ export function Header() {
                   <DropdownMenuItem onClick={() => router.push("/profile")} className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/friends")} className="cursor-pointer">
+                    <Users className="mr-2 h-4 w-4" />
+                    Friends
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-border/50" />
                   <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">

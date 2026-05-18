@@ -5,4 +5,5 @@ export interface CreatePageDto {
 
 export interface UpdatePageDto {
   pageNumber?: number;
+  slots?: Record<number, string | null>;
 }

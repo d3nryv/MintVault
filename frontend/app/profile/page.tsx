@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapPin, AlertCircle, CheckCircle2, Loader2, User, Mail, Save, ArrowLeft } from "lucide-react"
+import { MapPin, AlertCircle, CheckCircle2, Loader2, User, Mail, Save, ArrowLeft, Camera, Upload, Link as LinkIcon } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { COUNTRIES } from "@/lib/countries"
 
 export default function ProfilePage() {
@@ -20,9 +22,12 @@ export default function ProfilePage() {
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [country, setCountry] = useState("ES")
+  const [profilePicUrl, setProfilePicUrl] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
+  const [photoInputUrl, setPhotoInputUrl] = useState("")
 
   useEffect(() => {
     if (!isAuthLoading && !user) {
@@ -32,8 +37,33 @@ export default function ProfilePage() {
       setUsername(user.username)
       setEmail(user.email)
       setCountry(user.country || "ES")
+      setProfilePicUrl(user.profilePicUrl || "")
+      setPhotoInputUrl(user.profilePicUrl || "")
     }
   }, [user, isAuthLoading, router])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setError("File is too large. Max 2MB.")
+        return
+      }
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setProfilePicUrl(reader.result as string)
+        setIsPhotoDialogOpen(false)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleUrlSubmit = () => {
+    if (photoInputUrl) {
+      setProfilePicUrl(photoInputUrl)
+      setIsPhotoDialogOpen(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,13 +79,13 @@ export default function ProfilePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, email, country }),
+        body: JSON.stringify({ username, email, country, profilePicUrl }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        updateUser({ username, email, country })
+        updateUser({ username, email, country, profilePicUrl })
         setSuccess("Profile updated successfully!")
       } else {
         setError(data.error || "Failed to update profile")
@@ -100,15 +130,70 @@ export default function ProfilePage() {
             {/* Sidebar / Avatar section */}
             <Card className="border-border/50 bg-card/50 backdrop-blur-xl shadow-xl h-fit">
               <CardContent className="pt-10 flex flex-col items-center">
-                <div className="relative group">
-                  <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20 overflow-hidden">
-                    {user.profilePicUrl ? (
-                      <img src={user.profilePicUrl} alt={user.username} className="h-full w-full object-cover" />
-                    ) : (
-                      <User className="h-12 w-12 text-primary" />
-                    )}
-                  </div>
-                </div>
+                <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
+                  <DialogTrigger asChild>
+                    <div className="relative group cursor-pointer">
+                      <div className="h-32 w-32 rounded-full bg-primary/10 flex items-center justify-center border-4 border-background shadow-xl overflow-hidden relative transition-all group-hover:scale-105">
+                        {profilePicUrl ? (
+                          <img src={profilePicUrl} alt={user.username} className="h-full w-full object-cover" />
+                        ) : (
+                          <User className="h-16 w-16 text-primary" />
+                        )}
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Camera className="h-8 w-8 text-white" />
+                        </div>
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 h-10 w-10 bg-primary rounded-full border-4 border-background flex items-center justify-center shadow-lg group-hover:scale-110 transition-all">
+                        <Camera className="h-5 w-5 text-white" />
+                      </div>
+                    </div>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Change Profile Photo</DialogTitle>
+                      <DialogDescription>
+                        Choose how you want to update your profile picture.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Tabs defaultValue="upload" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="upload" className="gap-2">
+                          <Upload className="h-4 w-4" /> Upload
+                        </TabsTrigger>
+                        <TabsTrigger value="url" className="gap-2">
+                          <LinkIcon className="h-4 w-4" /> URL
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="upload" className="py-6 space-y-4">
+                        <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-8 bg-secondary/20 hover:bg-secondary/30 transition-colors cursor-pointer relative">
+                          <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                          <p className="text-sm font-medium">Click to upload file</p>
+                          <p className="text-xs text-muted-foreground mt-1">PNG, JPG or GIF (max 2MB)</p>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleFileChange}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                          />
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="url" className="py-6 space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="photo-url">Image URL</Label>
+                          <div className="flex gap-2">
+                            <Input 
+                              id="photo-url"
+                              placeholder="https://example.com/photo.jpg"
+                              value={photoInputUrl}
+                              onChange={(e) => setPhotoInputUrl(e.target.value)}
+                            />
+                            <Button onClick={handleUrlSubmit}>Apply</Button>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </DialogContent>
+                </Dialog>
                 <h3 className="mt-4 text-xl font-bold">{user.username}</h3>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
                 

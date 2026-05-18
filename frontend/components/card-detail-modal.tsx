@@ -110,7 +110,7 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
       const updatedWantList = syncWantsListWithSetUpdate(user.wantList || [], card, isOwnedNow)
 
       const updateData: any = { 
-        [dbField]: newValue,
+        [field]: newValue,
         wantList: updatedWantList
       }
 

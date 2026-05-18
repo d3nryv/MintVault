@@ -14,6 +14,7 @@ export class UserEntity {
         public  albums: string[],
         public  followers: string[],
         public  following: string[],
+        public  friendRequests: string[],
         public  registerDate: Date,
         public  medals: string[],
         public  ownedEnglishCards: string[],
@@ -27,6 +28,9 @@ export class UserEntity {
         public  wantList: string[],
         public  cart: string[],
         public  country: string = 'ES',
-        public  balance: number = 0
+        public  balance: number = 0,
+        public  allOwnedCardIds: string[] = [],
+        public  totalCardsSold: number = 0,
+        public  ordersArrived: number = 0
     ) {}
 }

@@ -8,3 +8,5 @@ export * from './follow-user.use-case';
 export * from './unfollow-user.use-case';
 export * from './empty-cart.use-case';
 export * from './remove-vendor-from-cart.use-case';
+export * from './accept-follow-request.use-case';
+export * from './reject-follow-request.use-case';

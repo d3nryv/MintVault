@@ -4,7 +4,7 @@
   "description": "hola mundo",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node src/server.ts"
+    "dev": "nodemon --exec ts-node src/server.ts"
   },
   "repository": {
     "type": "git",

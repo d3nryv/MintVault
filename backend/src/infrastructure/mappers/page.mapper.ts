@@ -21,7 +21,7 @@ export class PageMapper {
         if (page.id !== undefined) dbFields.id = page.id;
         if (page.albumId !== undefined) dbFields.album_id = page.albumId;
         if (page.pageNumber !== undefined) dbFields.page_number = page.pageNumber;
-        if (page.slots !== undefined) dbFields.slots = page.slots;
+        if (page.slots !== undefined) dbFields.slots = JSON.stringify(page.slots);
         
         return dbFields;
     }

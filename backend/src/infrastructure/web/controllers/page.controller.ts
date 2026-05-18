@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { PageRepository } from '../../../domain/repositories';
-import { CreatePageUseCase, DeletePageUseCase, GetAllPagesFromAlbumUseCase } from '../../../application/use-cases';
+import { CreatePageUseCase, DeletePageUseCase, GetAllPagesFromAlbumUseCase, UpdatePageUseCase } from '../../../application/use-cases';
 
 export class PageController {
     constructor(private readonly pageRepository: PageRepository) {}
@@ -22,6 +22,19 @@ export class PageController {
             const albumId = req.params.albumId as string;
             const pages = await new GetAllPagesFromAlbumUseCase(this.pageRepository).execute(albumId);
             res.json(pages);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    update = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const id = req.params.id as string;
+            if (!req.body || Object.keys(req.body).length === 0) {
+                return res.status(400).json({ error: 'Request body is required' });
+            }
+            const page = await new UpdatePageUseCase(this.pageRepository).execute(id, req.body);
+            res.json(page);
         } catch (error) {
             next(error);
         }
