@@ -24,7 +24,6 @@ class Database implements TransactionManager {
     // Manejar errores del pool
     this.pool.on('error', (err) => {
       console.error('Unexpected error on idle client', err);
-      // process.exit(-1); // Do not crash the entire server on idle connection drops
     });
   }
 
