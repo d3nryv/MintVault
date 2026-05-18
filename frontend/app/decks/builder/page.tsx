@@ -269,7 +269,6 @@ export default function DeckBuilderPage() {
         if (finalQuery.includes(' ') && !finalQuery.startsWith('"')) {
           finalQuery = `"${finalQuery}"`
         }
-
         const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
         const response = await fetch(`${apiBaseUrl}/api/cards/search/${encodeURIComponent(finalQuery)}`)
         const data = await response.json()
@@ -349,7 +348,6 @@ export default function DeckBuilderPage() {
       if (isBasicEnergy) {
         const type = fullName.toLowerCase().replace(/basic/g, '').replace(/energy/g, '').trim()
         searchTerm = `\"basic ${type} energy\"`
-      }
 
       try {
         const apiBaseUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3000` : 'http://127.0.0.1:3000';
