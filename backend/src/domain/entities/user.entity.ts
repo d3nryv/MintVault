@@ -6,7 +6,7 @@ export class UserEntity {
         public  id: string,
         public  username: string,
         public  title: string,
-        public  bannerUrl: string,
+        public  sellerInfo: string,
         public  profilePicUrl: string,
         public  email: string,
         public  password: string,

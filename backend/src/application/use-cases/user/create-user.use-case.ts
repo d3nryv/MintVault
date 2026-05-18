@@ -16,7 +16,7 @@ export class CreateUserUseCase {
         email: dto.email,
         password: BcryptAdapter.hash(dto.password),
         title: dto.title ?? '',
-        bannerUrl: dto.bannerUrl ?? '',
+        sellerInfo: dto.sellerInfo ?? '',
         profilePicUrl: dto.profilePicUrl ?? '',
         showcase: dto.showcase ?? [],
         albums: dto.albums ?? [],

@@ -3,7 +3,7 @@ export interface CreateUserDto {
     email: string;
     password: string;
     title?: string;
-    bannerUrl?: string;
+    sellerInfo?: string;
     profilePicUrl?: string;
     showcase?: string[];
     albums?: string[];
@@ -26,7 +26,7 @@ export interface UpdateUserDto {
     email?: string;
     password?: string;
     title?: string;
-    bannerUrl?: string;
+    sellerInfo?: string;
     profilePicUrl?: string;
     showcase?: string[];
     albums?: string[];

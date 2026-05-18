@@ -36,7 +36,9 @@ import {
   Eye,
   ChevronLeft,
   CheckCircle,
-  ArrowUpDown
+  ArrowUpDown,
+  Camera,
+  X
 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useMarketplace } from "@/context/marketplace-context"
@@ -45,10 +47,10 @@ import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 
-const parseSellerInfo = (bannerUrl: string) => {
-  if (bannerUrl && bannerUrl.startsWith('{"isSeller"')) {
+const parseSellerInfo = (sellerInfoStr: string) => {
+  if (sellerInfoStr && sellerInfoStr.startsWith('{"isSeller"')) {
     try {
-      return JSON.parse(bannerUrl);
+      return JSON.parse(sellerInfoStr);
     } catch {
       return null;
     }
@@ -104,6 +106,7 @@ export default function PublicProfilePage() {
   const [showcaseCards, setShowcaseCards] = useState<any[]>([])
   const [isCollectionLoading, setIsCollectionLoading] = useState(false)
   const [cartLoading, setCartLoading] = useState<string | null>(null)
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null)
 
   // Set Detail View State
   const [selectedSet, setSelectedSet] = useState<any | null>(null)
@@ -509,26 +512,36 @@ export default function PublicProfilePage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
 
+      {/* Seller Photo Lightbox */}
+      {lightboxPhoto && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+          onClick={() => setLightboxPhoto(null)}
+        >
+          <div className="relative max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="absolute -top-4 -right-4 z-10 h-9 w-9 bg-background rounded-full flex items-center justify-center shadow-xl border border-border hover:bg-secondary transition-colors"
+              onClick={() => setLightboxPhoto(null)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img
+              src={lightboxPhoto}
+              alt="Seller photo"
+              className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]"
+            />
+            <p className="text-center text-sm text-white/60 mt-3 font-medium">Photo uploaded by seller</p>
+          </div>
+        </div>
+      )}
+
       <main className="flex-grow pt-24 pb-12 px-6 lg:px-8 max-w-[1400px] mx-auto w-full">
         {/* Profile Header */}
         <div className="relative mb-12">
-          {/* Banner */}
-          <div className="h-48 md:h-64 w-full rounded-3xl overflow-hidden bg-secondary/30 relative">
-            {(() => {
-              const sellerInfo = parseSellerInfo(profileUser.bannerUrl);
-              // If bannerUrl is a real image URL (not seller JSON), show it
-              const realBannerUrl = !sellerInfo && profileUser.bannerUrl && profileUser.bannerUrl.startsWith('http')
-                ? profileUser.bannerUrl
-                : null;
-              if (realBannerUrl) {
-                return <img src={realBannerUrl} alt="Banner" className="w-full h-full object-cover" />;
-              }
-              return <div className="w-full h-full bg-gradient-to-r from-primary/10 to-secondary/30" />;
-            })()}
-          </div>
+          {/* Banner completely removed */}
 
           {/* User Info Bar */}
-          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-12 px-4 md:px-8 relative z-10 text-center md:text-left">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 px-4 md:px-8 relative z-10 text-center md:text-left">
             <div className="relative mx-auto md:mx-0">
               {profileUser.profilePicUrl ? (
                 <img
@@ -550,7 +563,7 @@ export default function PublicProfilePage() {
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-1">
                     <p className="text-lg text-muted-foreground font-medium">{profileUser.title || "Trainer"}</p>
                     {(() => {
-                      const sellerInfo = parseSellerInfo(profileUser.bannerUrl);
+                      const sellerInfo = parseSellerInfo(profileUser.sellerInfo);
                       if (sellerInfo?.isSeller) {
                         return (
                           <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold gap-1 py-0.5 px-2 text-xs rounded-full">
@@ -623,7 +636,7 @@ export default function PublicProfilePage() {
                   Joined {new Date(profileUser.registerDate).toLocaleDateString()}
                 </div>
                 {(() => {
-                  const sellerInfo = parseSellerInfo(profileUser.bannerUrl);
+                  const sellerInfo = parseSellerInfo(profileUser.sellerInfo);
                   if (sellerInfo?.isSeller && sellerInfo?.address) {
                     const addr = sellerInfo.address;
                     return (
@@ -1258,6 +1271,15 @@ export default function PublicProfilePage() {
                                   className="w-full h-full object-contain group-hover:scale-105 transition-transform cursor-pointer"
                                   onClick={() => router.push(`/marketplace/card/${sale.cardId}`)}
                                 />
+                                {sale.imageUrl && (
+                                  <button
+                                    className="absolute top-2 right-2 h-7 w-7 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center shadow-md hover:bg-background hover:scale-110 transition-all opacity-0 group-hover:opacity-100"
+                                    title="View seller photo"
+                                    onClick={(e) => { e.stopPropagation(); setLightboxPhoto(sale.imageUrl); }}
+                                  >
+                                    <Camera className="h-3.5 w-3.5 text-primary" />
+                                  </button>
+                                )}
                               </div>
                               <CardContent className="p-4 flex-grow flex flex-col">
                                 <div className="flex justify-between items-start mb-2">
@@ -1270,6 +1292,17 @@ export default function PublicProfilePage() {
                                 <div className="mt-auto pt-4 border-t border-border/50 flex items-center justify-between">
                                   <span className="font-black text-primary text-lg">{sale.price.toFixed(2)}€</span>
                                   <div className="flex gap-1">
+                                    {sale.imageUrl && (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary"
+                                        title="View seller photo"
+                                        onClick={() => setLightboxPhoto(sale.imageUrl)}
+                                      >
+                                        <Camera className="h-4 w-4" />
+                                      </Button>
+                                    )}
                                     <Button
                                       size="icon"
                                       variant="secondary"
@@ -1331,6 +1364,17 @@ export default function PublicProfilePage() {
                                 </div>
                               </div>
                               <div className="flex gap-2">
+                                {sale.imageUrl && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 rounded-xl text-muted-foreground hover:text-primary"
+                                    title="View seller photo"
+                                    onClick={() => setLightboxPhoto(sale.imageUrl)}
+                                  >
+                                    <Camera className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="secondary"
                                   size="sm"

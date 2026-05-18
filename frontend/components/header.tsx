@@ -257,7 +257,7 @@ export function Header() {
             {mounted && user && (
               <>
                 <div className="border-t border-border/50 my-3" />
-                {/* User info banner */}
+                {/* User info */}
                 <div className="flex items-center gap-3 px-3 py-2 mb-1">
                   {user.profilePicUrl ? (
                     <img src={user.profilePicUrl} alt={user.username} className="h-9 w-9 rounded-full object-cover" />

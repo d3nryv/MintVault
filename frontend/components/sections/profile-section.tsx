@@ -97,8 +97,8 @@ export function ProfileSection() {
   const [userPokemons, setUserPokemons] = useState<CollectedPokemon[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const sellerInfo = user?.bannerUrl && user.bannerUrl.startsWith('{"isSeller"')
-    ? JSON.parse(user.bannerUrl)
+  const sellerInfo = user?.sellerInfo && user.sellerInfo.startsWith('{"isSeller"')
+    ? JSON.parse(user.sellerInfo)
     : null;
 
   useEffect(() => {

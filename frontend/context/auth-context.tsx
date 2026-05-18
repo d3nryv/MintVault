@@ -22,7 +22,7 @@ interface User {
   followers?: string[]
   following?: string[]
   friendRequests?: string[]
-  bannerUrl?: string
+  sellerInfo?: string
 }
 
 /**

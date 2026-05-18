@@ -26,8 +26,8 @@ const LEGACY_STREET_TYPE_MAP: Record<string, string> = {
 }
 
 /**
- * ProfilePage component handling user profile settings, avatar/banner image customization, and verified seller onboarding.
- * Integrates overloaded JSON/string handling for `bannerUrl` to maintain seller verification status while supporting custom banners.
+ * ProfilePage component handling user profile settings, avatar image customization, and verified seller onboarding.
+ * Uses `sellerInfo` field to maintain seller verification status.
  *
  * @returns React functional component rendering the profile customization and seller portal.
  */
@@ -51,10 +51,8 @@ export default function ProfilePage() {
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
   const [photoInputUrl, setPhotoInputUrl] = useState("")
 
-  // Custom Banner State
-  const [bannerPicUrl, setBannerPicUrl] = useState("")
-  const [bannerInputUrl, setBannerInputUrl] = useState("")
-  const [isBannerDialogOpen, setIsBannerDialogOpen] = useState(false)
+  // Custom Banner State (removed)
+
 
   // Become Seller Form State
   const [nombre, setNombre] = useState("")
@@ -72,8 +70,8 @@ export default function ProfilePage() {
   const [sellerError, setSellerError] = useState<string | null>(null)
   const [sellerSuccess, setSellerSuccess] = useState<string | null>(null)
 
-  const sellerInfo = user?.bannerUrl && user.bannerUrl.startsWith('{"isSeller"')
-    ? JSON.parse(user.bannerUrl)
+  const sellerInfo = user?.sellerInfo && user.sellerInfo.startsWith('{"isSeller"')
+    ? JSON.parse(user.sellerInfo)
     : null;
 
   useEffect(() => {
@@ -104,17 +102,11 @@ export default function ProfilePage() {
       setProfilePicUrl(user.profilePicUrl || "")
       setPhotoInputUrl(user.profilePicUrl || "")
 
-      // Parse custom banner URL cleanly whether it's JSON or a direct URL string
-      const existingBanner = user.bannerUrl 
-        ? (user.bannerUrl.startsWith('{"isSeller"') ? (JSON.parse(user.bannerUrl).bannerImage || "") : (user.bannerUrl.startsWith('{') ? "" : user.bannerUrl))
-        : "";
-      setBannerPicUrl(existingBanner)
-      setBannerInputUrl(existingBanner)
     }
   }, [user, isAuthLoading, router])
 
   /**
-   * Handles seller registration by serializing business address and existing banner image into a single JSON payload.
+   * Handles seller registration by serializing business address into a single JSON payload.
    */
   const handleBecomeSeller = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,18 +135,17 @@ export default function ProfilePage() {
       
       const serialized = JSON.stringify({
         isSeller: true,
-        address: addressData,
-        bannerImage: bannerPicUrl
+        address: addressData
       });
       
       const res = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bannerUrl: serialized })
+        body: JSON.stringify({ sellerInfo: serialized })
       });
       
       if (res.ok) {
-        updateUser({ bannerUrl: serialized });
+        updateUser({ sellerInfo: serialized });
         setSellerSuccess("Congratulations! 🎉 You are now a verified seller on MintVault!");
       } else {
         setSellerError("Could not complete verification. Please try again.");
@@ -192,33 +183,8 @@ export default function ProfilePage() {
     }
   }
 
-  /** Handles banner file upload and converts to base64 DataURL. */
-  const handleBannerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 4 * 1024 * 1024) {
-        setError("Banner file is too large. Max 4MB.")
-        return
-      }
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setBannerPicUrl(reader.result as string)
-        setIsBannerDialogOpen(false)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  /** Applies direct URL string for profile banner. */
-  const handleBannerUrlSubmit = () => {
-    if (bannerInputUrl) {
-      setBannerPicUrl(bannerInputUrl)
-      setIsBannerDialogOpen(false)
-    }
-  }
-
   /**
-   * Submits profile updates to backend API, maintaining seller JSON integrity when saving the banner.
+   * Submits profile updates to backend API.
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -229,22 +195,22 @@ export default function ProfilePage() {
     setSuccess(null)
 
     try {
-      const newBannerUrl = sellerInfo 
-        ? JSON.stringify({ ...sellerInfo, bannerImage: bannerPicUrl }) 
-        : bannerPicUrl;
+      const newSellerInfo = sellerInfo 
+        ? JSON.stringify({ ...sellerInfo }) 
+        : user.sellerInfo;
 
       const response = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, email, country, profilePicUrl, bannerUrl: newBannerUrl }),
+        body: JSON.stringify({ username, email, country, profilePicUrl, sellerInfo: newSellerInfo }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        updateUser({ username, email, country, profilePicUrl, bannerUrl: newBannerUrl })
+        updateUser({ username, email, country, profilePicUrl, sellerInfo: newSellerInfo })
         setSuccess("Profile updated successfully!")
       } else {
         setError(data.error || "Failed to update profile")
@@ -284,78 +250,6 @@ export default function ProfilePage() {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-
-          {/* Profile Banner Customization Header */}
-          <Card className="mb-6 border-border/50 bg-card/50 backdrop-blur-xl shadow-xl overflow-hidden relative h-48 sm:h-64 w-full group rounded-3xl">
-            {bannerPicUrl ? (
-              <img src={bannerPicUrl} alt="Profile Banner" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 flex flex-col items-center justify-center text-muted-foreground font-bold gap-2">
-                <ImageIcon className="h-10 w-10 text-muted-foreground/50" />
-                <span>No custom banner uploaded</span>
-              </div>
-            )}
-            <Dialog open={isBannerDialogOpen} onOpenChange={setIsBannerDialogOpen}>
-              <DialogTrigger asChild>
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-sm">
-                  <Button variant="outline" className="gap-2 font-bold bg-background/80 hover:bg-background text-foreground border-white/20 shadow-2xl rounded-xl">
-                    <Camera className="h-5 w-5" /> Change Banner Image
-                  </Button>
-                </div>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Update Profile Banner</DialogTitle>
-                  <DialogDescription>
-                    Select a background image to display at the top of your profile and showcase page.
-                  </DialogDescription>
-                </DialogHeader>
-                <Tabs defaultValue="upload" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="upload" className="gap-2 font-bold">
-                      <Upload className="h-4 w-4" /> Upload
-                    </TabsTrigger>
-                    <TabsTrigger value="url" className="gap-2 font-bold">
-                      <LinkIcon className="h-4 w-4" /> URL
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="upload" className="py-6 space-y-4">
-                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-8 bg-secondary/20 hover:bg-secondary/30 transition-colors cursor-pointer relative">
-                      <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                      <p className="text-sm font-bold">Click to upload file</p>
-                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG or WEBP (max 4MB, 16:9 aspect ratio recommended)</p>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleBannerFileChange}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                      />
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="url" className="py-6 space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="banner-url" className="font-bold">Image URL</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          id="banner-url"
-                          placeholder="https://example.com/banner.jpg"
-                          className="bg-background/50 border-border/50 font-semibold"
-                          value={bannerInputUrl}
-                          onChange={(e) => setBannerInputUrl(e.target.value)}
-                        />
-                        <Button onClick={handleBannerUrlSubmit} className="font-bold">Apply</Button>
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </DialogContent>
-            </Dialog>
-            <div className="absolute top-4 right-4">
-              <Badge className="bg-background/80 backdrop-blur text-foreground font-black px-3 py-1.5 shadow-lg border border-white/10 uppercase text-[10px] tracking-widest">
-                Profile Header Banner
-              </Badge>
-            </div>
-          </Card>
 
           <div className="grid gap-6 lg:grid-cols-[minmax(220px,280px)_1fr]">
             {/* Avatar sidebar */}

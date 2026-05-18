@@ -44,7 +44,7 @@ export class UserMapper {
         if (user.id !== undefined) dbFields.id = user.id;
         if (user.username !== undefined) dbFields.username = user.username;
         if (user.title !== undefined) dbFields.title = user.title;
-        if (user.bannerUrl !== undefined) dbFields.banner_url = user.bannerUrl;
+        if (user.sellerInfo !== undefined) dbFields.banner_url = user.sellerInfo;
         if (user.profilePicUrl !== undefined) dbFields.profile_pic_url = user.profilePicUrl;
         if (user.email !== undefined) dbFields.email = user.email;
         if (user.password !== undefined) dbFields.password = user.password;
