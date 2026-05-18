@@ -28,8 +28,8 @@ export class App {
   private middlewares(): void {
     this.app.use(cors());
 
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ limit: '10mb', extended: true }));
   }
 
   private routes(): void {
