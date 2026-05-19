@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import { Header } from "@/components/header"
@@ -25,6 +25,52 @@ export default function FriendsPage() {
   const [requests, setRequests] = useState<any[]>([])
   
   const [loading, setLoading] = useState(true)
+  const hasFetched = useRef(false)
+
+  const fetchAllData = useCallback(async () => {
+    if (!user) return
+
+    try {
+      const fetchUserById = async (id: string) => {
+        const res = await fetch(`${apiBaseUrl}/api/users/${id}`)
+        if (res.ok) return await res.json()
+        return null
+      }
+
+      // Fetch fresh user data from API to get up-to-date friendRequests, followers, following
+      const freshUserRes = await fetch(`${apiBaseUrl}/api/users/${user.id}`)
+      if (!freshUserRes.ok) return
+      const freshUser = await freshUserRes.json()
+
+      // Sync auth context with fresh data (won't trigger re-fetch because of hasFetched guard)
+      login(freshUser)
+
+      // Mutuals are those who are both in following and followers
+      const userFollowing = freshUser.following || []
+      const userFollowers = freshUser.followers || []
+      
+      const mutualIds = userFollowing.filter((id: string) => userFollowers.includes(id))
+      const followingIds = userFollowing.filter((id: string) => !mutualIds.includes(id))
+      const followersIds = userFollowers.filter((id: string) => !mutualIds.includes(id))
+      const requestIds = freshUser.friendRequests || []
+
+      const [mutualData, followingData, followersData, requestsData] = await Promise.all([
+        Promise.all(mutualIds.map(fetchUserById)),
+        Promise.all(followingIds.map(fetchUserById)),
+        Promise.all(followersIds.map(fetchUserById)),
+        Promise.all(requestIds.map(fetchUserById))
+      ])
+
+      setFriends(mutualData.filter(Boolean))
+      setFollowing(followingData.filter(Boolean))
+      setFollowers(followersData.filter(Boolean))
+      setRequests(requestsData.filter(Boolean))
+    } catch (e) {
+      console.error("Failed to load users", e)
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id, apiBaseUrl])
 
   useEffect(() => {
     if (!user) {
@@ -32,52 +78,12 @@ export default function FriendsPage() {
       return
     }
 
-    const fetchUsersData = async () => {
-      try {
-        const fetchUserById = async (id: string) => {
-          const res = await fetch(`${apiBaseUrl}/api/users/${id}`)
-          if (res.ok) return await res.json()
-          return null
-        }
+    // Only fetch once on mount — prevent infinite loops from login() updating user
+    if (hasFetched.current) return
+    hasFetched.current = true
 
-        // Fetch fresh user data from API to get up-to-date friendRequests, followers, following
-        const freshUserRes = await fetch(`${apiBaseUrl}/api/users/${user.id}`)
-        let freshUser = user
-        if (freshUserRes.ok) {
-          freshUser = await freshUserRes.json()
-          // Sync auth context with fresh data
-          login(freshUser)
-        }
-
-        // Mutuals are those who are both in following and followers
-        const userFollowing = freshUser.following || []
-        const userFollowers = freshUser.followers || []
-        
-        const mutualIds = userFollowing.filter(id => userFollowers.includes(id))
-        const followingIds = userFollowing.filter(id => !mutualIds.includes(id))
-        const followersIds = userFollowers.filter(id => !mutualIds.includes(id))
-        const requestIds = freshUser.friendRequests || []
-
-        const [mutualData, followingData, followersData, requestsData] = await Promise.all([
-          Promise.all(mutualIds.map(fetchUserById)),
-          Promise.all(followingIds.map(fetchUserById)),
-          Promise.all(followersIds.map(fetchUserById)),
-          Promise.all(requestIds.map(fetchUserById))
-        ])
-
-        setFriends(mutualData.filter(Boolean))
-        setFollowing(followingData.filter(Boolean))
-        setFollowers(followersData.filter(Boolean))
-        setRequests(requestsData.filter(Boolean))
-      } catch (e) {
-        console.error("Failed to load users", e)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchUsersData()
-  }, [user, router])
+    fetchAllData()
+  }, [user, router, fetchAllData])
 
   const handleAcceptRequest = async (followerId: string) => {
     try {
@@ -88,12 +94,20 @@ export default function FriendsPage() {
       })
       
       if (res.ok) {
-        // Refresh session
+        // Move the accepted user from requests to friends (local state update, no reload)
+        const acceptedUser = requests.find(u => u.id === followerId)
+        setRequests(prev => prev.filter(u => u.id !== followerId))
+        if (acceptedUser) {
+          setFriends(prev => [...prev, acceptedUser])
+          // Also remove from followers list since they're now a mutual friend
+          setFollowers(prev => prev.filter(u => u.id !== followerId))
+        }
+
+        // Sync auth context in background
         const sessionRes = await fetch(`${apiBaseUrl}/api/users/${user?.id}`)
         if (sessionRes.ok) {
           const updatedUser = await sessionRes.json()
-          login(updatedUser) // Re-login updates context without actually calling login endpoint if passing user obj
-          window.location.reload()
+          login(updatedUser)
         }
       }
     } catch (e) {
@@ -109,7 +123,15 @@ export default function FriendsPage() {
         body: JSON.stringify({ followerId })
       })
       if (res.ok) {
-        window.location.reload()
+        // Remove from requests list locally (no reload)
+        setRequests(prev => prev.filter(u => u.id !== followerId))
+
+        // Sync auth context in background
+        const sessionRes = await fetch(`${apiBaseUrl}/api/users/${user?.id}`)
+        if (sessionRes.ok) {
+          const updatedUser = await sessionRes.json()
+          login(updatedUser)
+        }
       }
     } catch (e) {
       console.error(e)

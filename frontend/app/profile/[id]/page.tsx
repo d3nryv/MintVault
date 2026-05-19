@@ -131,9 +131,17 @@ export default function PublicProfilePage() {
           setProfileUser(userData)
           
           if (currentUser) {
-            const isFollowing = (currentUser as any).following?.includes(userData.id)
-            const isFollower = (currentUser as any).followers?.includes(userData.id)
-            const isPending = userData.friendRequests?.includes(currentUser.id)
+            // Fetch fresh data for current user to get accurate relationship status
+            const freshCurrentUserRes = await fetch(`${apiBaseUrl}/api/users/${currentUser.id}`)
+            let freshCurrentUser = currentUser
+            if (freshCurrentUserRes.ok) {
+              freshCurrentUser = await freshCurrentUserRes.json()
+              updateUser(freshCurrentUser)
+            }
+
+            const isFollowing = (freshCurrentUser as any).following?.includes(userData.id)
+            const isFollower = (freshCurrentUser as any).followers?.includes(userData.id)
+            const isPending = userData.friendRequests?.includes(freshCurrentUser.id)
             
             if (isFollowing && isFollower) setRelationship("mutual")
             else if (isFollowing) setRelationship("following")
