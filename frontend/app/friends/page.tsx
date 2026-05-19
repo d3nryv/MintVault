@@ -40,14 +40,23 @@ export default function FriendsPage() {
           return null
         }
 
+        // Fetch fresh user data from API to get up-to-date friendRequests, followers, following
+        const freshUserRes = await fetch(`${apiBaseUrl}/api/users/${user.id}`)
+        let freshUser = user
+        if (freshUserRes.ok) {
+          freshUser = await freshUserRes.json()
+          // Sync auth context with fresh data
+          login(freshUser)
+        }
+
         // Mutuals are those who are both in following and followers
-        const userFollowing = user.following || []
-        const userFollowers = user.followers || []
+        const userFollowing = freshUser.following || []
+        const userFollowers = freshUser.followers || []
         
         const mutualIds = userFollowing.filter(id => userFollowers.includes(id))
         const followingIds = userFollowing.filter(id => !mutualIds.includes(id))
         const followersIds = userFollowers.filter(id => !mutualIds.includes(id))
-        const requestIds = user.friendRequests || []
+        const requestIds = freshUser.friendRequests || []
 
         const [mutualData, followingData, followersData, requestsData] = await Promise.all([
           Promise.all(mutualIds.map(fetchUserById)),
