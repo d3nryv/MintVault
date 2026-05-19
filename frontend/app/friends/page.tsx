@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, UserCheck, UserPlus, X, Check, Users } from "lucide-react"
 
 export default function FriendsPage() {
-  const { user, login } = useAuth()
+  const { user, login, isLoading } = useAuth()
   const router = useRouter()
   const apiBaseUrl = typeof window !== 'undefined'
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -73,6 +73,8 @@ export default function FriendsPage() {
   }, [user?.id, apiBaseUrl])
 
   useEffect(() => {
+    if (isLoading) return
+
     if (!user) {
       router.push("/login")
       return
@@ -83,7 +85,7 @@ export default function FriendsPage() {
     hasFetched.current = true
 
     fetchAllData()
-  }, [user, router, fetchAllData])
+  }, [user, isLoading, router, fetchAllData])
 
   const handleAcceptRequest = async (followerId: string) => {
     try {
@@ -138,7 +140,7 @@ export default function FriendsPage() {
     }
   }
 
-  if (loading || !user) {
+  if (isLoading || loading || !user) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
