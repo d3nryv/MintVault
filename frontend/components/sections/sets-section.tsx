@@ -3,13 +3,14 @@
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, Calendar, Layers, Loader2, Search, Filter, ArrowUpDown, CheckCircle, Circle } from "lucide-react"
+import { ChevronLeft, Calendar, Layers, Loader2, Search, Filter, ArrowUpDown, CheckCircle, Circle, Check } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/context/auth-context"
 import { format } from "date-fns"
 import { CardDetailModal } from "@/components/card-detail-modal"
+import { fetchWithCache } from "../../utils/api-cache"
 
 /**
  * Structure of a Pokémon TCG expansion set object as returned by the pokemontcg API.
@@ -57,7 +58,50 @@ export function SetsSection() {
   const [selectedCard, setSelectedCard] = useState<any | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, updateUser } = useAuth()
+  const [isBatchUpdating, setIsBatchUpdating] = useState(false)
+
+  const handleMarkAllAsOwned = async () => {
+    if (!user || !selectedSet || isBatchUpdating) return
+    setIsBatchUpdating(true)
+    try {
+      const result = await fetchWithCache(`https://api.pokemontcg.io/v2/cards?q=set.id:${selectedSet.id}&pageSize=500&orderBy=number`)
+      const allCards = result.data || []
+      
+      const cardIds = allCards.map((c: any) => c.id)
+      const currentOwned = [...(user.ownedEnglishCards || [])]
+      const newOwned = [...currentOwned]
+      cardIds.forEach((id: string) => {
+        if (!newOwned.includes(id)) {
+          newOwned.push(id)
+        }
+      })
+      
+      const apiBaseUrl = typeof window !== 'undefined'
+        ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? `http://${window.location.hostname}:3000`
+            : `${window.location.protocol}//${window.location.hostname}/_/backend`)
+        : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000')
+        
+      const updateData = {
+        ownedEnglishCards: newOwned
+      }
+      
+      const putRes = await fetch(`${apiBaseUrl}/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      })
+      
+      if (putRes.ok) {
+        updateUser({ ownedEnglishCards: newOwned })
+      }
+    } catch (error) {
+      console.error("Error marking all as owned:", error)
+    } finally {
+      setIsBatchUpdating(false)
+    }
+  }
 
   // State controls for filtering and sorting card displays within a set
   const [cardSearch, setCardSearch] = useState("")
@@ -72,8 +116,7 @@ export function SetsSection() {
   const fetchAllSets = async () => {
     setLoading(true)
     try {
-      const response = await fetch("https://api.pokemontcg.io/v2/sets")
-      const result = await response.json()
+      const result = await fetchWithCache("https://api.pokemontcg.io/v2/sets")
       setAllSets(result.data)
       
       // Handle auto-loading set from query param
@@ -90,8 +133,7 @@ export function SetsSection() {
     setLoadingCards(true)
     try {
       const pageSize = 40
-      const response = await fetch(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&page=${currentPage}&pageSize=${pageSize}&orderBy=number`)
-      const result = await response.json()
+      const result = await fetchWithCache(`https://api.pokemontcg.io/v2/cards?q=set.id:${setId}&page=${currentPage}&pageSize=${pageSize}&orderBy=number`)
       
       const newCards = result.data
       if (newCards.length < pageSize) {
@@ -245,8 +287,24 @@ export function SetsSection() {
                 <ChevronLeft className="h-6 w-6" />
               </Button>
             )}
-            <h2 className="font-sans text-4xl font-bold text-foreground">
-              {selectedSet ? selectedSet.name : (selectedSeries ? selectedSeries.name : "Expansion Series")}
+            <h2 className="font-sans text-4xl font-bold text-foreground flex items-center gap-3 flex-wrap">
+              <span>{selectedSet ? selectedSet.name : (selectedSeries ? selectedSeries.name : "Expansion Series")}</span>
+              {selectedSet && user && (
+                (() => {
+                  const ownedCount = new Set(
+                    (user.ownedEnglishCards || []).filter((id: string) => id.startsWith(selectedSet.id + "-"))
+                  ).size;
+                  if (ownedCount > 0 && ownedCount >= selectedSet.total) {
+                    return (
+                      <span className="flex items-center gap-1 bg-green-500/10 border border-green-500/30 text-green-500 text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full">
+                        <Check className="h-3.5 w-3.5" />
+                        Set Completed!
+                      </span>
+                    )
+                  }
+                  return null;
+                })()
+              )}
             </h2>
           </div>
           <p className="text-muted-foreground text-lg ml-2">
@@ -300,12 +358,24 @@ export function SetsSection() {
         </div>
       ) : !selectedSet ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {selectedSeries.sets.map((set) => (
-            <Card 
-              key={set.id} 
-              onClick={() => handleSetClick(set)}
-              className="group cursor-pointer overflow-hidden border-none bg-card hover:bg-accent/20 transition-all duration-300 hover:-translate-y-2 shadow-md"
-            >
+          {selectedSeries.sets.map((set) => {
+            const ownedCount = user ? new Set(
+              (user.ownedEnglishCards || []).filter((id: string) => id.startsWith(set.id + "-"))
+            ).size : 0
+            const isCompleted = ownedCount > 0 && ownedCount >= set.total
+
+            return (
+              <Card 
+                key={set.id} 
+                onClick={() => handleSetClick(set)}
+                className="group cursor-pointer overflow-hidden border-none bg-card hover:bg-accent/20 transition-all duration-300 hover:-translate-y-2 shadow-md relative"
+              >
+                {isCompleted && (
+                  <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-green-500/10 backdrop-blur-md border border-green-500/30 text-green-500 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
+                    <Check className="h-3 w-3 text-green-500" />
+                    Set Completed!
+                  </div>
+                )}
               <div className="aspect-[4/3] flex items-center justify-center p-4">
                 <img 
                   src={set.images.logo} 
@@ -329,7 +399,7 @@ export function SetsSection() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       ) : (
         <div className="space-y-8">
@@ -377,6 +447,22 @@ export function SetsSection() {
                 <div className={`w-4 h-4 rounded-full bg-white transition-all duration-300 ${showGrayscale ? 'translate-x-6' : 'translate-x-0'}`} />
               </button>
             </div>
+
+            {user && (
+              <Button
+                variant="outline"
+                className="h-14 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest bg-background/50 border-border/50 hover:bg-primary/10 hover:text-primary transition-all gap-2"
+                onClick={handleMarkAllAsOwned}
+                disabled={isBatchUpdating}
+              >
+                {isBatchUpdating ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 text-primary" />
+                )}
+                {isBatchUpdating ? "Marking..." : "Mark all as owned"}
+              </Button>
+            )}
           </div>
 
           <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">

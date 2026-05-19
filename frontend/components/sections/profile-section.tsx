@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import { BinderSize } from "@/lib/types/binder"
+import { fetchWithCache } from "../../utils/api-cache"
 
 /**
  * Summarized statistics representing a collector's completion progress within a specific TCG expansion set.
@@ -122,8 +123,7 @@ export function ProfileSection() {
       if (ownedEnglishCards.length) {
         const setIds = Array.from(new Set(ownedEnglishCards.map(id => id.split('-')[0])))
 
-        const res = await fetch('https://api.pokemontcg.io/v2/sets')
-        const data = await res.json()
+        const data = await fetchWithCache('https://api.pokemontcg.io/v2/sets')
         const allSetsData = data.data || []
 
         const processedSets: CollectedSet[] = allSetsData
@@ -152,8 +152,7 @@ export function ProfileSection() {
       if (pokemonCardIds.length) {
         try {
           const idsQuery = pokemonCardIds.slice(0, 150).map(id => `id:${id}`).join(' OR ')
-          const cardsRes = await fetch(`https://api.pokemontcg.io/v2/cards?q=${idsQuery}`)
-          const cardsData = await cardsRes.json()
+          const cardsData = await fetchWithCache(`https://api.pokemontcg.io/v2/cards?q=${idsQuery}`)
           const cards = cardsData.data || []
 
           const speciesMap = new Map<number, { count: number, ids: Set<string> }>()
@@ -174,14 +173,11 @@ export function ProfileSection() {
           const pokemonData = await Promise.all(
             Array.from(speciesMap.entries()).map(async ([dexNum, data]) => {
               try {
-                const pokeRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${dexNum}`)
-                if (!pokeRes.ok) throw new Error('Pokemon not found')
-                const pokeData = await pokeRes.json()
+                const pokeData = await fetchWithCache(`https://pokeapi.co/api/v2/pokemon/${dexNum}`)
                 const sprite = pokeData.sprites.other?.['official-artwork']?.front_default || pokeData.sprites.front_default
                 const speciesName = pokeData.name
 
-                const tcgRes = await fetch(`https://api.pokemontcg.io/v2/cards?q=nationalPokedexNumbers:${dexNum}&pageSize=1`)
-                const tcgData = await tcgRes.json()
+                const tcgData = await fetchWithCache(`https://api.pokemontcg.io/v2/cards?q=nationalPokedexNumbers:${dexNum}&pageSize=1`)
                 const total = tcgData.totalCount
 
                 return {
@@ -346,8 +342,7 @@ export function ProfileSection() {
         return
       }
       const ids = uniqueIds.slice(0, 100).join(' OR id:')
-      const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=id:${ids}`)
-      const data = await res.json()
+      const data = await fetchWithCache(`https://api.pokemontcg.io/v2/cards?q=id:${ids}`)
       setOwnedCardsData(data.data || [])
     } catch (error) {
       console.error("Error fetching owned cards:", error)
@@ -381,7 +376,24 @@ export function ProfileSection() {
           <h2 className="text-3xl font-bold text-foreground">Your Collection Profile</h2>
           <p className="text-muted-foreground mt-1">Manage your cards and track your progress</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="gap-2"
+          onClick={() => {
+            if (user?.id) {
+              const shareUrl = `https://www.mintvault.site/profile/${user.id}`;
+              navigator.clipboard.writeText(shareUrl).then(() => {
+                toast({
+                  title: "Link copied!",
+                  description: "Your collection link has been copied to your clipboard.",
+                });
+              }).catch((err) => {
+                console.error("Clipboard copy failed:", err);
+              });
+            }
+          }}
+        >
           <Share2 className="h-4 w-4" />
           Share Collection
         </Button>
@@ -817,55 +829,68 @@ export function ProfileSection() {
                   <p className="text-muted-foreground font-black uppercase tracking-widest text-sm">Analyzing your collection...</p>
                 </div>
               ) : filteredSets.length > 0 ? (
-                filteredSets.slice(0, visibleSetsCount).map((set) => (
-                  <div
-                    key={set.id}
-                    onClick={() => router.push(`/collection?tab=sets&set=${set.id}`)}
-                    className="group relative h-52 sm:h-64 lg:h-72 rounded-2xl sm:rounded-[2.5rem] overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-700 border border-border/10 ring-1 ring-white/5"
-                  >
-                    {/* Background Decoration */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 to-background/50 flex items-center justify-center p-8 sm:p-12 lg:p-16 overflow-hidden">
-                      <img
-                        src={set.image}
-                        alt={set.name}
-                        className="w-full h-full object-contain opacity-10 filter grayscale-100 transition-all duration-1000 group-hover:scale-150 group-hover:opacity-50 group-hover:grayscale-0"
-                      />
-                      <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-t from-black/100 via-black/60 to-transparent" />
-                    </div>
-
-                    {/* Info Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6 lg:p-8 space-y-3 sm:space-y-6">
-                      <div className="flex justify-between items-end gap-2">
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <img src={set.symbol} alt={set.name} className="h-6 sm:h-8 lg:h-10 object-contain mb-2 sm:mb-4 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transition-transform duration-500 group-hover:translate-x-2" />
-                          <h4 className="text-white font-black text-base sm:text-xl lg:text-2xl leading-tight truncate drop-shadow-2xl tracking-tight italic uppercase">{set.name}</h4>
-                          <Badge variant="outline" className="text-[8px] sm:text-[9px] font-black text-white/40 border-white/5 bg-white/5 uppercase tracking-[0.25em] py-0.5 px-2 sm:px-3 rounded-full mt-1 sm:mt-3">{set.eraLabel}</Badge>
+                filteredSets.slice(0, visibleSetsCount).map((set) => {
+                  const isCompleted = set.owned > 0 && set.owned >= set.total;
+                  return (
+                    <div
+                      key={set.id}
+                      onClick={() => router.push(`/collection?tab=sets&set=${set.id}`)}
+                      className="group relative h-52 sm:h-64 lg:h-72 rounded-2xl sm:rounded-[2.5rem] overflow-hidden cursor-pointer shadow-lg hover:shadow-2xl transition-all duration-700 border border-border/10 ring-1 ring-white/5"
+                    >
+                      {isCompleted && (
+                        <div className="absolute top-4 right-4 z-10 flex items-center gap-1 bg-green-500/20 backdrop-blur-md border border-green-500/40 text-green-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-lg animate-pulse">
+                          <Check className="h-3 w-3 text-green-400" />
+                          Set Completed!
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-white font-black text-xl sm:text-2xl lg:text-3xl leading-none tracking-tighter drop-shadow-xl">
-                            {set.owned}<span className="text-white/30 text-xs font-bold ml-1 tracking-normal italic"> / {set.total}</span>
-                          </p>
-                          <p className="text-[10px] font-black text-primary leading-none mt-3 uppercase tracking-[0.3em] drop-shadow-md">Master Set</p>
-                        </div>
+                      )}
+                      {/* Background Decoration */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 to-background/50 flex items-center justify-center p-8 sm:p-12 lg:p-16 overflow-hidden">
+                        <img
+                          src={set.image}
+                          alt={set.name}
+                          className="w-full h-full object-contain opacity-10 filter grayscale-100 transition-all duration-1000 group-hover:scale-150 group-hover:opacity-50 group-hover:grayscale-0"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-t from-black/100 via-black/60 to-transparent" />
                       </div>
 
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center px-1">
-                          <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.25em]">Mastery Progress</span>
-                          <span className="text-xs font-black text-white tabular-nums drop-shadow-sm">{Math.round((set.owned / set.total) * 100)}%</span>
+                      {/* Info Overlay */}
+                      <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6 lg:p-8 space-y-3 sm:space-y-6">
+                        <div className="flex justify-between items-end gap-2">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <img src={set.symbol} alt={set.name} className="h-6 sm:h-8 lg:h-10 object-contain mb-2 sm:mb-4 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transition-transform duration-500 group-hover:translate-x-2" />
+                            <h4 className="text-white font-black text-base sm:text-xl lg:text-2xl leading-tight truncate drop-shadow-2xl tracking-tight italic uppercase">{set.name}</h4>
+                            <Badge variant="outline" className="text-[8px] sm:text-[9px] font-black text-white/40 border-white/5 bg-white/5 uppercase tracking-[0.25em] py-0.5 px-2 sm:px-3 rounded-full mt-1 sm:mt-3">{set.eraLabel}</Badge>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-white font-black text-xl sm:text-2xl lg:text-3xl leading-none tracking-tighter drop-shadow-xl">
+                              {set.owned}<span className="text-white/30 text-xs font-bold ml-1 tracking-normal italic"> / {set.total}</span>
+                            </p>
+                            <p className={`text-[10px] font-black leading-none mt-3 uppercase tracking-[0.3em] drop-shadow-md ${isCompleted ? 'text-green-400' : 'text-primary'}`}>{isCompleted ? 'Completed' : 'Master Set'}</p>
+                          </div>
                         </div>
-                        <div className="h-4 w-full bg-white/5 rounded-full overflow-hidden border border-white/10 p-1 backdrop-blur-sm">
-                          <div
-                            className="h-full bg-primary rounded-full transition-all duration-1000 ease-out shadow-[0_0_25px_rgba(var(--primary-rgb),1)] relative overflow-hidden"
-                            style={{ width: `${(set.owned / set.total) * 100}%` }}
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center px-1">
+                            <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.25em]">Mastery Progress</span>
+                            <span className="text-xs font-black text-white tabular-nums drop-shadow-sm">{Math.round((set.owned / set.total) * 100)}%</span>
+                          </div>
+                          <div className="h-4 w-full bg-white/5 rounded-full overflow-hidden border border-white/10 p-1 backdrop-blur-sm">
+                            <div
+                              className={`h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
+                                isCompleted 
+                                  ? 'bg-green-500 shadow-[0_0_25px_rgba(34,197,94,1)]' 
+                                  : 'bg-primary shadow-[0_0_25px_rgba(var(--primary-rgb),1)]'
+                              }`}
+                              style={{ width: `${(set.owned / set.total) * 100}%` }}
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="col-span-full text-center py-20 bg-secondary/10 rounded-[3rem] border-2 border-dashed border-border/30">
                   <Layers className="h-16 w-16 mx-auto mb-6 text-muted-foreground/20" />

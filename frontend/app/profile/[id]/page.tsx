@@ -43,6 +43,7 @@ import {
 import { useAuth } from "@/context/auth-context"
 import { useMarketplace } from "@/context/marketplace-context"
 import { Separator } from "@/components/ui/separator"
+import { fetchWithCache } from "../../../utils/api-cache"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
@@ -159,8 +160,8 @@ export default function PublicProfilePage() {
           if (salesRes.ok) setSales(await salesRes.json())
 
           // Fetch All Pokemon for Pokedex mapping
-          const pokeRes = await fetch(`${apiBaseUrl}/api/pokedex/all`)
-          if (pokeRes.ok) setAllPokemon(await pokeRes.json())
+          const pokedexData = await fetchWithCache(`${apiBaseUrl}/api/pokedex/all`)
+          setAllPokemon(pokedexData)
 
           // Fetch Collection Details
           fetchCollectionDetails(userData)
@@ -212,8 +213,7 @@ export default function PublicProfilePage() {
             }
 
             // Fetch ALL sets in a single fast call
-            const res = await fetch("https://api.pokemontcg.io/v2/sets")
-            const data = await res.json()
+            const data = await fetchWithCache("https://api.pokemontcg.io/v2/sets")
             const allSets = data.data || []
 
             const processedSets = allSets
@@ -283,17 +283,14 @@ export default function PublicProfilePage() {
                     sprite = cached.sprite
                     speciesName = cached.name
                   } else {
-                    const pokeRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${dexNum}`)
-                    if (pokeRes.ok) {
-                      const pokeData = await pokeRes.json()
-                      sprite = pokeData.sprites.other?.['official-artwork']?.front_default || pokeData.sprites.front_default || ""
-                      speciesName = pokeData.name
-                      
-                      // Save in client global cache
-                      if (typeof window !== 'undefined') {
-                        if (!(window as any)._pokeCache) (window as any)._pokeCache = {};
-                        (window as any)._pokeCache[cacheKey] = { name: speciesName, sprite }
-                      }
+                    const pokeData = await fetchWithCache(`https://pokeapi.co/api/v2/pokemon/${dexNum}`)
+                    sprite = pokeData.sprites.other?.['official-artwork']?.front_default || pokeData.sprites.front_default || ""
+                    speciesName = pokeData.name
+                    
+                    // Save in client global cache
+                    if (typeof window !== 'undefined') {
+                      if (!(window as any)._pokeCache) (window as any)._pokeCache = {};
+                      (window as any)._pokeCache[cacheKey] = { name: speciesName, sprite }
                     }
                   }
 
@@ -978,54 +975,67 @@ export default function PublicProfilePage() {
                           return matchesSearch && matchesEra && matchesLang
                         })
                         .slice(0, visibleSetsCount)
-                        .map((set: any) => (
-                        <div
-                          key={set.id}
-                          onClick={() => setSelectedSet(set)}
-                          className="group cursor-pointer relative h-72 rounded-[2.5rem] overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-700 border border-border/10 ring-1 ring-white/5"
-                        >
-                            <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 to-background/50 flex items-center justify-center p-16 overflow-hidden">
-                              <img
-                                src={set.image}
-                                alt={set.name}
-                                className="w-full h-full object-contain opacity-10 filter grayscale-100 transition-all duration-1000 group-hover:scale-150 group-hover:opacity-50 group-hover:grayscale-0"
-                              />
-                              <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-t from-black/100 via-black/60 to-transparent" />
-                            </div>
+                        .map((set: any) => {
+                          const isCompleted = set.owned > 0 && set.owned >= set.total;
+                          return (
+                            <div
+                              key={set.id}
+                              onClick={() => setSelectedSet(set)}
+                              className="group cursor-pointer relative h-72 rounded-[2.5rem] overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-700 border border-border/10 ring-1 ring-white/5"
+                            >
+                                {isCompleted && (
+                                  <div className="absolute top-4 right-4 z-10 flex items-center gap-1 bg-green-500/20 backdrop-blur-md border border-green-500/40 text-green-400 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-lg animate-pulse">
+                                    <Check className="h-3 w-3 text-green-400" />
+                                    Set Completed!
+                                  </div>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 to-background/50 flex items-center justify-center p-16 overflow-hidden">
+                                  <img
+                                    src={set.image}
+                                    alt={set.name}
+                                    className="w-full h-full object-contain opacity-10 filter grayscale-100 transition-all duration-1000 group-hover:scale-150 group-hover:opacity-50 group-hover:grayscale-0"
+                                  />
+                                  <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-t from-black/100 via-black/60 to-transparent" />
+                                </div>
 
-                            <div className="absolute inset-x-0 bottom-0 p-8 space-y-6">
-                              <div className="flex justify-between items-end">
-                                <div className="min-w-0 space-y-1">
-                                  <img src={set.symbol} alt={set.name} className="h-10 object-contain mb-4 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transition-transform duration-500 group-hover:translate-x-2" />
-                                  <h4 className="text-white font-black text-2xl leading-tight truncate drop-shadow-2xl tracking-tight italic uppercase">{set.name}</h4>
-                                  <div className="flex items-center gap-3 mt-3">
-                                    <Badge variant="outline" className="text-[9px] font-black text-white/40 border-white/5 bg-white/5 uppercase tracking-[0.25em] py-0.5 px-3 rounded-full">{set.era}</Badge>
-                                    <Badge variant="outline" className="text-[9px] font-black text-primary/60 border-primary/10 bg-primary/5 uppercase tracking-[0.25em] py-0.5 px-3 rounded-full">{set.lang}</Badge>
+                                <div className="absolute inset-x-0 bottom-0 p-8 space-y-6">
+                                  <div className="flex justify-between items-end">
+                                    <div className="min-w-0 space-y-1">
+                                      <img src={set.symbol} alt={set.name} className="h-10 object-contain mb-4 drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] transition-transform duration-500 group-hover:translate-x-2" />
+                                      <h4 className="text-white font-black text-2xl leading-tight truncate drop-shadow-2xl tracking-tight italic uppercase">{set.name}</h4>
+                                      <div className="flex items-center gap-3 mt-3">
+                                        <Badge variant="outline" className="text-[9px] font-black text-white/40 border-white/5 bg-white/5 uppercase tracking-[0.25em] py-0.5 px-3 rounded-full">{set.era}</Badge>
+                                        <Badge variant="outline" className="text-[9px] font-black text-primary/60 border-primary/10 bg-primary/5 uppercase tracking-[0.25em] py-0.5 px-3 rounded-full">{set.lang}</Badge>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-white font-black text-3xl leading-none tracking-tighter drop-shadow-xl">
+                                        {set.owned}<span className="text-white/30 text-xs font-bold ml-1 tracking-normal italic"> / {set.total}</span>
+                                      </p>
+                                      <p className={`text-[10px] font-black leading-none mt-3 uppercase tracking-[0.3em] drop-shadow-md ${isCompleted ? 'text-green-400' : 'text-primary'}`}>{isCompleted ? 'Completed' : 'Master Set'}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <div className="flex justify-between items-center px-1">
+                                      <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.25em]">Mastery Progress</span>
+                                      <span className="text-xs font-black text-white tabular-nums drop-shadow-sm">{Math.round((set.owned / set.total) * 100)}%</span>
+                                    </div>
+                                    <div className="h-4 w-full bg-white/5 rounded-full overflow-hidden border border-white/10 p-1 backdrop-blur-sm">
+                                      <div
+                                        className={`h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden ${
+                                          isCompleted 
+                                            ? 'bg-green-500 shadow-[0_0_25px_rgba(34,197,94,1)]' 
+                                            : 'bg-primary shadow-[0_0_25px_rgba(var(--primary-rgb),1)]'
+                                        }`}
+                                        style={{ width: `${(set.owned / set.total) * 100}%` }}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-white font-black text-3xl leading-none tracking-tighter drop-shadow-xl">
-                                    {set.owned}<span className="text-white/30 text-xs font-bold ml-1 tracking-normal italic"> / {set.total}</span>
-                                  </p>
-                                  <p className="text-[10px] font-black text-primary leading-none mt-3 uppercase tracking-[0.3em] drop-shadow-md">Master Set</p>
-                                </div>
                               </div>
-
-                              <div className="space-y-3">
-                                <div className="flex justify-between items-center px-1">
-                                  <span className="text-[10px] font-black text-white/30 uppercase tracking-[0.25em]">Mastery Progress</span>
-                                  <span className="text-xs font-black text-white tabular-nums drop-shadow-sm">{Math.round((set.owned / set.total) * 100)}%</span>
-                                </div>
-                                <div className="h-4 w-full bg-white/5 rounded-full overflow-hidden border border-white/10 p-1 backdrop-blur-sm">
-                                  <div
-                                    className="h-full bg-primary rounded-full transition-all duration-1000 ease-out shadow-[0_0_25px_rgba(var(--primary-rgb),1)] relative overflow-hidden"
-                                    style={{ width: `${(set.owned / set.total) * 100}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
+                          );
+                        })
                     ) : (
                       <div className="col-span-full text-center py-12 text-muted-foreground font-bold">No sets collected yet</div>
                     )}
@@ -1281,7 +1291,7 @@ export default function PublicProfilePage() {
                                 />
                                 {sale.imageUrl && (
                                   <button
-                                    className="absolute top-2 right-2 h-7 w-7 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center shadow-md hover:bg-background hover:scale-110 transition-all opacity-0 group-hover:opacity-100"
+                                    className="absolute top-2 right-2 h-7 w-7 rounded-full bg-background/80 backdrop-blur border border-border flex items-center justify-center shadow-md hover:bg-background hover:scale-110 transition-all opacity-100 sm:opacity-0 group-hover:opacity-100"
                                     title="View seller photo"
                                     onClick={(e) => { e.stopPropagation(); setLightboxPhoto(sale.imageUrl); }}
                                   >
@@ -1350,62 +1360,58 @@ export default function PublicProfilePage() {
                             return matchesSearch && matchesLang && matchesCond && matchesSet && matchesWants
                           })
                           .map((sale) => (
-                            <div key={sale.id} className="bg-card border border-border/50 rounded-2xl p-4 flex items-center gap-6 hover:shadow-lg transition-all shadow-sm">
-                              <div className="h-16 w-12 shrink-0 bg-secondary/10 rounded-lg flex items-center justify-center p-1">
+                            <div key={sale.id} className="bg-card border border-border/50 rounded-2xl p-3 sm:p-4 flex flex-row items-center gap-3 sm:gap-6 hover:shadow-lg transition-all shadow-sm">
+                              <div className="relative h-20 w-16 sm:h-24 sm:w-20 shrink-0 bg-secondary/10 rounded-xl overflow-hidden flex items-center justify-center p-1">
                                 <img src={sale.cardImage} alt={sale.cardName} className="h-full object-contain" />
-                              </div>
-                              <div className="flex-grow min-w-0">
-                                <h4 className="font-black text-sm truncate">{sale.cardName}</h4>
-                                <p className="text-xs text-muted-foreground font-bold">{sale.setName}</p>
-                              </div>
-                              <div className="flex items-center gap-8 px-6">
-                                <div className="text-center">
-                                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Lang</p>
-                                  <p className="text-sm font-bold">{sale.language}</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Cond</p>
-                                  <p className="text-sm font-bold">{sale.condition}</p>
-                                </div>
-                                <div className="text-right min-w-[60px]">
-                                  <p className="text-lg font-black text-primary">{sale.price.toFixed(2)}€</p>
-                                </div>
-                              </div>
-                              <div className="flex gap-2">
                                 {sale.imageUrl && (
                                   <Button
-                                    variant="ghost"
+                                    variant="secondary"
                                     size="icon"
-                                    className="h-9 w-9 rounded-xl text-muted-foreground hover:text-primary"
+                                    className="absolute bottom-1 right-1 h-6 w-6 rounded-full shadow-md bg-background/85 hover:bg-background text-foreground shrink-0 p-0"
                                     title="View seller photo"
                                     onClick={() => setLightboxPhoto(sale.imageUrl)}
                                   >
-                                    <Camera className="h-4 w-4" />
+                                    <Camera className="h-3.5 w-3.5" />
                                   </Button>
                                 )}
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  className="font-bold gap-2 rounded-xl"
-                                  onClick={() => handleAddToCart(sale.id)}
-                                  disabled={cartLoading === sale.id || currentUser?.cart?.includes(sale.id)}
-                                >
-                                  {currentUser?.cart?.includes(sale.id) ? (
-                                    <><Check className="h-4 w-4 text-green-500" /> In Cart</>
-                                  ) : cartLoading === sale.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <><ShoppingCart className="h-4 w-4" /> Add</>
-                                  )}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9 rounded-xl"
-                                  onClick={() => router.push(`/marketplace/card/${sale.cardId}`)}
-                                >
-                                  <Info className="h-4 w-4" />
-                                </Button>
+                              </div>
+                              <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-1">
+                                <div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <h4 className="font-black text-sm sm:text-base truncate">{sale.cardName}</h4>
+                                    <p className="text-sm sm:text-base font-black text-primary bg-primary/5 px-2 py-0.5 rounded whitespace-nowrap">{sale.price.toFixed(2)}€</p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground font-bold line-clamp-1">{sale.setName}</p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-2">
+                                  <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded uppercase tracking-wider">{sale.language}</span>
+                                  <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded uppercase tracking-wider">{sale.condition}</span>
+                                </div>
+                                <div className="flex items-center justify-end gap-2 mt-3 pt-2 border-t border-border/20">
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="font-bold gap-2 rounded-xl h-8 text-xs px-3"
+                                    onClick={() => handleAddToCart(sale.id)}
+                                    disabled={cartLoading === sale.id || currentUser?.cart?.includes(sale.id)}
+                                  >
+                                    {currentUser?.cart?.includes(sale.id) ? (
+                                      <><Check className="h-3.5 w-3.5 text-green-500" /> In Cart</>
+                                    ) : cartLoading === sale.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <><ShoppingCart className="h-3.5 w-3.5" /> Add</>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-full hover:bg-secondary"
+                                    onClick={() => router.push(`/marketplace/card/${sale.cardId}`)}
+                                  >
+                                    <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           ))}

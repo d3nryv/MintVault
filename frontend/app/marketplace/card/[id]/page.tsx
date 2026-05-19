@@ -1075,14 +1075,26 @@ export default function CardDetailPage() {
 
                             {/* Cart Action */}
                             <div className="col-span-1 flex justify-end">
-                              <Button
-                                size="icon"
-                                className={`h-8 w-8 rounded-full shadow-sm ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-accent hover:bg-accent/90 text-accent-foreground'}`}
-                                onClick={() => !isOutOfStock && handleAddToCart(listing)}
-                                disabled={isOutOfStock}
-                              >
-                                {isOutOfStock ? <X className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
-                              </Button>
+                              {user?.id === listing.sellerId ? (
+                                <Button
+                                  size="icon"
+                                  variant="secondary"
+                                  className="h-8 w-8 rounded-full shadow-sm bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+                                  onClick={() => router.push(`/marketplace?tab=sell&edit=${listing.id}`)}
+                                  title="Edit your listing"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="icon"
+                                  className={`h-8 w-8 rounded-full shadow-sm ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-accent hover:bg-accent/90 text-accent-foreground'}`}
+                                  onClick={() => !isOutOfStock && handleAddToCart(listing)}
+                                  disabled={isOutOfStock}
+                                >
+                                  {isOutOfStock ? <X className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
+                                </Button>
+                              )}
                             </div>
                           </div>
                         );

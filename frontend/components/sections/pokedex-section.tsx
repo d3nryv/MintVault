@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Search } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { fetchWithCache } from "../../utils/api-cache"
 
 /**
  * Generation navigation metadata used to partition Pokémon species by their original release eras.
@@ -58,9 +59,7 @@ export function PokedexSection() {
         ? `http://${window.location.hostname}:3000`
         : `${window.location.protocol}//${window.location.hostname}/_/backend`)
     : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3000');
-        const response = await fetch(`${apiBaseUrl}/api/pokedex/all`)
-        if (!response.ok) throw new Error('Failed to fetch Pokédex data from backend service')
-        const data = await response.json()
+        const data = await fetchWithCache(`${apiBaseUrl}/api/pokedex/all`)
 
         setAllPokemon(data)
       } catch (error) {

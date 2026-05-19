@@ -365,15 +365,6 @@ export default function PokemonPage() {
 
                   <Button
                     variant="outline"
-                    size="icon"
-                    className="h-12 w-12 rounded-2xl bg-secondary/30 border-border/50"
-                    onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
-                  >
-                    <Hash className={`h-4 w-4 transition-transform duration-500 ${sortOrder === "desc" ? "rotate-180" : ""}`} />
-                  </Button>
-
-                  <Button
-                    variant="outline"
                     className={`h-12 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${showGrayscale ? 'bg-primary/10 text-primary border-primary/20' : 'bg-secondary/30 border-border/50'}`}
                     onClick={() => setShowGrayscale(!showGrayscale)}
                   >

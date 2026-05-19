@@ -6,6 +6,7 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { useAuth } from "@/context/auth-context"
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -20,7 +21,8 @@ import {
   Layers,
   Inbox,
   Share2,
-  Save
+  Save,
+  EyeOff
 } from "lucide-react"
 import { Binder, BinderCard, BinderSize } from "@/lib/types/binder"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -52,14 +54,17 @@ const fetchSetCards = async (setId: string) => {
 export default function BinderDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { user: currentUser } = useAuth()
   const binderId = params.id as string
 
   const [binder, setBinder] = useState<Binder | null>(null)
+  const [binderOwnerId, setBinderOwnerId] = useState<string | null>(null)
   const [pages, setPages] = useState<any[]>([])
   const [currentSpread, setCurrentSpread] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<"pages" | "cover">("pages")
   const [isMobile, setIsMobile] = useState(false)
+  const isCurrentUserOwner = !!currentUser && !!binderOwnerId && currentUser.id === binderOwnerId
 
   const apiBaseUrl = typeof window !== 'undefined'
     ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -154,6 +159,7 @@ export default function BinderDetailPage() {
         const albumRes = await fetch(`${apiBaseUrl}/api/albums/${binderId}`, { cache: 'no-store' })
         if (!albumRes.ok) throw new Error('Album not found')
         const albumData = await albumRes.json()
+        setBinderOwnerId(albumData.ownerId)
 
         // 2. Fetch Pages for this album
         const pagesRes = await fetch(`${apiBaseUrl}/api/pages/album/${binderId}`, { cache: 'no-store' })
@@ -211,20 +217,36 @@ export default function BinderDetailPage() {
 
         pagesData.forEach((page: any) => {
           const pageOffset = (page.pageNumber - 1) * cardsPerPage
-          Object.entries(page.slots).forEach(([slotIdx, cardId]: [string, any]) => {
+          Object.entries(page.slots).forEach(([slotIdx, rawCardId]: [string, any]) => {
             const globalIdx = pageOffset + parseInt(slotIdx, 10)
-            if (globalIdx < totalSlots && cardId) {
+            if (globalIdx < totalSlots && rawCardId) {
+              const isMissing = typeof rawCardId === 'string' && rawCardId.endsWith(':missing')
+              const cardId = isMissing ? (rawCardId as string).slice(0, -8) : rawCardId
               flatCardIds[globalIdx] = cardId
-              ownedCards[globalIdx] = true
+              ownedCards[globalIdx] = !isMissing
             }
           })
+        })
+
+        // Strip ':missing' from in-memory pages.slots
+        const cleanedPagesData = pagesData.map((page: any) => {
+          const cleanedSlots: Record<number, string | null> = {}
+          Object.entries(page.slots).forEach(([slotIdx, rawCardId]: [string, any]) => {
+            if (rawCardId) {
+              const isMissing = typeof rawCardId === 'string' && rawCardId.endsWith(':missing')
+              cleanedSlots[parseInt(slotIdx, 10)] = isMissing ? (rawCardId as string).slice(0, -8) : rawCardId
+            } else {
+              cleanedSlots[parseInt(slotIdx, 10)] = null
+            }
+          })
+          return { ...page, slots: cleanedSlots }
         })
 
         const flatCards = Array(totalSlots).fill(null)
 
         const metadata = albumData.metadata || {}
         
-        setPages(pagesData)
+        setPages(cleanedPagesData)
         setSlotCardIds(flatCardIds)
         cardDetailsCache.current.clear()
         setBinder({
@@ -373,7 +395,10 @@ export default function BinderDetailPage() {
   }, [searchQuery])
 
   const handleAddCard = async (card: any) => {
-    if (selectedSlot === null || !binder) return
+    if (selectedSlot === null || !binder || !isCurrentUserOwner) {
+      showNotification("You can only edit your own binders", "error")
+      return
+    }
     
     // 1. Find which page and slot this belongs to
     const grid = getGridConfig(binder.size)
@@ -523,7 +548,10 @@ export default function BinderDetailPage() {
   }
 
   const handleDeleteBinder = async () => {
-    if (!binder) return;
+    if (!binder || !isCurrentUserOwner) {
+      showNotification("You can only delete your own binders", "error")
+      return
+    }
     if (!confirm('Are you sure you want to delete this album?')) return;
     
     try {
@@ -539,7 +567,10 @@ export default function BinderDetailPage() {
   }
 
   const handleUpdateStyle = async () => {
-    if (!binder) return
+    if (!binder || !isCurrentUserOwner) {
+      showNotification("You can only edit your own binders", "error")
+      return
+    }
     
     const spineColor = editSpineType === "gradient" 
       ? `linear-gradient(to bottom, ${editSpineColor}, ${editSpineColor2})`
@@ -586,7 +617,7 @@ export default function BinderDetailPage() {
   }
 
   const handleRemoveCard = async (slotIndex: number) => {
-    if (!binder) return
+    if (!binder || !isCurrentUserOwner) return
     
     const grid = getGridConfig(binder.size)
     const cardsPerPage = grid.perPage
@@ -628,25 +659,64 @@ export default function BinderDetailPage() {
   }
 
   const toggleOwned = (slotIndex: number) => {
-    if (!binder) return
+    if (!binder || !isCurrentUserOwner) return
     const newOwned = { ...(binder.ownedCards || {}), [slotIndex]: !binder.ownedCards?.[slotIndex] }
     setBinder({ ...binder, ownedCards: newOwned })
   }
 
+  const markAllAsMissing = () => {
+    if (!binder || !isCurrentUserOwner) return
+    const newOwned: Record<number, boolean> = {}
+    // Set all to false (missing)
+    for (let i = 0; i < slotCardIds.length; i++) {
+      if (slotCardIds[i]) {
+        newOwned[i] = false
+      }
+    }
+    setBinder({ ...binder, ownedCards: newOwned })
+    showNotification("All cards marked as missing", "success")
+  }
+
   const handleSaveChanges = async () => {
-    if (!binder) return
+    if (!binder || !isCurrentUserOwner) return
     setIsSaving(true)
     try {
-      for (const page of pages) {
-        const response = await fetch(`${apiBaseUrl}/api/pages/${page.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slots: page.slots })
+      const grid = getGridConfig(binder.size)
+      const cardsPerPage = grid.perPage
+
+      // Save all pages in parallel to speed up the process and show toast instantly
+      await Promise.all(
+        pages.map(async (page) => {
+          const pageOffset = (page.pageNumber - 1) * cardsPerPage
+          const updatedSlots: Record<number, string | null> = {}
+
+          // Map slots, adding :missing suffix to unowned cards
+          Object.keys(page.slots).forEach((slotIdxStr) => {
+            const slotIdx = parseInt(slotIdxStr, 10)
+            const globalIdx = pageOffset + slotIdx
+            const cardId = page.slots[slotIdx]
+            if (cardId) {
+              const baseCardId = cardId.endsWith(':missing') ? cardId.slice(0, -8) : cardId
+              const isOwned = binder.ownedCards?.[globalIdx] !== false
+              updatedSlots[slotIdx] = isOwned ? baseCardId : `${baseCardId}:missing`
+            } else {
+              updatedSlots[slotIdx] = null
+            }
+          })
+
+          const response = await fetch(`${apiBaseUrl}/api/pages/${page.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              slots: updatedSlots
+            })
+          })
+          if (!response.ok) {
+            throw new Error(`Failed to save page ${page.pageNumber}`)
+          }
         })
-        if (!response.ok) {
-          throw new Error(`Failed to save page ${page.pageNumber}`)
-        }
-      }
+      )
+      // Show notification immediately
       showNotification("Changes successfully saved to the database!", "success")
     } catch (e) {
       console.error("Error saving binder changes:", e)
@@ -657,7 +727,12 @@ export default function BinderDetailPage() {
   }
 
   const handleFillBySet = async () => {
-    if (!setQuery || !binder) return
+    if (!setQuery || !binder || !isCurrentUserOwner) {
+      if (!isCurrentUserOwner) {
+        showNotification("You can only edit your own binders", "error")
+      }
+      return
+    }
     setIsSearching(true)
     try {
       const cards = await fetchSetCards(setQuery)
@@ -845,31 +920,43 @@ export default function BinderDetailPage() {
                 <Eye className="h-4 w-4" />
                 {viewMode === "cover" ? "Show Pages" : "View Cover"}
               </Button>
-              <Button 
-                variant="destructive"
-                onClick={handleDeleteBinder}
-                className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 shadow-xl shadow-destructive/20 hover:scale-105 transition-all"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </Button>
-              <Button 
-                onClick={handleSaveChanges}
-                disabled={isSaving}
-                className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 shadow-xl shadow-emerald-500/20 hover:scale-105 transition-all bg-emerald-600 hover:bg-emerald-700 text-white border-none"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
+              {isCurrentUserOwner && (
+                <>
+                  <Button 
+                    variant="secondary"
+                    onClick={markAllAsMissing}
+                    className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 border-2 transition-all"
+                  >
+                    <EyeOff className="h-4 w-4" />
+                    Mark All Missing
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={handleDeleteBinder}
+                    className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 shadow-xl shadow-destructive/20 hover:scale-105 transition-all"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                  <Button 
+                    onClick={handleSaveChanges}
+                    disabled={isSaving}
+                    className="rounded-2xl h-12 px-6 font-black uppercase text-[10px] tracking-widest gap-2 shadow-xl shadow-emerald-500/20 hover:scale-105 transition-all bg-emerald-600 hover:bg-emerald-700 text-white border-none"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -895,13 +982,21 @@ export default function BinderDetailPage() {
                         isLoading={loadingSlots.has(globalIndex)}
                         hasCardId={!!slotCardIds[globalIndex]}
                         isOwned={binder?.ownedCards?.[globalIndex] ?? !!card}
-                        onAdd={() => { setSelectedSlot(globalIndex); setIsModalOpen(true); }}
+                        onAdd={() => { 
+                          if (isCurrentUserOwner) {
+                            setSelectedSlot(globalIndex)
+                            setIsModalOpen(true)
+                          } else {
+                            showNotification("You can only edit your own binders", "error")
+                          }
+                        }}
                         onRemove={() => handleRemoveCard(globalIndex)}
                         onToggleOwned={() => toggleOwned(globalIndex)}
                         onDragStart={() => handleDragStart(globalIndex)}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDrop(globalIndex)}
                         isDragging={draggedSlot === globalIndex}
+                        isEditable={isCurrentUserOwner}
                       />
                     )
                   })}
@@ -936,13 +1031,21 @@ export default function BinderDetailPage() {
                             isLoading={loadingSlots.has(globalIndex)}
                             hasCardId={!!slotCardIds[globalIndex]}
                             isOwned={binder?.ownedCards?.[globalIndex] ?? !!card}
-                            onAdd={() => { setSelectedSlot(globalIndex); setIsModalOpen(true); }}
+                            onAdd={() => { 
+                              if (isCurrentUserOwner) {
+                                setSelectedSlot(globalIndex)
+                                setIsModalOpen(true)
+                              } else {
+                                showNotification("You can only edit your own binders", "error")
+                              }
+                            }}
                             onRemove={() => handleRemoveCard(globalIndex)}
                             onToggleOwned={() => toggleOwned(globalIndex)}
                             onDragStart={() => handleDragStart(globalIndex)}
                             onDragOver={handleDragOver}
                             onDrop={() => handleDrop(globalIndex)}
                             isDragging={draggedSlot === globalIndex}
+                            isEditable={isCurrentUserOwner}
                           />
                         )
                       })}
@@ -1243,14 +1346,14 @@ export default function BinderDetailPage() {
   )
 }
 
-function BinderSlot({ card, index, isOwned, isLoading, hasCardId, onAdd, onRemove, onToggleOwned, onDragStart, onDragOver, onDrop, isDragging }: any) {
+function BinderSlot({ card, index, isOwned, isLoading, hasCardId, onAdd, onRemove, onToggleOwned, onDragStart, onDragOver, onDrop, isDragging, isEditable }: any) {
   return (
     <div 
-      className={`relative group z-10 w-full aspect-[2.5/3.5] cursor-grab active:cursor-grabbing transition-opacity duration-300 ${isDragging ? "opacity-20" : "opacity-100"}`}
-      draggable={!!card}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
+      className={`relative group z-10 w-full aspect-[2.5/3.5] ${isEditable ? "cursor-grab active:cursor-grabbing" : "cursor-default"} transition-opacity duration-300 ${isDragging ? "opacity-20" : "opacity-100"}`}
+      draggable={!!card && isEditable}
+      onDragStart={isEditable ? onDragStart : undefined}
+      onDragOver={isEditable ? onDragOver : undefined}
+      onDrop={isEditable ? onDrop : undefined}
     >
       {card ? (
         <div className={`w-full h-full rounded-2xl overflow-hidden shadow-xl transition-all duration-700 group-hover:scale-105 group-hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-border/20 relative bg-secondary/10 ${isOwned ? "" : "grayscale-[0.9] opacity-70"}`}>
@@ -1260,18 +1363,19 @@ function BinderSlot({ card, index, isOwned, isLoading, hasCardId, onAdd, onRemov
             <p className="text-white font-black text-sm uppercase tracking-tighter leading-tight drop-shadow-lg">{card.name}</p>
             <Badge variant="secondary" className="text-[8px] font-black uppercase tracking-widest bg-white/10 text-white border-white/20">{card.set}</Badge>
             
-            <div className="flex gap-2 mt-4">
-              <Button size="icon" variant="destructive" onClick={onRemove} className="h-10 w-10 rounded-xl shadow-lg hover:scale-110 transition-transform">
-                <Trash2 className="h-5 w-5" />
-              </Button>
-              <Button size="icon" variant={isOwned ? "default" : "secondary"} onClick={onToggleOwned} className="h-10 w-10 rounded-xl shadow-lg hover:scale-110 transition-transform">
-                <Eye className="h-5 w-5" />
-              </Button>
-            </div>
+            {isEditable && (
+              <div className="flex gap-2 mt-4">
+                <Button size="icon" variant="destructive" onClick={onRemove} className="h-10 w-10 rounded-xl shadow-lg hover:scale-110 transition-transform">
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+                <Button size="icon" variant={isOwned ? "default" : "secondary"} onClick={onToggleOwned} className="h-10 w-10 rounded-xl shadow-lg hover:scale-110 transition-transform">
+                  <Eye className="h-5 w-5" />
+                </Button>
+              </div>
+            )}
             <p className="text-white/40 text-[9px] font-black uppercase mt-2 tracking-widest">{isOwned ? "Owned" : "Missing"}</p>
           </div>
           
-          {/* Subtle "missing" indicator if not owned and not hovered */}
           {!isOwned && (
              <div className="absolute inset-0 bg-black/10 pointer-events-none group-hover:hidden" />
           )}
@@ -1280,7 +1384,7 @@ function BinderSlot({ card, index, isOwned, isLoading, hasCardId, onAdd, onRemov
         <div className="w-full h-full rounded-2xl border border-border/20 bg-secondary/20 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
         </div>
-      ) : (
+      ) : isEditable ? (
         <button 
           onClick={onAdd}
           className="w-full h-full rounded-2xl border-4 border-dashed border-border/10 flex flex-col items-center justify-center gap-3 text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all group relative overflow-hidden"
@@ -1289,6 +1393,11 @@ function BinderSlot({ card, index, isOwned, isLoading, hasCardId, onAdd, onRemov
           <Plus className="h-10 w-10 transition-all duration-500 group-hover:scale-125 group-hover:rotate-90 opacity-20 group-hover:opacity-100" />
           <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-10 group-hover:opacity-100 transition-all">Empty</span>
         </button>
+      ) : (
+        <div className="w-full h-full rounded-2xl border-4 border-dashed border-border/10 flex flex-col items-center justify-center gap-3 text-muted-foreground/30">
+          <Plus className="h-10 w-10 opacity-10" />
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-5">Empty</span>
+        </div>
       )}
     </div>
   )

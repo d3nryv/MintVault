@@ -1,0 +1,376 @@
+﻿diff --git a/frontend/app/marketplace/page.tsx b/frontend/app/marketplace/page.tsx
+index d1835fe..2b467b3 100644
+--- a/frontend/app/marketplace/page.tsx
++++ b/frontend/app/marketplace/page.tsx
+@@ -1,7 +1,7 @@
+ "use client"
+ 
+-import { useRouter } from "next/navigation"
+-import { useState, useEffect } from "react"
++import { useRouter, useSearchParams } from "next/navigation"
++import { useState, useEffect, Suspense } from "react"
+ import Link from "next/link"
+ import { Header } from "@/components/header"
+ import { Footer } from "@/components/footer"
+@@ -145,8 +145,9 @@ const shippingPrices: Record<string, { name: string, min: number, max: number, f
+  *
+  * @returns React functional component rendering the marketplace dashboard.
+  */
+-export default function MarketplacePage() {
++function MarketplaceInner() {
+   const router = useRouter()
++  const searchParams = useSearchParams()
+   const [activeTab, setActiveTab] = useState("buy")
+   const [searchQuery, setSearchQuery] = useState("")
+   const [selectedSet, setSelectedSet] = useState("all")
+@@ -261,6 +262,22 @@ export default function MarketplacePage() {
+     }
+   }, [])
+ 
++  useEffect(() => {
++    if (typeof window !== 'undefined') {
++      const params = new URLSearchParams(window.location.search)
++      const editId = params.get('edit')
++      if (editId && userSales.length > 0) {
++        const listingToEdit = userSales.find(s => s.id === editId)
++        if (listingToEdit) {
++          handleEditListing(listingToEdit)
++          // Clean the URL parameter
++          const newUrl = window.location.pathname + '?tab=sell'
++          window.history.replaceState(null, '', newUrl)
++        }
++      }
++    }
++  }, [userSales])
++
+   // Debounce for Sell Search
+   useEffect(() => {
+     const timer = setTimeout(async () => {
+@@ -1163,7 +1180,7 @@ export default function MarketplacePage() {
+                     <ShoppingCart className="h-4 w-4" />
+                     <span className="text-[9px] sm:text-sm font-bold uppercase tracking-wider">Cart</span>
+                     {cartItems.length > 0 && (
+-                      <span className="absolute right-0 sm:-right-1 top-0 sm:-top-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-accent text-[8px] sm:text-[10px] font-bold text-accent-foreground shadow-sm">
++                      <span className="absolute right-1.5 top-1 sm:-right-1 sm:-top-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full bg-accent text-[8px] sm:text-[10px] font-bold text-accent-foreground shadow-sm">
+                         {cartItems.length}
+                       </span>
+                     )}
+@@ -1564,52 +1581,107 @@ export default function MarketplacePage() {
+                           return (
+                             <div
+                               key={listing.id}
+-                              className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-lg border border-border bg-card p-3 sm:p-4 transition-colors hover:bg-secondary/50 min-w-0 overflow-hidden ${isOutOfStock ? 'opacity-50 grayscale-[0.5]' : ''}`}
++                              className={`flex flex-row items-center gap-3 sm:gap-4 rounded-lg border border-border bg-card p-3 sm:p-4 transition-colors hover:bg-secondary/50 min-w-0 overflow-hidden ${isOutOfStock ? 'opacity-55 grayscale-[0.3]' : ''}`}
+                             >
+-                              <div className="flex h-16 w-12 shrink-0 items-center justify-center rounded bg-muted overflow-hidden mx-auto sm:mx-0">
++                              {/* Left Column: Card Image & Photo Dialog */}
++                              <div className="relative aspect-[2.5/3.5] h-20 w-14 sm:h-16 sm:w-12 shrink-0 rounded bg-muted overflow-hidden flex items-center justify-center p-0.5">
+                                 {getListingCardThumbnail(listing) ? (
+                                   <img src={getListingCardThumbnail(listing)} alt={listing.cardName} className="h-full w-full object-contain" loading="lazy" />
+                                 ) : (
+                                   <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                 )}
++                                
++                                {listing.imageUrl && (
++                                  <Dialog>
++                                    <DialogTrigger asChild>
++                                      <Button
++                                        variant="secondary"
++                                        size="icon"
++                                        className="absolute bottom-0.5 right-0.5 h-5 w-5 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 p-0 shadow-md cursor-pointer"
++                                        title="View seller photo"
++                                      >
++                                        <Camera className="h-2.5 w-2.5" />
++                                      </Button>
++                                    </DialogTrigger>
++                                    <DialogContent className="max-w-md">
++                                      <DialogHeader>
++                                        <DialogTitle className="flex items-center gap-2">
++                                          <Camera className="h-4 w-4" />
++                                          Seller Photo ÔÇö {listing.sellerName}
++                                        </DialogTitle>
++                                        <DialogDescription>
++                                          Photo uploaded by the seller for this listing.
++                                        </DialogDescription>
++                                      </DialogHeader>
++                                      <div className="flex justify-center rounded-lg overflow-hidden bg-muted/40 p-4">
++                                        <img
++                                          src={listing.imageUrl}
++                                          alt={`Seller photo for ${listing.sellerName}`}
++                                          className="max-h-[420px] object-contain rounded-md shadow-lg"
++                                        />
++                                      </div>
++                                    </DialogContent>
++                                  </Dialog>
++                                )}
+                               </div>
+-                              <div className="flex-1 min-w-0 space-y-1">
+-                                <div className="flex flex-wrap items-center gap-2">
+-                                  <h4 className="font-bold text-sm truncate max-w-full">{listing.cardName}</h4>
+-                                  <Badge variant="outline" className="text-[10px] font-bold">
+-                                    {listing.cardSet}
+-                                  </Badge>
+-                                  <span className="text-[10px] text-muted-foreground ml-auto">
+-                                    {new Date(listing.createdAt).toLocaleDateString()}
+-                                  </span>
++
++                              {/* Right Column: Info & Actions */}
++                              <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch">
++                                <div className="space-y-1">
++                                  <div className="flex items-center justify-between gap-2">
++                                    <h4 className="font-bold text-sm truncate pr-1" title={listing.cardName}>
++                                      {listing.cardName}
++                                    </h4>
++                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden sm:inline">
++                                      {new Date(listing.createdAt).toLocaleDateString()}
++                                    </span>
++                                  </div>
++                                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] text-muted-foreground">
++                                    <Badge variant="outline" className="text-[9px] px-1 py-0 font-medium tracking-tight rounded-md">
++                                      {listing.cardSet}
++                                    </Badge>
++                                    <Badge className={`${getConditionColor(listing.condition)} border-none text-[9px] px-1.5 py-0 rounded-full font-bold`}>
++                                      {listing.condition}
++                                    </Badge>
++                                    <div className="flex items-center gap-0.5 bg-muted/50 px-1 py-0.5 rounded text-[9px]">
++                                      <span>{getLanguageFlag(listing.language)}</span>
++                                      <span className="font-bold uppercase text-[9px] ml-0.5">{listing.language}</span>
++                                    </div>
++                                    <span className={`font-bold text-[9px] ${isOutOfStock ? 'text-red-500' : 'text-muted-foreground'}`}>
++                                      {isOutOfStock ? 'SOLD OUT' : `${availableStock} STK`}
++                                    </span>
++                                  </div>
++                                  <p className="text-[10px] text-muted-foreground font-medium">
++                                    Seller: <span className="text-foreground font-semibold">{listing.sellerName}</span>
++                                  </p>
+                                 </div>
+-                                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+-                                  <Badge className={`${getConditionColor(listing.condition)} border-none text-[10px] px-1.5 py-0 rounded-full font-bold`}>
+-                                    {listing.condition}
+-                                  </Badge>
+-                                  <div className="flex items-center gap-1">
+-                                    <span>{getLanguageFlag(listing.language)}</span>
+-                                    <span className="font-bold uppercase tracking-tighter text-[10px]">{listing.language}</span>
++                                
++                                <div className="flex items-center justify-between mt-2 pt-1 border-t border-border/20">
++                                  <span className="text-base font-black tracking-tighter text-foreground">{listing.price.toFixed(2)}Ôé¼</span>
++                                  
++                                  <div className="flex gap-2">
++                                    {user?.id === listing.sellerId ? (
++                                      <Button
++                                        size="sm"
++                                        className="h-7 px-2.5 text-[10px] gap-1 rounded-full bg-secondary hover:bg-secondary/80 text-secondary-foreground shadow-sm font-bold uppercase tracking-wider cursor-pointer"
++                                        onClick={() => handleEditListing(listing)}
++                                      >
++                                        <Edit3 className="h-3 w-3" />
++                                        Edit
++                                      </Button>
++                                    ) : (
++                                      <Button
++                                        size="sm"
++                                        className={`h-7 px-2.5 text-[10px] gap-1 rounded-full font-bold uppercase tracking-wider cursor-pointer ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'}`}
++                                        onClick={() => !isOutOfStock && handleAddToCart(listing)}
++                                        disabled={isOutOfStock}
++                                      >
++                                        {isOutOfStock ? <X className="h-3 w-3" /> : <ShoppingCart className="h-3 w-3" />}
++                                        {isOutOfStock ? 'Sold Out' : 'Buy'}
++                                      </Button>
++                                    )}
+                                   </div>
+-                                  <span className={`text-[10px] font-bold ${isOutOfStock ? 'text-red-500' : 'text-muted-foreground'}`}>
+-                                    {isOutOfStock ? 'OUT OF STOCK' : `${availableStock} STOCK`}
+-                                  </span>
+                                 </div>
+-                                <p className="text-[10px] text-muted-foreground font-medium">
+-                                  Seller: <span className="text-foreground">{listing.sellerName}</span>
+-                                </p>
+-                              </div>
+-                              <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+-                                <span className="text-xl font-black tracking-tighter">{listing.price.toFixed(2)}Ôé¼</span>
+-                                <Button
+-                                  size="sm"
+-                                  className={`gap-2 h-9 rounded-full ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'}`}
+-                                  onClick={() => !isOutOfStock && handleAddToCart(listing)}
+-                                  disabled={isOutOfStock}
+-                                >
+-                                  {isOutOfStock ? <X className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+-                                  <span className="hidden sm:inline font-bold uppercase text-[10px] tracking-widest">{isOutOfStock ? 'Sold Out' : 'Add to Cart'}</span>
+-                                </Button>
+                               </div>
+                             </div>
+                           );
+@@ -2648,86 +2720,92 @@ export default function MarketplacePage() {
+                                 }).map((item: any) => (
+                                   <div
+                                     key={item.id}
+-                                    className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-lg border p-3 sm:p-4 transition-all min-w-0 overflow-hidden ${item.owned ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
++                                    className={`flex flex-row items-center gap-3 sm:gap-4 rounded-lg border p-3 sm:p-4 transition-all min-w-0 overflow-hidden ${item.owned ? 'bg-muted/50 opacity-60' : 'bg-card'}`}
+                                   >
+                                     <button
+                                       onClick={() => handleToggleOwned(selectedList.id.toString(), item.id.toString())}
+-                                      className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${item.owned ? 'border-accent bg-accent text-accent-foreground' : 'border-muted-foreground/30 hover:border-accent'}`}
++                                      className={`flex h-6 w-6 items-center justify-center rounded-full border-2 shrink-0 transition-colors ${item.owned ? 'border-accent bg-accent text-accent-foreground' : 'border-muted-foreground/30 hover:border-accent'}`}
+                                     >
+                                       {item.owned && <Check className="h-3 w-3" />}
+                                     </button>
+-                                    <div className="aspect-[2.5/3.5] h-16 sm:h-20 bg-secondary/20 rounded-xl overflow-hidden flex items-center justify-center p-0.5 shadow-inner">
++                                    
++                                    <div className="aspect-[2.5/3.5] h-20 w-14 sm:h-20 sm:w-14 bg-secondary/20 rounded-xl overflow-hidden flex items-center justify-center p-0.5 shadow-inner shrink-0">
+                                       {item.imageUrl || item.image ? (
+                                         <img src={item.imageUrl || item.image} alt="" className="h-full w-full object-contain" />
+                                       ) : (
+                                         <ImageIcon className="h-6 w-6 text-muted-foreground/20" />
+                                       )}
+                                     </div>
+-                                    <div className="flex-1 min-w-0 w-full">
+-                                      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+-                                        <h4 className={`font-black text-base sm:text-lg truncate max-w-full ${item.owned ? 'line-through text-muted-foreground' : ''}`}>{item.name}</h4>
+-                                        <Badge variant="outline" className="text-[10px] font-bold">{item.number}</Badge>
+-                                        <span className="text-sm font-black text-primary bg-primary/5 px-2 py-0.5 rounded">x{item.count}</span>
+-                                      </div>
+-                                      <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground mt-1.5">
+-                                        <span className="hover:text-foreground transition-colors cursor-default">{item.set}</span>
+-                                        <span className="bg-secondary/80 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{item.condition}</span>
++                                    
++                                    <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
++                                      <div>
++                                        <div className="flex flex-wrap items-center gap-1.5">
++                                          <h4 className={`font-black text-sm sm:text-base truncate max-w-[150px] sm:max-w-none ${item.owned ? 'line-through text-muted-foreground' : ''}`}>{item.name}</h4>
++                                          <Badge variant="outline" className="text-[9px] px-1 py-0 font-medium tracking-tight rounded-md">{item.number}</Badge>
++                                          <span className="text-xs font-black text-primary bg-primary/5 px-2 py-0.5 rounded">x{item.count}</span>
++                                        </div>
++                                        <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground mt-1">
++                                          <span className="hover:text-foreground transition-colors cursor-default truncate max-w-[80px] sm:max-w-none">{item.set}</span>
++                                          <span className="bg-secondary/80 px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider">{item.condition}</span>
++                                        </div>
+                                       </div>
+-                                    </div>
+-                                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+-                                      <Dialog>
+-                                        <DialogTrigger asChild>
+-                                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+-                                            <Edit3 className="h-3 w-3 text-muted-foreground" />
+-                                          </Button>
+-                                        </DialogTrigger>
+-                                        <DialogContent className="max-w-xs">
+-                                          <DialogHeader>
+-                                            <DialogTitle>Edit Item</DialogTitle>
+-                                          </DialogHeader>
+-                                          <div className="space-y-4 py-4">
+-                                            <div className="space-y-2">
+-                                              <label className="text-xs font-bold uppercase">Quantity</label>
+-                                              <Input
+-                                                type="number"
+-                                                defaultValue={item.count}
+-                                                onChange={(e) => {
+-                                                  const newCount = parseInt(e.target.value);
+-                                                  if (newCount > 0) {
+-                                                    handleUpdateItem(selectedList.id, item.id, { count: newCount });
+-                                                  }
+-                                                }}
+-                                              />
+-                                            </div>
+-                                            <div className="space-y-2">
+-                                              <label className="text-xs font-bold uppercase">Condition</label>
+-                                              <Select
+-                                                defaultValue={item.condition}
+-                                                onValueChange={(val) => handleUpdateItem(selectedList.id, item.id, { condition: val })}
+-                                              >
+-                                                <SelectTrigger>
+-                                                  <SelectValue />
+-                                                </SelectTrigger>
+-                                                <SelectContent>
+-                                                  <SelectItem value="Any">Any</SelectItem>
+-                                                  <SelectItem value="Mint">Mint</SelectItem>
+-                                                  <SelectItem value="Near Mint">Near Mint</SelectItem>
+-                                                  <SelectItem value="Excellent">Excellent</SelectItem>
+-                                                  <SelectItem value="Light Played">Light Played</SelectItem>
+-                                                </SelectContent>
+-                                              </Select>
++                                      
++                                      <div className="flex items-center justify-end gap-1.5 mt-2 pt-1 border-t border-border/20">
++                                        <Dialog>
++                                          <DialogTrigger asChild>
++                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-secondary">
++                                              <Edit3 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
++                                            </Button>
++                                          </DialogTrigger>
++                                          <DialogContent className="max-w-xs">
++                                            <DialogHeader>
++                                              <DialogTitle>Edit Item</DialogTitle>
++                                            </DialogHeader>
++                                            <div className="space-y-4 py-4">
++                                              <div className="space-y-2">
++                                                <label className="text-xs font-bold uppercase">Quantity</label>
++                                                <Input
++                                                  type="number"
++                                                  defaultValue={item.count}
++                                                  onChange={(e) => {
++                                                    const newCount = parseInt(e.target.value);
++                                                    if (newCount > 0) {
++                                                      handleUpdateItem(selectedList.id, item.id, { count: newCount });
++                                                    }
++                                                  }}
++                                                />
++                                              </div>
++                                              <div className="space-y-2">
++                                                <label className="text-xs font-bold uppercase">Condition</label>
++                                                <Select
++                                                  defaultValue={item.condition}
++                                                  onValueChange={(val) => handleUpdateItem(selectedList.id, item.id, { condition: val })}
++                                                >
++                                                  <SelectTrigger>
++                                                    <SelectValue />
++                                                  </SelectTrigger>
++                                                  <SelectContent>
++                                                    <SelectItem value="Any">Any</SelectItem>
++                                                    <SelectItem value="Mint">Mint</SelectItem>
++                                                    <SelectItem value="Near Mint">Near Mint</SelectItem>
++                                                    <SelectItem value="Excellent">Excellent</SelectItem>
++                                                    <SelectItem value="Light Played">Light Played</SelectItem>
++                                                  </SelectContent>
++                                                </Select>
++                                              </div>
+                                             </div>
+-                                          </div>
+-                                        </DialogContent>
+-                                      </Dialog>
+-                                      <Button
+-                                        variant="ghost"
+-                                        size="icon"
+-                                        className="h-8 w-8 hover:bg-red-50 hover:text-red-500"
+-                                        onClick={() => handleRemoveFromList(selectedList.id, item.id)}
+-                                      >
+-                                        <Trash2 className="h-3 w-3" />
+-                                      </Button>
++                                          </DialogContent>
++                                        </Dialog>
++                                        
++                                        <Button
++                                          variant="ghost"
++                                          size="icon"
++                                          className="h-7 w-7 rounded-full hover:bg-red-50 hover:text-red-500"
++                                          onClick={() => handleRemoveFromList(selectedList.id, item.id)}
++                                        >
++                                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-500" />
++                                        </Button>
++                                      </div>
+                                     </div>
+                                   </div>
+                                 ))
+@@ -3043,3 +3121,15 @@ export default function MarketplacePage() {
+     </div>
+   )
+ }
++
++export default function MarketplacePage() {
++  return (
++    <Suspense fallback={
++      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
++        <Loader2 className="h-10 w-10 animate-spin text-primary" />
++      </div>
++    }>
++      <MarketplaceInner />
++    </Suspense>
++  )
++}

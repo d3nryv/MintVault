@@ -258,8 +258,19 @@ export default function MarketplacePage() {
       if (tab && ['buy', 'sell', 'orders', 'wants'].includes(tab)) {
         setActiveTab(tab)
       }
+      
+      const editId = params.get('edit')
+      if (editId && userSales.length > 0) {
+        const listingToEdit = userSales.find(s => String(s.id) === String(editId))
+        if (listingToEdit) {
+          handleEditListing(listingToEdit)
+          // Clean the URL parameter and switch to sell tab
+          const newUrl = window.location.pathname + '?tab=sell'
+          window.history.replaceState(null, '', newUrl)
+        }
+      }
     }
-  }, [])
+  }, [userSales])
 
   // Debounce for Sell Search
   useEffect(() => {
@@ -1575,7 +1586,34 @@ export default function MarketplacePage() {
                               </div>
                               <div className="flex-1 min-w-0 space-y-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <h4 className="font-bold text-sm truncate max-w-full">{listing.cardName}</h4>
+                                  <h4 className="font-bold text-sm truncate max-w-[200px] sm:max-w-xs">{listing.cardName}</h4>
+                                  {listing.imageUrl && (
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full hover:bg-secondary cursor-pointer" title="View photo">
+                                          <Camera className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-md">
+                                        <DialogHeader>
+                                          <DialogTitle className="flex items-center gap-2">
+                                            <Camera className="h-4 w-4" />
+                                            Seller Photo — {listing.sellerName}
+                                          </DialogTitle>
+                                          <DialogDescription>
+                                            Photo uploaded by the seller for this listing.
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="flex justify-center rounded-lg overflow-hidden bg-muted/40 p-4">
+                                          <img
+                                            src={listing.imageUrl}
+                                            alt={`Seller photo for ${listing.sellerName}`}
+                                            className="max-h-[420px] object-contain rounded-md shadow-lg"
+                                          />
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
                                   <Badge variant="outline" className="text-[10px] font-bold">
                                     {listing.cardSet}
                                   </Badge>
@@ -1601,15 +1639,26 @@ export default function MarketplacePage() {
                               </div>
                               <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
                                 <span className="text-xl font-black tracking-tighter">{listing.price.toFixed(2)}€</span>
-                                <Button
-                                  size="sm"
-                                  className={`gap-2 h-9 rounded-full ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'}`}
-                                  onClick={() => !isOutOfStock && handleAddToCart(listing)}
-                                  disabled={isOutOfStock}
-                                >
-                                  {isOutOfStock ? <X className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
-                                  <span className="hidden sm:inline font-bold uppercase text-[10px] tracking-widest">{isOutOfStock ? 'Sold Out' : 'Add to Cart'}</span>
-                                </Button>
+                                {user?.id === listing.sellerId ? (
+                                  <Button
+                                    size="sm"
+                                    className="gap-2 h-9 rounded-full bg-secondary hover:bg-secondary/80 text-secondary-foreground font-bold uppercase text-[10px] tracking-widest cursor-pointer"
+                                    onClick={() => handleEditListing(listing)}
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                    Edit
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    className={`gap-2 h-9 rounded-full ${isOutOfStock ? 'bg-muted text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20'}`}
+                                    onClick={() => !isOutOfStock && handleAddToCart(listing)}
+                                    disabled={isOutOfStock}
+                                  >
+                                    {isOutOfStock ? <X className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+                                    <span className="hidden sm:inline font-bold uppercase text-[10px] tracking-widest">{isOutOfStock ? 'Sold Out' : 'Add to Cart'}</span>
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           );
@@ -2132,114 +2181,6 @@ export default function MarketplacePage() {
                           </Card>
                         </TabsContent>
                       </Tabs>
-                      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                        <DialogContent className="max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle className="text-2xl font-black uppercase italic">Edit Listing</DialogTitle>
-                            <DialogDescription>Modify the details of your marketplace listing.</DialogDescription>
-                          </DialogHeader>
-                          {editingListing && (
-                            <div className="grid gap-6 md:grid-cols-2 py-4">
-                              <div className="space-y-4">
-                                <div className="aspect-[3/4] max-h-[300px] bg-muted rounded-2xl overflow-hidden flex items-center justify-center p-4 bg-white shadow-inner border border-border/50">
-                                  {getListingCardThumbnail(editingListing) ? (
-                                    <img src={getListingCardThumbnail(editingListing)} alt="" className="h-full w-full object-contain" />
-                                  ) : (
-                                    <ImageIcon className="h-12 w-12 text-muted-foreground/20" />
-                                  )}
-                                </div>
-                                <div>
-                                  <h4 className="font-black text-xl">{editingListing.cardName}</h4>
-                                  <p className="text-muted-foreground font-medium">{editingListing.cardSet}</p>
-                                </div>
-                              </div>
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Price (€)</label>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      value={editPrice}
-                                      onChange={(e) => setEditPrice(e.target.value)}
-                                      className="font-bold"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Quantity</label>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      value={editQuantity}
-                                      onChange={(e) => setEditQuantity(e.target.value)}
-                                      className="font-bold"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Condition</label>
-                                    <Select value={editCondition} onValueChange={setEditCondition}>
-                                      <SelectTrigger>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="M">Mint (M)</SelectItem>
-                                        <SelectItem value="NM">Near Mint (NM)</SelectItem>
-                                        <SelectItem value="LP">Light Played (LP)</SelectItem>
-                                        <SelectItem value="MP">Moderately Played (MP)</SelectItem>
-                                        <SelectItem value="HP">Heavily Played (HP)</SelectItem>
-                                        <SelectItem value="PO">Poor (PO)</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Language</label>
-                                    <Select value={editLanguage} onValueChange={setEditLanguage}>
-                                      <SelectTrigger>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="EN">🇺🇸 English</SelectItem>
-                                        <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
-                                        <SelectItem value="FR">🇫🇷 French</SelectItem>
-                                        <SelectItem value="DE">🇩🇪 German</SelectItem>
-                                        <SelectItem value="IT">🇮🇹 Italian</SelectItem>
-                                        <SelectItem value="PT">🇵🇹 Portuguese</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox checked={editReverse} onCheckedChange={(c) => setEditReverse(!!c)} id="edit-reverse" />
-                                    <label htmlFor="edit-reverse" className="text-xs font-bold uppercase cursor-pointer">Reverse Holo</label>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox checked={editFirstEdition} onCheckedChange={(c) => setEditFirstEdition(!!c)} id="edit-first" />
-                                    <label htmlFor="edit-first" className="text-xs font-bold uppercase cursor-pointer">1st Edition</label>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Observations</label>
-                                  <textarea
-                                    className="w-full h-24 rounded-lg border border-border bg-background p-3 text-sm resize-none focus:ring-2 focus:ring-primary/20"
-                                    value={editDescription}
-                                    onChange={(e) => setEditDescription(e.target.value)}
-                                    placeholder="Centering, scratches, etc..."
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleUpdateListing} disabled={isUpdating} className="font-black uppercase tracking-widest min-w-[120px]">
-                              {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
                     </div>
                   )}
                 </TabsContent>
@@ -3037,6 +2978,115 @@ export default function MarketplacePage() {
               </>
             )}
           </Tabs>
+
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-black uppercase italic">Edit Listing</DialogTitle>
+                <DialogDescription>Modify the details of your marketplace listing.</DialogDescription>
+              </DialogHeader>
+              {editingListing && (
+                <div className="grid gap-6 md:grid-cols-2 py-4">
+                  <div className="space-y-4">
+                    <div className="aspect-[3/4] max-h-[300px] bg-muted rounded-2xl overflow-hidden flex items-center justify-center p-4 bg-white shadow-inner border border-border/50">
+                      {getListingCardThumbnail(editingListing) ? (
+                        <img src={getListingCardThumbnail(editingListing)} alt="" className="h-full w-full object-contain" />
+                      ) : (
+                        <ImageIcon className="h-12 w-12 text-muted-foreground/20" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-black text-xl">{editingListing.cardName}</h4>
+                      <p className="text-muted-foreground font-medium">{editingListing.cardSet}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Price (€)</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editPrice}
+                          onChange={(e) => setEditPrice(e.target.value)}
+                          className="font-bold"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Quantity</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={editQuantity}
+                          onChange={(e) => setEditQuantity(e.target.value)}
+                          className="font-bold"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Condition</label>
+                        <Select value={editCondition} onValueChange={setEditCondition}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="M">Mint (M)</SelectItem>
+                            <SelectItem value="NM">Near Mint (NM)</SelectItem>
+                            <SelectItem value="LP">Light Played (LP)</SelectItem>
+                            <SelectItem value="MP">Moderately Played (MP)</SelectItem>
+                            <SelectItem value="HP">Heavily Played (HP)</SelectItem>
+                            <SelectItem value="PO">Poor (PO)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Language</label>
+                        <Select value={editLanguage} onValueChange={setEditLanguage}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="EN">🇺🇸 English</SelectItem>
+                            <SelectItem value="ES">🇪🇸 Spanish</SelectItem>
+                            <SelectItem value="FR">🇫🇷 French</SelectItem>
+                            <SelectItem value="DE">🇩🇪 German</SelectItem>
+                            <SelectItem value="IT">🇮🇹 Italian</SelectItem>
+                            <SelectItem value="PT">🇵🇹 Portuguese</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={editReverse} onCheckedChange={(c) => setEditReverse(!!c)} id="edit-reverse" />
+                        <label htmlFor="edit-reverse" className="text-xs font-bold uppercase cursor-pointer">Reverse Holo</label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox checked={editFirstEdition} onCheckedChange={(c) => setEditFirstEdition(!!c)} id="edit-first" />
+                        <label htmlFor="edit-first" className="text-xs font-bold uppercase cursor-pointer">1st Edition</label>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Observations</label>
+                      <textarea
+                        className="w-full h-24 rounded-lg border border-border bg-background p-3 text-sm resize-none focus:ring-2 focus:ring-primary/20"
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        placeholder="Centering, scratches, etc..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleUpdateListing} disabled={isUpdating} className="font-black uppercase tracking-widest min-w-[120px]">
+                  {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
       <Footer />
