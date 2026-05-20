@@ -417,35 +417,6 @@ export function CardDetailModal({ card, collectionTarget = 'sets', onClose }: { 
             )}
           </div>
 
-          {/* Real-time Pricing Info */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground">Market Price Guide</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-secondary/40 p-4 rounded-2xl border border-border/50">
-                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">TCGPlayer Market</p>
-                <p className="text-lg font-black text-emerald-500 mt-1">
-                  {card.tcgplayer?.prices?.normal?.market 
-                    ? `$${card.tcgplayer.prices.normal.market.toFixed(2)}` 
-                    : (card.tcgplayer?.prices?.holofoil?.market 
-                      ? `$${card.tcgplayer.prices.holofoil.market.toFixed(2)}` 
-                      : (card.tcgplayer?.prices?.reverseHolofoil?.market
-                        ? `$${card.tcgplayer.prices.reverseHolofoil.market.toFixed(2)}`
-                        : "N/A"))}
-                </p>
-              </div>
-              <div className="bg-secondary/40 p-4 rounded-2xl border border-border/50">
-                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Cardmarket Trend</p>
-                <p className="text-lg font-black text-blue-500 mt-1">
-                  {card.cardmarket?.prices?.trendPrice 
-                    ? `${card.cardmarket.prices.trendPrice.toFixed(2)}€` 
-                    : (card.cardmarket?.prices?.averageSellPrice 
-                      ? `${card.cardmarket.prices.averageSellPrice.toFixed(2)}€` 
-                      : "N/A")}
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Collection Management */}
           {user && (
             <div className="pt-6 border-t border-border/60">

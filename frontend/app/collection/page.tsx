@@ -19,18 +19,19 @@ import { useAuth } from "@/context/auth-context"
  */
 function CollectionTabs() {
     const searchParams = useSearchParams()
+    const { user } = useAuth()
     const [activeTab, setActiveTab] = useState("sets")
 
     useEffect(() => {
         const tab = searchParams.get("tab")
-        if (tab) {
+        if (tab && (user || tab !== "profile")) {
             setActiveTab(tab)
         }
-    }, [searchParams])
+    }, [searchParams, user])
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-8 grid w-full max-w-md grid-cols-3 font-bold">
+            <TabsList className={`mb-8 grid w-full max-w-md font-bold ${user ? "grid-cols-3" : "grid-cols-2"}`}>
                 <TabsTrigger value="sets" className="gap-2 font-bold">
                     <Layers className="h-4 w-4" />
                     Sets
@@ -39,10 +40,12 @@ function CollectionTabs() {
                     <BookOpen className="h-4 w-4" />
                     Pokédex
                 </TabsTrigger>
-                <TabsTrigger value="profile" className="gap-2 font-bold">
-                    <User className="h-4 w-4" />
-                    Profile
-                </TabsTrigger>
+                {user && (
+                    <TabsTrigger value="profile" className="gap-2 font-bold">
+                        <User className="h-4 w-4" />
+                        Profile
+                    </TabsTrigger>
+                )}
             </TabsList>
 
             <TabsContent value="sets">
@@ -53,9 +56,11 @@ function CollectionTabs() {
                 <PokedexSection />
             </TabsContent>
 
-            <TabsContent value="profile">
-                <ProfileSection />
-            </TabsContent>
+            {user && (
+                <TabsContent value="profile">
+                    <ProfileSection />
+                </TabsContent>
+            )}
         </Tabs>
     )
 }
