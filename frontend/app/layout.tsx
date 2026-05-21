@@ -18,20 +18,7 @@ export const metadata: Metadata = {
   title: 'MintVault',
   description: 'Manage your Pokémon TCG collection, track your cards, build decks, and connect with other collectors.',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
+    icon: '/favicon.ico',
     apple: '/apple-icon.png',
   },
 }
@@ -52,6 +39,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
+        <link rel="shortcut icon" href="/favicon.ico" />
+      </head>
       <body className={`${outfit.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
